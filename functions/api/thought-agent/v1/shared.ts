@@ -4,11 +4,13 @@ import {
   THOUGHT_AGENT_OUTPUT_SCHEMA,
   THOUGHT_AGENT_CLAIM_TTL_MS,
   THOUGHT_AGENT_PROTOCOL_VERSION,
+  THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
   THOUGHT_AGENT_RECEIPT_VERSION,
   THOUGHT_AGENT_RUN_AUTHORITY,
   THOUGHT_AGENT_RUN_TTL_MS,
   THOUGHT_V2_PROTOCOL_RELEASE,
   ThoughtAgentProtocolError,
+  assertThoughtAgentMetadataMatchesControl,
   assertThoughtLine,
   assertProtocolVersion,
   buildThoughtAgentInput,
@@ -47,7 +49,7 @@ import {
   THOUGHT_AGENT_CREATIVE_BRIEF_SHA256_HEX,
   THOUGHT_AGENT_CREATIVE_BRIEF_TEXT,
 } from "./thought-spec-source";
-import { THOUGHT_V2_PRODUCTION_DEPLOYMENT } from "../../../../apps/thought/src/thought-v2-production-deployment";
+import { THOUGHT_ACTIVATION_POLICY, THOUGHT_DEPLOYMENT_LOCK_STATUS } from "../../../../apps/thought/src/thought-v2-production-deployment";
 
 type D1Statement = {
   bind: (...values: unknown[]) => D1Statement;
@@ -163,9 +165,11 @@ export const THOUGHT_AGENT_STATUS = {
   protocolReleaseKeccak256:
     THOUGHT_V2_PROTOCOL_RELEASE.protocolReleaseKeccak256,
   deploymentStatus: THOUGHT_V2_PROTOCOL_RELEASE.deployment.status,
-  v2MintEnabled:
-    THOUGHT_V2_PROTOCOL_RELEASE.deployment.v2MintEnabled &&
-    THOUGHT_V2_PRODUCTION_DEPLOYMENT !== null,
+  deploymentLock: THOUGHT_DEPLOYMENT_LOCK_STATUS,
+  activationPolicy: THOUGHT_ACTIVATION_POLICY,
+  // Static Agent status cannot attest a fresh auction opening or signer readiness.
+  v2MintEnabled: false,
+  mintOpening: "requires-fresh-matching-chain-evidence",
   enabled: true,
   runStore: "d1",
   cleanupStatus: "ok",
@@ -209,9 +213,13 @@ export async function createRun(ctx: ThoughtAgentRouteContext): Promise<Response
     if (body.specId !== THOUGHT_AGENT_REGISTERED_SPEC_ID) {
       throw new HttpProtocolError(404, "SPEC_NOT_FOUND", "THOUGHT spec not found.");
     }
+    const unboundV2Chooser =
+      body.requestedAgent.adapterId === THOUGHT_AGENT_UNBOUND_ADAPTER_ID &&
+      thoughtAgentApiBase(ctx.request) === "/api/thought-agent/v2";
     if (
       body.requestedAgent.adapterId !== "codex" &&
-      body.requestedAgent.adapterId !== "claude"
+      body.requestedAgent.adapterId !== "claude" &&
+      !unboundV2Chooser
     ) {
       throw new HttpProtocolError(
         400,
@@ -240,9 +248,10 @@ export async function createRun(ctx: ThoughtAgentRouteContext): Promise<Response
       );
     }
 
+    const now = new Date();
     const visitorHash = await readAnonymousVisitorHash(ctx.request);
     if (visitorHash) {
-      const activeCount = await activeRunCount(db, visitorHash);
+      const activeCount = await activeRunCount(db, visitorHash, now.toISOString());
       if (activeCount >= ACTIVE_RUN_LIMIT) {
         throw new HttpProtocolError(
           429,
@@ -252,7 +261,6 @@ export async function createRun(ctx: ThoughtAgentRouteContext): Promise<Response
       }
     }
 
-    const now = new Date();
     const promptSha256 = await sha256Hex(prompt);
     const agentInput = await buildThoughtAgentInput({ promptLine: prompt });
     const runId = `tar_${randomToken(18)}`;
@@ -375,7 +383,11 @@ export async function claimRun(ctx: ThoughtAgentRouteContext): Promise<Response>
     assertProtocolVersion(body.protocolVersion);
     const bridge = parseBridgeInfo(body.bridge);
     const adapter = parseAdapterInfo(body.adapter);
-    if (adapter.adapterId !== current.requested_adapter_id) {
+    const adapterCanBindRun =
+      thoughtAgentApiBase(ctx.request) === "/api/thought-agent/v2" &&
+      current.requested_adapter_id === THOUGHT_AGENT_UNBOUND_ADAPTER_ID &&
+      (adapter.adapterId === "codex" || adapter.adapterId === "claude");
+    if (!adapterCanBindRun && adapter.adapterId !== current.requested_adapter_id) {
       throw new HttpProtocolError(
         409,
         "ADAPTER_MISMATCH",
@@ -397,6 +409,7 @@ export async function claimRun(ctx: ThoughtAgentRouteContext): Promise<Response>
       bridgeTokenHash,
       JSON.stringify(bridge),
       JSON.stringify(adapter),
+      adapter.adapterId,
       updatedAt,
       runExpiresAt,
     );
@@ -407,6 +420,10 @@ export async function claimRun(ctx: ThoughtAgentRouteContext): Promise<Response>
         "THOUGHT Agent run is already claimed.",
       );
     }
+    const boundRun = {
+      ...current,
+      requested_adapter_id: adapter.adapterId,
+    };
     return protocolJson(ctx, 200, {
       runId: current.run_id,
       state: "claimed",
@@ -414,8 +431,8 @@ export async function claimRun(ctx: ThoughtAgentRouteContext): Promise<Response>
       runExpiresAt,
       request:
         thoughtAgentApiBase(ctx.request) === "/api/thought-agent/v2"
-          ? controlRequestPayload(current)
-          : creativeRequestPayload(current),
+          ? controlRequestPayload(boundRun)
+          : creativeRequestPayload(boundRun),
     });
   });
 }
@@ -628,6 +645,19 @@ export async function submitResult(ctx: ThoughtAgentRouteContext): Promise<Respo
         "Result adapter does not match requested adapter.",
       );
     }
+    if (current.execution_metadata_json) {
+      const control = parseThoughtAgentControlEvidence(
+        JSON.parse(current.execution_metadata_json),
+      );
+      try {
+        assertThoughtAgentMetadataMatchesControl(control, body.agent);
+      } catch (error) {
+        if (error instanceof ThoughtAgentProtocolError) {
+          throw new HttpProtocolError(400, error.code, error.message);
+        }
+        throw error;
+      }
+    }
 
     const parsedOutput = await parseAgentOutput(
       body.output.raw,
@@ -734,7 +764,7 @@ export async function failRun(ctx: ThoughtAgentRouteContext): Promise<Response> 
     );
     if (!changed) throw stateConflict(current.state);
     const updated = await requireRun(db, current.run_id);
-    return protocolJson(ctx, 200, statusPayload(updated));
+    return protocolJson(ctx, 200, agentFailurePayload(updated));
   });
 }
 
@@ -1032,12 +1062,13 @@ async function updateClaimed(
   bridgeTokenHash: ThoughtSha256,
   bridgeMetadataJson: string,
   adapterMetadataJson: string,
+  requestedAdapterId: string,
   updatedAt: string,
   runExpiresAt: string,
 ): Promise<boolean> {
   const result = await db
     .prepare(
-      "UPDATE thought_agent_runs SET state = 'claimed', launch_token_hash = NULL, bridge_token_hash = ?3, bridge_metadata_json = ?4, adapter_metadata_json = ?5, updated_at = ?6, run_expires_at = ?7 WHERE run_id = ?1 AND state = 'created' AND launch_token_hash = ?2 AND bridge_token_hash IS NULL",
+      "UPDATE thought_agent_runs SET state = 'claimed', launch_token_hash = NULL, bridge_token_hash = ?3, bridge_metadata_json = ?4, adapter_metadata_json = ?5, requested_adapter_id = ?6, updated_at = ?7, run_expires_at = ?8 WHERE run_id = ?1 AND state = 'created' AND launch_token_hash = ?2 AND bridge_token_hash IS NULL",
     )
     .bind(
       runId,
@@ -1045,6 +1076,7 @@ async function updateClaimed(
       bridgeTokenHash,
       bridgeMetadataJson,
       adapterMetadataJson,
+      requestedAdapterId,
       updatedAt,
       runExpiresAt,
     )
@@ -1192,12 +1224,13 @@ async function updateExpired(
 async function activeRunCount(
   db: D1Database,
   visitorHash: ThoughtSha256,
+  nowIso: string,
 ): Promise<number> {
   const row = await db
     .prepare(
-      "SELECT COUNT(*) AS active_count FROM thought_agent_runs WHERE visitor_hash = ?1 AND state IN ('created', 'claimed', 'ready', 'running')",
+      "SELECT COUNT(*) AS active_count FROM thought_agent_runs WHERE visitor_hash = ?1 AND ((state = 'created' AND claim_expires_at > ?2) OR (state IN ('claimed', 'ready', 'running') AND run_expires_at > ?2))",
     )
-    .bind(visitorHash)
+    .bind(visitorHash, nowIso)
     .first<{ active_count?: number }>();
   const value = Number(row?.active_count ?? 0);
   return Number.isFinite(value) ? value : 0;
@@ -1291,6 +1324,18 @@ function statusPayload(row: ThoughtAgentRow): Record<string, unknown> {
   return base;
 }
 
+function agentFailurePayload(row: ThoughtAgentRow): Record<string, unknown> {
+  if (row.state !== "failed") throw stateConflict(row.state);
+  return {
+    runId: row.run_id,
+    state: row.state,
+    error: {
+      code: row.error_code,
+      message: row.error_message,
+    },
+  };
+}
+
 function controlRequestPayload(row: ThoughtAgentRow): Record<string, unknown> {
   return {
     authority: THOUGHT_AGENT_RUN_AUTHORITY,
@@ -1304,14 +1349,16 @@ function controlRequestPayload(row: ThoughtAgentRow): Record<string, unknown> {
       allowMultipleControlTurns: true,
       continueOnSuccess: true,
       recoverySignal: "RETRY",
-      requireRuntimeIdentityBeforeCreativeInput: true,
+      requireAgentProductBeforeCreativeInput: true,
+      runtimeModelPolicy: "reported-or-unknown",
       installationsAllowed: false,
       creativeInputState: "sealed",
     },
     evidenceContract: {
       schema: THOUGHT_AGENT_CONTROL_VERSION,
       appExchange: "verified",
-      runtimeIdentity: "available",
+      agentProduct: "declared",
+      runtimeModel: "reported-or-unknown",
       localPreparation: "verified",
       installationsRequired: false,
       creativeInputOpened: false,
@@ -1392,13 +1439,13 @@ function stageForState(state: ThoughtAgentState): string {
 }
 
 function receiptAgentMetadata(agentJson: string | null): {
-  model: string;
+  model: string | null;
   reasoningEffort: string | null;
   metadataSource: string;
 } {
   if (!agentJson) {
     return {
-      model: "unknown",
+      model: null,
       reasoningEffort: null,
       metadataSource: "unknown",
     };
@@ -1413,7 +1460,7 @@ function receiptAgentMetadata(agentJson: string | null): {
       model:
         typeof parsed.model === "string" && parsed.model.length > 0
           ? parsed.model
-          : "unknown",
+          : null,
       reasoningEffort:
         typeof parsed.reasoningEffort === "string" &&
         parsed.reasoningEffort.length > 0
@@ -1427,7 +1474,7 @@ function receiptAgentMetadata(agentJson: string | null): {
     };
   } catch {
     return {
-      model: "unknown",
+      model: null,
       reasoningEffort: null,
       metadataSource: "unknown",
     };
@@ -1511,6 +1558,7 @@ function isAllowedOrigin(origin: string, env: ThoughtAgentEnv): boolean {
     env.CF_PAGES_BRANCH &&
     env.CF_PAGES_BRANCH !== "main" &&
     (origin === "https://preview.inshell.art" ||
+      origin === "https://staging.inshell-art.pages.dev" ||
       origin === "https://thought.preview.inshell.art" ||
       origin === "https://staging.thought-inshell-art.pages.dev")
   ) {

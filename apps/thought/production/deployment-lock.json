@@ -1,22 +1,14 @@
 {
-  "schema": "inshell.thought.production-deployment-lock.v1",
-  "status": "not-deployed",
-  "enabled": false,
-  "requiredArtifactId": "thought-v2-canonical-portable-release-20260807-r2",
-  "artifactId": null,
-  "manifestSha256": null,
-  "chainId": null,
-  "contracts": null,
-  "deployBlocks": null,
-  "release": null,
-  "attestation": null,
-  "serverBindings": {
-    "rpc": "THOUGHT_RPC_URL",
-    "signer": "THOUGHT_ATTESTATION_SIGNER"
+  "schema": "inshell.thought.production-deployment-lock.v2",
+  "revision": 1,
+  "state": "no-approved-deployment",
+  "requiredRelease": {
+    "artifactId": "thought-v2-canonical-portable-release-20260807-r2",
+    "manifestSha256": "7cf7965edb3de6421c79d9c08f0781cabb78ea675bad354847b56ec8f19306cc"
   },
-  "authorization": {
-    "deploymentApproved": false,
-    "frontendActivationApproved": false,
-    "signerActivationApproved": false
+  "deployment": null,
+  "evidence": null,
+  "review": {
+    "reference": "docs/DEPLOYMENT_LOCK_RUNBOOK.md"
   }
 }

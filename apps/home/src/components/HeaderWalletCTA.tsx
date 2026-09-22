@@ -4,8 +4,10 @@ import { useWallet } from "@inshell/wallet";
 function getEnvValue(name: string): unknown {
   const envCache: Record<string, any> | undefined =
     (globalThis as any).__VITE_ENV__;
+  const buildEnv: Record<string, any> | undefined =
+    (globalThis as any).__INSHELL_VITE_ENV__;
   const procEnv = (globalThis as any)?.process?.env;
-  return envCache?.[name] ?? procEnv?.[name];
+  return envCache?.[name] ?? buildEnv?.[name] ?? procEnv?.[name];
 }
 
 function shortAddress(address?: string) {
@@ -31,7 +33,11 @@ function resolveNetworkLabel(chain?: {
   return cleaned || "unknown network";
 }
 
-function resolveExplorerBase(): string {
+function resolveExplorerBase(): string | null {
+  if (getEnvValue("VITE_NETWORK") === "devnet") {
+    const local = getEnvValue("VITE_LOCAL_EXPLORER_BASE_URL");
+    return typeof local === "string" && local.trim() ? local.trim() : null;
+  }
   const base = getEnvValue("VITE_EXPLORER_BASE_URL");
   if (typeof base === "string" && base.trim()) return base.trim();
   return "https://sepolia.etherscan.io";
@@ -92,12 +98,12 @@ export default function HeaderWalletCTA({
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const explorerBase = resolveExplorerBase();
-  const explorerRoot = explorerBase.replace(/\/$/, "");
+  const explorerRoot = explorerBase?.replace(/\/$/, "") ?? null;
   const connectedAddress = isConnected ? address : undefined;
-  const explorerUrl = connectedAddress
+  const explorerUrl = connectedAddress && explorerRoot
     ? `${explorerRoot}/address/${connectedAddress}`
     : null;
-  const txUrl = lastTxHash ? `${explorerRoot}/tx/${lastTxHash}` : null;
+  const txUrl = lastTxHash && explorerRoot ? `${explorerRoot}/tx/${lastTxHash}` : null;
   const networkLabel = resolveNetworkLabel(chain);
 
   useEffect(() => {

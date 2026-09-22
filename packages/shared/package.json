@@ -5,7 +5,9 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./design.css": "./src/design.css"
+    "./design.css": "./src/design.css",
+    "./problem-report": "./src/problem-report.ts",
+    "./problem-report-data": "./src/problem-report-data.ts"
   },
   "dependencies": {
     "ethers": "^6.17.0"

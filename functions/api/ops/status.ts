@@ -17,10 +17,14 @@ import {
 import { analyticsHostScopeForHostname, readAnalyticsStatus } from "../analytics/store";
 import { readIndexerEventStatus } from "../indexer/event-status";
 import { THOUGHT_AGENT_STATUS } from "../thought-agent/v1/shared";
+import {
+  THOUGHT_ACTIVATION_POLICY, THOUGHT_DEPLOYMENT_LOCK, THOUGHT_DEPLOYMENT_LOCK_STATUS,
+  deploymentConfigurationDrift, deploymentOverrideDrift,
+} from "../../../apps/thought/src/thought-v2-production-deployment";
 
 type EnvKey = keyof ChainCacheEnv;
 
-const CONTRACT_VERSION = 1;
+const CONTRACT_VERSION = 2;
 const CHAIN = "sepolia";
 const NETWORK = "Sepolia rehearsal";
 const CURRENCY = "testnet ETH";
@@ -119,13 +123,36 @@ export const onRequestOptions = onOptions;
 
 export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
   const url = new globalThis.URL(ctx.request.url);
+  const deployment = THOUGHT_DEPLOYMENT_LOCK.deployment;
+  // These legacy PATH readers must be reconciled before an approved deployment
+  // can use them. Their mere existence is not a deployment approval.
+  const configuredDeployment = deployment ? {
+    ...deployment,
+    chainId: SEPOLIA_CHAIN_ID,
+    contracts: { ...deployment.contracts, pathNft: PATH_NFT_ADDRESS.toLowerCase(),
+      pulseAuction: PULSE_AUCTION_ADDRESS.toLowerCase(),
+      thoughtNft: THOUGHT_GALLERY_DEPLOYMENT?.contractAddress.toLowerCase() ?? null },
+    deployBlocks: { ...deployment.deployBlocks, pathNft: PATH_NFT_DEPLOY_BLOCK,
+      pulseAuction: PULSE_AUCTION_DEPLOY_BLOCK,
+      thoughtNft: THOUGHT_GALLERY_DEPLOYMENT?.deployBlock ?? null },
+  } : null;
+  const differences = [
+    ...deploymentConfigurationDrift(THOUGHT_DEPLOYMENT_LOCK, configuredDeployment),
+    ...deploymentOverrideDrift(ctx.env as Record<string, unknown>),
+  ];
   const eventStatus = await readIndexerEventStatus(ctx.env);
   const analyticsStatus = await readAnalyticsStatus(
     ctx.env,
     analyticsHostScopeForHostname(url.hostname),
   );
   const payload = {
-    ok: true,
+    ok: differences.length === 0,
+    deploymentLock: {
+      ...THOUGHT_DEPLOYMENT_LOCK_STATUS,
+      integrity: differences.length ? "drift" : "valid",
+      differences,
+    },
+    activationPolicy: THOUGHT_ACTIVATION_POLICY,
     contract: {
       name: "inshell-dev-ops-chain-read-model",
       version: CONTRACT_VERSION,
@@ -138,20 +165,29 @@ export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
       deploymentId: publicEnv(ctx.env, "CF_PAGES_DEPLOYMENT_ID"),
       commitSha: publicEnv(ctx.env, "CF_PAGES_COMMIT_SHA"),
     },
-    network: {
-      network: NETWORK,
-      chain: CHAIN,
-      chainId: SEPOLIA_CHAIN_ID,
-      currency: CURRENCY,
+    network: deployment ? {
+      chainId: deployment.chainId,
+    } : null,
+    historicalReadModel: {
+      status: "historical-only",
+      notApprovedForCurrentDeployment: true,
+      network: {
+        network: NETWORK,
+        chain: CHAIN,
+        chainId: SEPOLIA_CHAIN_ID,
+        currency: CURRENCY,
+      },
+      pathNft: { address: PATH_NFT_ADDRESS, deployBlock: PATH_NFT_DEPLOY_BLOCK },
+      pulseAuction: { address: PULSE_AUCTION_ADDRESS, deployBlock: PULSE_AUCTION_DEPLOY_BLOCK },
     },
     contracts: {
       pathNft: {
-        address: PATH_NFT_ADDRESS,
-        deployBlock: PATH_NFT_DEPLOY_BLOCK,
+        address: deployment?.contracts.pathNft ?? null,
+        deployBlock: deployment?.deployBlocks.pathNft ?? null,
       },
       pulseAuction: {
-        address: PULSE_AUCTION_ADDRESS,
-        deployBlock: PULSE_AUCTION_DEPLOY_BLOCK,
+        address: deployment?.contracts.pulseAuction ?? null,
+        deployBlock: deployment?.deployBlocks.pulseAuction ?? null,
       },
       thoughtNft: {
         address: THOUGHT_GALLERY_DEPLOYMENT?.contractAddress ?? null,
@@ -183,7 +219,9 @@ export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
       appliedCount: eventStatus.status?.appliedCount ?? 0,
     },
     anonymousAnalytics: analyticsStatus,
-    thoughtAgentBridge: THOUGHT_AGENT_STATUS,
+    thoughtAgentBridge: { ...THOUGHT_AGENT_STATUS,
+      deploymentLock: { ...THOUGHT_DEPLOYMENT_LOCK_STATUS,
+        integrity: differences.length ? "drift" : "valid", differences } },
     cache: {
       readModelEnabled: readModelEnabled(ctx.env),
       d1Bound: Boolean(ctx.env.INSHELL_CHAIN_DATA_DB),

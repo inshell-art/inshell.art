@@ -1,3 +1,4 @@
+pnpm docs:check
 pnpm lint
 pnpm type-check
 pnpm test:fast

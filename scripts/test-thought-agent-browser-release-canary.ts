@@ -5,7 +5,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { thoughtAgentCanaryHandoffTransport } from "./thought-agent-canary-endpoints";
+
 import {
+  THOUGHT_AGENT_HTTP_USER_AGENT,
   THOUGHT_AGENT_PROTOCOL_VERSION,
   THOUGHT_AGENT_RESULT_VERSION,
   THOUGHT_AGENT_RUN_AUTHORITY,
@@ -24,6 +27,8 @@ const pageUrl = (() => {
   return url.toString();
 })();
 const timeoutMs = Number(process.env.THOUGHT_BROWSER_CANARY_TIMEOUT_MS || 45_000);
+const expectedApiOrigin = process.env.THOUGHT_BROWSER_CANARY_API_ORIGIN || new URL(pageUrl).origin;
+const traceCaughtExceptions = process.env.THOUGHT_BROWSER_CANARY_TRACE_CAUGHT === "1";
 const adapterId = process.env.THOUGHT_BROWSER_CANARY_AGENT === "codex" ? "codex" : "claude";
 const product = adapterId === "codex" ? "Codex" : "Claude";
 const provider = adapterId === "codex" ? "codex" : "anthropic";
@@ -35,7 +40,16 @@ const screenshotPath = process.env.THOUGHT_BROWSER_CANARY_SCREENSHOT ||
 const promptLine = "Can one release remain one release?";
 
 const installBrowserReleaseCanaryFunction = `function (promptLine) {
-  window.__thoughtBrowserReleaseCanary = { create: null, launchUrl: "", statusStates: [] };
+  window.__thoughtBrowserReleaseCanary = {
+    create: null,
+    createCount: 0,
+    createRequest: null,
+    launchUrl: "",
+    launchEventTrusted: false,
+    launchUserActivation: false,
+    statusStates: [],
+    windowOpenCount: 0
+  };
   const originalFetch = window.fetch.bind(window);
   window.fetch = async (...args) => {
     const response = await originalFetch(...args);
@@ -45,6 +59,8 @@ const installBrowserReleaseCanaryFunction = `function (promptLine) {
       const url = typeof input === "string" || input instanceof URL ? String(input) : input.url;
       const method = String(init.method || (input instanceof Request ? input.method : "GET")).toUpperCase();
       if (method === "POST" && /\\/api\\/thought-agent\\/v2\\/runs$/.test(new URL(url, location.href).pathname)) {
+        window.__thoughtBrowserReleaseCanary.createCount += 1;
+        window.__thoughtBrowserReleaseCanary.createRequest = JSON.parse(String(init.body || "null"));
         window.__thoughtBrowserReleaseCanary.create = await response.clone().json();
       }
       if (method === "GET" && /\\/api\\/thought-agent\\/v2\\/runs\\/tar_[^/]+$/.test(new URL(url, location.href).pathname)) {
@@ -56,14 +72,20 @@ const installBrowserReleaseCanaryFunction = `function (promptLine) {
     }
     return response;
   };
-  const originalAnchorClick = HTMLAnchorElement.prototype.click;
-  HTMLAnchorElement.prototype.click = function () {
-    if (/^(?:claude|codex):/.test(this.href)) {
-      window.__thoughtBrowserReleaseCanary.launchUrl = this.href;
-      return;
-    }
-    return originalAnchorClick.call(this);
+  const originalWindowOpen = window.open.bind(window);
+  window.open = (...args) => {
+    window.__thoughtBrowserReleaseCanary.windowOpenCount += 1;
+    return originalWindowOpen(...args);
   };
+  document.addEventListener("click", (event) => {
+    const anchor = event.target instanceof Element ? event.target.closest("a") : null;
+    if (anchor && /^(?:claude|codex):/.test(anchor.href)) {
+      window.__thoughtBrowserReleaseCanary.launchUrl = anchor.href;
+      window.__thoughtBrowserReleaseCanary.launchEventTrusted = event.isTrusted;
+      window.__thoughtBrowserReleaseCanary.launchUserActivation = Boolean(navigator.userActivation?.isActive);
+      event.preventDefault();
+    }
+  });
   const prompt = document.querySelector("#thought-dock-prompt");
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
   setter.call(prompt, promptLine);
@@ -72,7 +94,7 @@ const installBrowserReleaseCanaryFunction = `function (promptLine) {
 }`;
 
 const hasAgentActionFunction = `function (agentActionLabel) {
-  return [...document.querySelectorAll("button")].some((node) =>
+  return [...document.querySelectorAll("button, a")].some((node) =>
     node.getAttribute("aria-label") === agentActionLabel &&
     node.getBoundingClientRect().width > 0 &&
     node.getBoundingClientRect().height > 0 &&
@@ -81,17 +103,17 @@ const hasAgentActionFunction = `function (agentActionLabel) {
   );
 }`;
 
-const clickAgentActionFunction = `function (agentActionLabel, product) {
-  const button = [...document.querySelectorAll("button")].find((node) =>
+const getAgentActionCenterFunction = `function (agentActionLabel, product) {
+  const action = [...document.querySelectorAll("button, a")].find((node) =>
     node.getAttribute("aria-label") === agentActionLabel &&
     node.getBoundingClientRect().width > 0 &&
     node.getBoundingClientRect().height > 0 &&
     getComputedStyle(node).display !== "none" &&
     getComputedStyle(node).visibility !== "hidden"
   );
-  if (!button) throw new Error(String(product) + " action not found.");
-  button.click();
-  return true;
+  if (!action) throw new Error(String(product) + " action not found.");
+  const rect = action.getBoundingClientRect();
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
 }`;
 
 const chromePath = [
@@ -194,6 +216,7 @@ const callFunctionOn = async <T>(
   objectId: string,
   functionDeclaration: string,
   argumentValues: unknown[] = [],
+  userGesture = false,
 ): Promise<T> => {
   const response = await client.send("Runtime.callFunctionOn", {
     objectId,
@@ -201,6 +224,7 @@ const callFunctionOn = async <T>(
     arguments: argumentValues.map((value) => ({ value })),
     awaitPromise: true,
     returnByValue: true,
+    userGesture,
   });
   if (response.exceptionDetails) {
     throw new Error(response.exceptionDetails.exception?.description || "Browser function call failed.");
@@ -232,7 +256,7 @@ const waitFor = async <T>(
 type ProtocolError = { error?: { code?: string; message?: string } };
 
 const requestJson = async <T>(url: string, init?: RequestInit): Promise<T> => {
-  const response = await fetch(url, init);
+  const response = await fetch(url, { ...init, redirect: "error" });
   const text = await response.text();
   const payload = JSON.parse(text) as T & ProtocolError;
   assert.equal(
@@ -244,8 +268,8 @@ const requestJson = async <T>(url: string, init?: RequestInit): Promise<T> => {
 };
 
 const capsuleValue = (handoff: string, key: string) => {
-  const match = handoff.match(new RegExp(`^<${key}> = (.+)$`, "m"));
-  assert.ok(match, `browser handoff is missing <${key}>`);
+  const match = handoff.match(new RegExp(`^${key.toUpperCase()} = (.+)$`, "m"));
+  assert.ok(match, `browser handoff is missing ${key.toUpperCase()}`);
   return match[1].trim();
 };
 
@@ -265,10 +289,14 @@ const nestedValuesForKey = (value: unknown, key: string): unknown[] => {
 };
 
 const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "thought-browser-canary-"));
-const port = 14_000 + Math.floor(Math.random() * 2_000);
+const devtoolsActivePortPath = path.join(userDataDir, "DevToolsActivePort");
+const chromeStartupTimeoutMs = Number(
+  process.env.THOUGHT_BROWSER_CANARY_CHROME_TIMEOUT_MS || 30_000,
+);
 const chrome = spawn(chromePath, [
   "--headless=new",
-  `--remote-debugging-port=${port}`,
+  "--remote-debugging-address=127.0.0.1",
+  "--remote-debugging-port=0",
   `--user-data-dir=${userDataDir}`,
   "--disable-gpu",
   "--no-first-run",
@@ -280,6 +308,51 @@ let chromeStderr = "";
 chrome.stderr.on("data", (chunk) => {
   chromeStderr += chunk.toString();
 });
+let chromeSpawnError: Error | null = null;
+let chromeExit: { code: number | null; signal: string | null } | null = null;
+chrome.once("error", (error) => {
+  chromeSpawnError = error;
+});
+chrome.once("exit", (code, signal) => {
+  chromeExit = { code, signal };
+});
+
+const chromeStartupDiagnostic = () => {
+  const details = [
+    `executable=${chromePath}`,
+    chromeSpawnError ? `spawnError=${chromeSpawnError.message}` : null,
+    chromeExit ? `exitCode=${chromeExit.code ?? "null"}` : null,
+    chromeExit ? `signal=${chromeExit.signal ?? "null"}` : null,
+    chromeStderr.trim() ? `stderr=${chromeStderr.trim().slice(-2_000)}` : "stderr=(empty)",
+  ].filter(Boolean);
+  return details.join("; ");
+};
+
+const waitForChromeDevTools = async (): Promise<number> => {
+  const deadline = Date.now() + chromeStartupTimeoutMs;
+  while (Date.now() < deadline) {
+    if (chromeSpawnError) {
+      throw new Error(`Chrome DevTools could not start: ${chromeStartupDiagnostic()}`);
+    }
+    if (chromeExit) {
+      throw new Error(`Chrome exited before DevTools started: ${chromeStartupDiagnostic()}`);
+    }
+    try {
+      const [portLine] = fs.readFileSync(devtoolsActivePortPath, "utf8").trim().split(/\r?\n/);
+      const port = Number(portLine);
+      if (Number.isInteger(port) && port > 0 && port <= 65_535) {
+        await getJson(`http://127.0.0.1:${port}/json/version`);
+        return port;
+      }
+    } catch {
+      // Chrome creates DevToolsActivePort only after its debugging socket is ready.
+    }
+    await sleep(100);
+  }
+  throw new Error(
+    `Chrome DevTools did not start within ${chromeStartupTimeoutMs}ms: ${chromeStartupDiagnostic()}`,
+  );
+};
 
 let client: CdpClient | null = null;
 let created: {
@@ -301,27 +374,25 @@ let created: {
   };
 } | null = null;
 let terminal = false;
+const requests: Array<{ url: string; method: string; status: number | null }> = [];
+const browserErrors: Array<{
+  className: string;
+  scriptName: string;
+  line: number;
+}> = [];
+const browserCaughtExceptionSites: Array<{
+  className: string;
+  frames: Array<{ functionName: string; scriptName: string; line: number }>;
+}> = [];
+const requestIndex = new Map<string, number>();
 
 try {
-  const devtoolsDeadline = Date.now() + 10_000;
-  while (Date.now() < devtoolsDeadline) {
-    try {
-      await getJson(`http://127.0.0.1:${port}/json/version`);
-      break;
-    } catch {
-      await sleep(100);
-    }
-  }
-  if (Date.now() >= devtoolsDeadline) {
-    throw new Error(`Chrome DevTools did not start. ${chromeStderr}`);
-  }
+  const port = await waitForChromeDevTools();
 
   const target = await getJson(`http://127.0.0.1:${port}/json/new`, { method: "PUT" }) as {
     webSocketDebuggerUrl: string;
   };
   client = await makeClient(target.webSocketDebuggerUrl);
-  const requests: Array<{ url: string; method: string; status: number | null }> = [];
-  const requestIndex = new Map<string, number>();
   client.on("Network.requestWillBeSent", (event) => {
     requestIndex.set(event.requestId, requests.length);
     requests.push({
@@ -334,10 +405,42 @@ try {
     const index = requestIndex.get(event.requestId);
     if (index !== undefined) requests[index].status = event.response.status;
   });
+  client.on("Runtime.exceptionThrown", (event) => {
+    const frame = event.exceptionDetails?.stackTrace?.callFrames?.[0];
+    browserErrors.push({
+      className: String(event.exceptionDetails?.exception?.className || "Error"),
+      scriptName: (() => {
+        try { return new URL(frame?.url || event.exceptionDetails?.url || "").pathname.split("/").at(-1) || "script"; }
+        catch { return "script"; }
+      })(),
+      line: (frame?.lineNumber ?? event.exceptionDetails?.lineNumber ?? -1) + 1,
+    });
+  });
+  client.on("Debugger.paused", (event) => {
+    if (event.reason === "exception") {
+      browserCaughtExceptionSites.push({
+        className: String(event.data?.className || "Error"),
+        frames: event.callFrames.slice(0, 4).map((frame) => ({
+          functionName: frame.functionName || "anonymous",
+          scriptName: (() => {
+            try { return new URL(frame.url).pathname.split("/").at(-1) || "script"; }
+            catch { return "script"; }
+          })(),
+          line: frame.location.lineNumber + 1,
+        })),
+      });
+    }
+    void client?.send("Debugger.resume");
+  });
 
   await client.send("Network.enable");
   await client.send("Network.setCacheDisabled", { cacheDisabled: true });
   await client.send("Page.enable");
+  await client.send("Runtime.enable");
+  if (traceCaughtExceptions) {
+    await client.send("Debugger.enable");
+    await client.send("Debugger.setPauseOnExceptions", { state: "all" });
+  }
   await client.send("Emulation.setDeviceMetricsOverride", {
     width: 1440,
     height: 1000,
@@ -347,7 +450,7 @@ try {
   await client.send("Page.navigate", { url: pageUrl });
   await waitFor(
     client,
-    `document.readyState === "complete" && document.documentElement.classList.contains("agent-surface") && document.querySelector("#thought-dock-prompt")?.getBoundingClientRect().width > 0`,
+    `document.readyState === "complete" && document.querySelector("#thought-dock-prompt")?.getBoundingClientRect().width > 0`,
     Boolean,
     "THOUGHT creation UI",
   );
@@ -362,7 +465,7 @@ try {
 
   await evaluate(client, `(() => {
     const button = [...document.querySelectorAll("button")].find((node) =>
-      node.getAttribute("aria-label") === "run this THOUGHT with your Agent" &&
+      node.getAttribute("aria-label") === "Run this THOUGHT with your Agent" &&
       node.getBoundingClientRect().width > 0 &&
       node.getBoundingClientRect().height > 0 &&
       getComputedStyle(node).display !== "none" &&
@@ -372,6 +475,13 @@ try {
     button.click();
     return true;
   })()`);
+  const createCapture = await waitFor<typeof created>(
+    client,
+    "window.__thoughtBrowserReleaseCanary.create",
+    (value) => Boolean(value?.runId && value?.browserToken && value?.statusUrl),
+    "Agent run creation",
+  );
+  created = createCapture;
   await waitForValue(
     () => callFunctionOn<boolean>(
       client!,
@@ -382,17 +492,60 @@ try {
     Boolean,
     `${product} action`,
   );
-  await callFunctionOn<boolean>(
+  assert.equal(
+    await evaluate<number>(client, "window.__thoughtBrowserReleaseCanary.createCount"),
+    1,
+    "opening the Agent chooser must create exactly one adapter-neutral run",
+  );
+  assert.equal(
+    await evaluate<string>(client, "window.__thoughtBrowserReleaseCanary.createRequest.requestedAgent.adapterId"),
+    "unbound",
+    "the chooser run must remain adapter-neutral until an Agent claims it",
+  );
+  assert.equal(
+    await callFunctionOn<boolean>(
+      client,
+      browserGlobalObjectId,
+      hasAgentActionFunction,
+      [adapterId === "codex"
+        ? "open this THOUGHT task in Claude Code"
+        : "open this THOUGHT task in Codex within the ChatGPT desktop app"],
+    ),
+    true,
+    "the chooser must expose both supported Agent apps before creating a run",
+  );
+  const agentActionCenter = await callFunctionOn<{ x: number; y: number }>(
     client,
     browserGlobalObjectId,
-    clickAgentActionFunction,
+    getAgentActionCenterFunction,
     [agentActionLabel, product],
   );
+  await client.send("Input.dispatchMouseEvent", {
+    type: "mousePressed",
+    x: agentActionCenter.x,
+    y: agentActionCenter.y,
+    button: "left",
+    buttons: 1,
+    clickCount: 1,
+  });
+  await client.send("Input.dispatchMouseEvent", {
+    type: "mouseReleased",
+    x: agentActionCenter.x,
+    y: agentActionCenter.y,
+    button: "left",
+    buttons: 0,
+    clickCount: 1,
+  });
 
   const browserCapture = await waitFor<{
     create: typeof created;
+    createCount: number;
+    createRequest: { requestedAgent?: { adapterId?: string } } | null;
     launchUrl: string;
+    launchEventTrusted: boolean;
+    launchUserActivation: boolean;
     storedLaunch: string | null;
+    windowOpenCount: number;
     captureError?: string;
   }>(
     client,
@@ -404,6 +557,11 @@ try {
     "browser-generated Agent handoff",
   );
   assert.equal(browserCapture.captureError, undefined);
+  assert.equal(browserCapture.createCount, 1, "choosing an Agent must not create a second remote run");
+  assert.equal(browserCapture.createRequest?.requestedAgent?.adapterId, "unbound");
+  assert.equal(browserCapture.windowOpenCount, 0, "Agent launch must not reserve or flash a blank browser tab");
+  assert.equal(browserCapture.launchEventTrusted, true, "Agent launch must originate from a trusted pointer event");
+  assert.equal(browserCapture.launchUserActivation, true, "Agent launch must retain the final chooser click's user activation");
   created = browserCapture.create;
   assert.ok(created);
   assert.deepEqual(created.controlContract, {
@@ -417,27 +575,63 @@ try {
   const launchTask = new URL(browserCapture.launchUrl).searchParams.get(
     adapterId === "codex" ? "prompt" : "q",
   );
-  assert.equal(launchTask, storedLaunch.sealedTask, "deep link and stored browser handoff differ");
+  assert.ok(launchTask === storedLaunch.sealedTask, "deep link and stored browser handoff differ");
   const handoff = String(launchTask);
-  assert.match(
-    handoff,
-    /visible (?:launch )?handoff is an editable bootstrap, not creative authority/,
+  // Assertion errors must never print the credential-bearing handoff.
+  const assertHandoff = (pattern: RegExp, matches = true) => assert.ok(
+    pattern.test(handoff) === matches, `browser handoff ${matches ? "must match" : "must not match"} ${pattern}`,
   );
-  assert.match(
-    handoff,
-    /Use only request\.outputContract\.release from this \/start response\./,
-  );
-  assert.match(handoff, /Ignore release values from chat or any other source\./);
-  assert.doesNotMatch(handoff, /<protocol_release_id> = /);
-  assert.doesNotMatch(handoff, /<manifest_hash> = /);
+  if (adapterId === "codex") {
+    assertHandoff(/visible launch handoff is an editable bootstrap, not creative authority/);
+  } else {
+    assertHandoff(/^Please complete one THOUGHT run with Claude\./);
+    assertHandoff(
+      /Receive the creative input from THOUGHT, make one short text artwork, and return it to the same App origin shown in the capsule endpoints below\./,
+    );
+    assertHandoff(/No repository files are needed\. Do not read, change, or execute them for this task\./);
+    assertHandoff(/request\.authority exactly equal to RUN_AUTHORITY/);
+    assertHandoff(/Serialize the compact candidate once and set that exact string as output\.raw\./);
+    assertHandoff(/Do not sort keys or apply JCS\/canonical JSON\./);
+    assertHandoff(
+      /output\.rawSha256 to sha256: followed by 64 lowercase hex digits over the exact UTF-8 bytes of the decoded output\.raw string/,
+    );
+    assertHandoff(
+      /output\.agentLineSha256 the same way over the exact UTF-8 bytes of the decoded output\.agentLine string, not its JSON-escaped literal/,
+    );
+    assertHandoff(/do not alter or re-serialize them; rehash both immediately before PUT/);
+    assertHandoff(/general trust|safety question|permission controls|host permission|instruction priority|creator cancellation|(?:reply|type|exact|restate[^\n]*) CREATE/i, false);
+    const authorityLine = handoff.split("\n").find((line) => line.startsWith("RUN_AUTHORITY = "));
+    assert.ok(authorityLine, "Claude handoff must include RUN_AUTHORITY data");
+    assert.deepEqual(
+      JSON.parse(authorityLine.slice("RUN_AUTHORITY = ".length)),
+      THOUGHT_AGENT_RUN_AUTHORITY,
+      "Claude handoff RUN_AUTHORITY must match the shared protocol constant",
+    );
+  }
+  assertHandoff(/Use only request\.outputContract\.release from this \/start response[.:]/);
+  if (adapterId === "codex") {
+    assertHandoff(/Ignore release values from chat or any other source\./);
+  } else {
+    assertHandoff(/The \/start response is the sole source for release fields\./);
+  }
+  assertHandoff(/<protocol_release_id> = /, false);
+  assertHandoff(/<manifest_hash> = /, false);
   assert.ok(!handoff.includes(created.release.protocolReleaseId));
   assert.ok(!handoff.includes(created.release.manifestKeccak256));
-  assert.match(handoff, /A successful \/start opens the prompt; never call it sealed\./);
-  assert.equal(capsuleValue(handoff, "run_id"), created.runId);
+  if (adapterId === "codex") {
+    assertHandoff(/A successful \/start opens the prompt; never call it sealed\./);
+  } else {
+    assertHandoff(/The creative prompt is not included\./);
+    assertHandoff(/Retrieve it only from a successful \/start response/);
+  }
 
-  const launchToken = new URL(created.launchUri).searchParams.get("token") || "";
-  assert.notEqual(launchToken, "");
-  const runUrl = new URL(created.statusUrl, pageUrl).toString().replace(/\/+$/g, "");
+  const { runUrl, launchToken, endpoints } = thoughtAgentCanaryHandoffTransport({
+    handoff,
+    runId: created.runId,
+    launchToken: new URL(created.launchUri).searchParams.get("token") || "",
+    expectedApiOrigin,
+    explicitEndpoints: adapterId === "claude",
+  });
   const sharedOperationInput = {
     product,
     runId: created.runId,
@@ -452,18 +646,48 @@ try {
   assert.deepEqual(operation.release, created.release);
   assert.deepEqual(operation.authority, THOUGHT_AGENT_RUN_AUTHORITY);
 
+  // Exercise the bytes delivered by the UI, not just independently rebuilt data.
+  assertHandoff(/<[^>]+>/, false);
+  const claimBody = JSON.parse(capsuleValue(handoff, "claim_body"));
+  const readyBody = JSON.parse(capsuleValue(handoff, "ready_body"));
+  assert.deepEqual(claimBody, operation.claim);
+  assert.deepEqual(readyBody, operation.ready);
+  assertHandoff(/Claim header: Authorization: Bearer LAUNCH_CREDENTIAL/);
+  assertHandoff(/Remaining headers: Authorization: Bearer BRIDGE_CREDENTIAL/);
+  assert.ok(handoff.includes(`User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}`));
+
+  // Use this existing fresh run: a nonexistent fixture's 404 proves no auth boundary.
+  const expectTokenRejection = async (url: string, body: unknown, token?: string) => {
+    const response = await fetch(url, {
+      method: "POST",
+      redirect: "error",
+      headers: {
+        "content-type": "application/json",
+        "user-agent": THOUGHT_AGENT_HTTP_USER_AGENT,
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+    assert.equal(response.status, 401, "existing run must reject missing/wrong credentials");
+    const payload = await response.json() as ProtocolError;
+    assert.equal(payload.error?.code, "TOKEN_INVALID");
+  };
+  await expectTokenRejection(endpoints.claim, claimBody);
+  await expectTokenRejection(endpoints.claim, claimBody, "invalid-canary-credential");
+
   const claim = await requestJson<{
     runId: string;
     state: string;
     bridgeToken: string;
     request?: unknown;
-  }>(operation.endpoints.claim, {
+  }>(endpoints.claim, {
     method: "POST",
     headers: {
       authorization: `Bearer ${launchToken}`,
+      "user-agent": THOUGHT_AGENT_HTTP_USER_AGENT,
       "content-type": "application/json",
     },
-    body: JSON.stringify(operation.claim),
+    body: JSON.stringify(claimBody),
   });
   assert.equal(claim.state, "claimed");
   assert.deepEqual(
@@ -476,13 +700,17 @@ try {
   assert.doesNotMatch(claimRequestJson, /"instructions"/);
   assert.doesNotMatch(claimRequestJson, /"spec"/);
 
-  const ready = await requestJson<{ state: string; stage: string }>(operation.endpoints.ready, {
+  await expectTokenRejection(endpoints.ready, readyBody, launchToken);
+  await expectTokenRejection(endpoints.ready, readyBody, "invalid-canary-credential");
+
+  const ready = await requestJson<{ state: string; stage: string }>(endpoints.ready, {
     method: "POST",
     headers: {
       authorization: `Bearer ${claim.bridgeToken}`,
+      "user-agent": THOUGHT_AGENT_HTTP_USER_AGENT,
       "content-type": "application/json",
     },
-    body: JSON.stringify(operation.ready),
+    body: JSON.stringify(readyBody),
   });
   assert.equal(ready.state, "ready");
   assert.equal(ready.stage, "control-verified");
@@ -492,6 +720,7 @@ try {
     state: string;
     request?: {
       intent?: string;
+      authority?: unknown;
       spec?: {
         id?: string;
         contractSpecId?: string;
@@ -511,10 +740,11 @@ try {
         schema?: unknown;
       };
     };
-  }>(operation.endpoints.start, {
+  }>(endpoints.start, {
     method: "POST",
     headers: {
       authorization: `Bearer ${claim.bridgeToken}`,
+      "user-agent": THOUGHT_AGENT_HTTP_USER_AGENT,
       "content-type": "application/json",
     },
     body: JSON.stringify({
@@ -567,10 +797,11 @@ try {
     },
   });
   const completedAt = new Date(Math.max(Date.now(), Date.parse(startedAt))).toISOString();
-  const returned = await requestJson<{ state: string; result?: { agentLine?: string } }>(operation.endpoints.result, {
+  const returned = await requestJson<{ state: string; result?: { agentLine?: string } }>(endpoints.result, {
     method: "PUT",
     headers: {
       authorization: `Bearer ${claim.bridgeToken}`,
+      "user-agent": THOUGHT_AGENT_HTTP_USER_AGENT,
       "content-type": "application/json",
       "idempotency-key": operation.invocationId,
     },
@@ -648,8 +879,11 @@ try {
   fs.writeFileSync(screenshotPath, Buffer.from(screenshot.data, "base64"));
 
   console.log(JSON.stringify({
+    testKind: "automated-integration",
+    realAgentExecuted: false,
     runId: created.runId,
     adapterId,
+    agentApiOrigin: new URL(runUrl).origin,
     state: returned.state,
     release: created.release,
     parity: {
@@ -657,6 +891,8 @@ try {
       browserHandoffToStart: true,
       creativeBindings: true,
       boundedControlClaim: true,
+      applicationHttpIdentity: true,
+      existingRunTokenRejections: 4,
       everyReleaseField: true,
       startToResult: true,
     },
@@ -666,11 +902,68 @@ try {
     ),
     screenshotPath,
   }, null, 2));
+} catch (error) {
+  if (client) {
+    const diagnostics = await evaluate<{
+      bodyText: string;
+      href: string;
+      capture: unknown;
+    }>(client, `({
+      bodyText: document.body?.innerText?.slice(0, 6000) || "",
+      href: location.href,
+      preparationDiagnostic: document.documentElement.dataset.thoughtAgentPreparationDiagnostic || null,
+      capture: window.__thoughtBrowserReleaseCanary ? {
+        createCount: window.__thoughtBrowserReleaseCanary.createCount,
+        captureError: window.__thoughtBrowserReleaseCanary.captureError || null,
+        createKeys: Object.keys(window.__thoughtBrowserReleaseCanary.create || {}).sort(),
+        state: window.__thoughtBrowserReleaseCanary.create?.state || null,
+        release: window.__thoughtBrowserReleaseCanary.create?.release || null,
+        controlContract: window.__thoughtBrowserReleaseCanary.create?.controlContract || null,
+        resultContract: window.__thoughtBrowserReleaseCanary.create?.resultContract || null,
+        statusUrlPresent: Boolean(window.__thoughtBrowserReleaseCanary.create?.statusUrl),
+        launchUriPresent: Boolean(window.__thoughtBrowserReleaseCanary.create?.launchUri),
+        browserTokenPresent: Boolean(window.__thoughtBrowserReleaseCanary.create?.browserToken),
+        launchUriScheme: (() => {
+          try { return new URL(window.__thoughtBrowserReleaseCanary.create?.launchUri || "").protocol; }
+          catch { return "invalid"; }
+        })(),
+        launchUriParamNames: (() => {
+          try {
+            return [...new URL(window.__thoughtBrowserReleaseCanary.create?.launchUri || "").searchParams.keys()].sort();
+          } catch { return []; }
+        })(),
+        statusUrlShape: (() => {
+          try {
+            const url = new URL(window.__thoughtBrowserReleaseCanary.create?.statusUrl || "", location.href);
+            return { origin: url.origin, pathname: url.pathname };
+          } catch { return null; }
+        })()
+      } : null
+    })`).catch(() => ({ bodyText: "", href: pageUrl, capture: null }));
+    console.error(JSON.stringify({
+      browserCanaryFailure: error instanceof Error ? error.message : String(error),
+      diagnostics,
+      browserErrors,
+      browserCaughtExceptionSites,
+      recentNetworkRequests: requests.slice(-24).map((request) => ({
+        ...request,
+        url: request.url.replace(/([?&](?:token|access|credential)=)[^&]+/gi, "$1REDACTED"),
+      })),
+      failedNetworkRequests: requests.filter((request) =>
+        request.status === null || request.status >= 400
+      ).map((request) => ({
+        ...request,
+        url: request.url.replace(/([?&](?:token|access|credential)=)[^&]+/gi, "$1REDACTED"),
+      })),
+    }, null, 2));
+  }
+  throw error;
 } finally {
   if (created && !terminal) {
     const runUrl = new URL(created.statusUrl, pageUrl).toString().replace(/\/+$/g, "");
     await fetch(`${runUrl}/cancel`, {
       method: "POST",
+      redirect: "error",
       headers: {
         authorization: `Bearer ${created.browserToken}`,
         "content-type": "application/json",

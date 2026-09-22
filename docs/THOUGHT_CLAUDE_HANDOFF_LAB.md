@@ -6,21 +6,18 @@ This lab qualifies the Claude-specific THOUGHT handoff before the App treats a r
 
 The Claude handoff follows the same product principles as Codex:
 
+- an ordinary request that states its purpose and destination first;
 - descriptive constraints instead of pasted shell programs;
 - bounded preflight first, then exactly one creative turn;
-- no creator confirmation after a successful preflight;
-- extra chat turns only for evidenced control recovery;
-- bootstrap transport values grouped in a compact angle-bracket capsule;
-- no installation or configuration request to the creator;
-- sealed creative input until control succeeds;
-- App-issued authority, release, Work Specification, Creative Brief, prompt,
+- connection values grouped under markup-safe plain-text identifiers;
+- no repository changes, installation, or downloaded executable;
+- creative input withheld until the claim and readiness checks succeed;
+- exact response authority, release, Work Specification, Creative Brief, prompt,
   result, and runtime-evidence parity;
 - one adapter-bound claim and at most one creative result.
 
-Claude Code adds three non-negotiable constraints:
+Claude Code adds two non-negotiable constraints:
 
-- the handoff states plainly that the creator selected Claude, can read it, and
-  can inspect the App run;
 - the exact surface, bridge, and adapter fields bind the run to Claude Code;
 - runtime identity must come from the Code host and may never be guessed.
 
@@ -29,11 +26,58 @@ must never tell Claude to hide the prompt, result, or transport from the
 creator. It also must not prescribe a fabricated success line. Success means
 the App returned a real receipt.
 
-The visible handoff is editable bootstrap text and never a creative trust
-root. Claim and start responses carry the exact App-issued run-authority
-contract. Only the start response supplies canonical creative input and
-release identity. A receipt proves App acceptance and binding, not transcript
-purity or absence of outside influence.
+The active Claude Code handoff is an ordinary one-run request: it says what Claude should
+make and where to return it before listing the connection data. Exact claim and
+start response fields bind the request to its run. Only the start response
+supplies creative input and release identity. Success means the App returned a
+real receipt.
+
+Those checks have a narrow meaning. A receipt proves App acceptance and run
+binding; it does not attest transcript purity or the absence of outside
+influence. Likewise, a deep link supplies the task to Claude Code but does not
+prove that its host isolated the task from an open working directory. The task
+therefore states simply that repository files are not needed and must not be
+read, changed, or executed for this run.
+
+Codex and Claude Code share exact claim/readiness JSON data and authentication
+instructions. Root `protocolVersion` is `inshell.thought.agent-run.v2`, not
+readiness `control.schema` (`inshell.thought.agent-control.v1`). Claim uses the
+launch bearer in the Authorization header; remaining requests use the returned
+top-level `bridgeToken`. Neither credential belongs in JSON, URLs, files or logs.
+Every Agent request also sends `User-Agent: Inshell-THOUGHT-Agent/2`, including
+legacy Cowork connectivity checks. This truthfully identifies THOUGHT protocol
+traffic; it is not a browser identity, model claim, or authentication factor.
+For result delivery, `output.rawSha256` is `sha256:` plus 64 lowercase hex
+digits over the exact UTF-8 bytes of the decoded `output.raw` string;
+`output.agentLineSha256` follows the same rule for the decoded
+`output.agentLine` string, not its JSON-escaped representation. The candidate
+may use any valid JSON key order and whitespace. Claude must hash the final
+strings it submits rather than sorting keys, applying JCS, or hashing a later
+serialization. The surrounding PUT body may be serialized normally, but
+decoding it must yield the exact field strings that were hashed. An otherwise
+correct digest without the `sha256:` prefix is rejected.
+
+The staging transport check reproduced HTTP 403/1010 with Python's default
+User-Agent while the same client with this application identity succeeded.
+Do not impersonate a browser or rotate identities to evade a denial.
+The active Claude Code handoff classifies recovery as definitely not sent,
+definitely rejected by an established App error known not to have committed,
+or uncertain after dispatch. Gateway or proxy errors, malformed responses, and
+timeouts are uncertain. A pre-dispatch Agent-app permission refusal is a
+not-sent condition, not an HTTP, schema, or authentication rejection. A 429 may
+retry once only when `Retry-After` is usable and it is known that no commit
+occurred; otherwise
+the operation follows its uncertain-response rule.
+
+An uncertain claim stops for browser reconciliation because its credential is
+consumed and its bridge token is returned only once. Readiness may replay its
+exact body and bridge credential once. An uncertain start stops without another
+start or creative generation because a running run does not replay creative
+input. An uncertain result may replay only the frozen request once with the
+same invocation, idempotency key, raw bytes, and hashes; it never reserializes,
+repairs hashes, changes the artwork, or generates a replacement. An uncertain
+failure stops because `/fail` is terminal, not replayable, and cannot overwrite
+success.
 
 ## Deterministic matrix
 
@@ -91,6 +135,12 @@ runs may still be resumed without changing their run ID or execution surface.
 
 Both surfaces retain the same `claude` adapter and `Claude` Agent identity. Their bridge platform and adapter-version fields distinguish how the run was transported.
 
+The documented Claude Desktop Code link supplies the task through `q`. The task
+needs no repository changes, installation, or downloaded executable. It uses
+the five run endpoints named in its connection data. The App does not add
+unsupported repository, folder, branch, or permission parameters to the deep
+link.
+
 ## Real Claude Code canary
 
 Deploy the candidate THOUGHT App and Agent API at a publicly reachable HTTPS
@@ -101,8 +151,25 @@ pnpm handoff:lab:claude real-prepare --origin https://candidate.example --surfac
 ```
 
 Claude Desktop opens a new Code task using `claude://code/new?q=...`. The
-creator clicks Submit once. The handoff must continue automatically after a
-successful preflight; `RETRY` is reserved for an observed recoverable blocker.
+creator clicks Submit once. The run follows the bounded claim, readiness,
+creative start, and return operations. Recovery follows the operation-specific
+certainty and replay limits above; it is not a generic retry of the last step.
+
+After the operator observes and performs that Submit action, inspect the run
+with:
+
+```text
+pnpm handoff:lab:claude real-observe --session '<sessionPath>' --launch-submission creator-clicked-submit --control-actions none
+```
+
+Omit `--launch-submission` when the action was not observed; the report then
+records `not-recorded`. `launchSubmissionEvidence: operator-reported` and
+`serverReturnObserved` deliberately separate the declaration from the App
+state seen by polling. `qualificationEligible` remains false; the
+observer cannot attest the visible desktop launch or rendered preview, so
+qualification is decided only from separate reviewed evidence. Terminal runs remove private session,
+task, and deep-link files, while a timeout preserves them for another poll.
+Older reports remain historical evidence and are not rewritten.
 
 Code can use a local, LAN, or public HTTPS App endpoint when that environment
 can reach it. No one-run folder is part of the protocol. To inspect the retired
@@ -121,9 +188,9 @@ pnpm dev:thought:stack:public-agent
 ```
 
 The browser sends same-origin `/api/thought-agent/v2` requests through the Vite
-proxy. The sealed Claude handoff receives the exact public run URL instead of
+proxy. The Claude bootstrap handoff receives the exact public run URL instead of
 the localhost proxy URL. Codex uses the same run service and protocol. No
-one-run folder, LAN permission, or local-file permission is part of this flow.
+one-run folder is part of this flow.
 
 Public reachability does not make runs public. Browser and Agent access remain
 separated by short-lived run-scoped bearer values, responses are `no-store`,
@@ -148,11 +215,18 @@ Observe the returned run using the exact command printed by `real-prepare`. Priv
 A Claude handoff revision is eligible for App rollout only when:
 
 1. the complete deterministic matrix passes;
-2. the browser release-parity canary passes for both ChatGPT/Codex and Claude;
-3. the Claude deep link preserves the exact sealed task within the supported URL limit;
+2. the automated browser integration tests pass for both Codex and Claude adapters (no real Agent execution);
+3. the Claude deep link preserves the exact bootstrap task within the supported URL limit;
 4. a real Claude Code canary returns a valid App receipt;
 5. no test or report exposes credentials or creative input before `/start`;
 6. Codex regression tests continue to pass.
+
+The 2026-08-26 markup-safe handoff correction changes both active candidates.
+Under the superseding 2026-09-11 operator decision, run two real cells on one operator Mac (Codex and Claude Code); second-Mac coverage is optional. Include the actual
+THOUGHT chooser and deep-link/composer path, before promotion. Older passing
+reports remain historical; they do not qualify new handoff bytes. The DOM and
+protocol regression tests prove the known failure mode, not universal host or
+model compatibility. See [Codex requalification](THOUGHT_CODEX_HANDOFF_LAB.md#requalification-after-the-2026-08-26-transport-correction).
 
 The checked-in Cowork qualification record remains `qualified: false` as a
 legacy marker and is not imported by active routing. A reviewed Code canary is

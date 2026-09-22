@@ -1,3 +1,6 @@
+pnpm docs:check
+pnpm test:agent-docs-generator
+pnpm check:upstream-releases
 pnpm lint
 pnpm type-check
 pnpm test:unit

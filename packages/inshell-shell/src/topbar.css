@@ -147,6 +147,7 @@
   color: var(--text);
   background: var(--panel);
   border: 1px solid var(--panel-border);
+  font-size: var(--shell-context-panel-font-size);
   box-shadow: var(--shell-wallet-modal-shadow);
 }
 
@@ -186,23 +187,45 @@
   line-height: 1.5;
 }
 
+.inshell-wallet-modal__copy a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: var(--shell-secondary-action-underline-offset);
+}
+
+.inshell-wallet-modal__copy a:hover,
+.inshell-wallet-modal__copy a:focus-visible {
+  color: var(--accent);
+}
+
 .inshell-wallet-modal__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--shell-context-popover-row-gap);
   margin-top: 18px;
+  color: var(--muted);
+  font-style: italic;
 }
 
 .inshell-wallet-modal__actions button {
+  min-height: var(--shell-topbar-min-height);
   padding: var(--shell-wallet-modal-action-padding);
-  color: var(--accent);
-  border: 1px solid var(--accent);
+  color: inherit;
+  border: 0;
+  text-decoration: underline;
+  text-underline-offset: var(--shell-secondary-action-underline-offset);
   cursor: pointer;
+}
+
+.inshell-wallet-modal__actions button:not(:disabled):hover,
+.inshell-wallet-modal__actions button:not(:disabled):focus-visible {
+  color: var(--accent);
 }
 
 .inshell-wallet-modal__actions button:disabled {
   color: var(--muted);
-  border-color: var(--ghost-border);
   cursor: not-allowed;
 }
 
@@ -302,7 +325,12 @@
 
     gap: var(--shell-topbar-compact-gap);
     margin-bottom: var(--shell-topbar-compact-margin-block-end);
-    padding-inline: var(--shell-bar-padding-inline-compact);
+    padding-inline-start: calc(
+      var(--shell-bar-padding-inline-compact) + env(safe-area-inset-left)
+    );
+    padding-inline-end: calc(
+      var(--shell-bar-padding-inline-compact) + env(safe-area-inset-right)
+    );
   }
 
   .inshell-topbar__right {
@@ -313,7 +341,9 @@
     gap: var(--topbar-menu-gap);
   }
 
-  .inshell-wallet-picker {
+  .inshell-wallet-modal,
+  .inshell-wallet-picker,
+  .inshell-wallet-picker__notice {
     position: fixed;
     right: var(--shell-wallet-picker-mobile-inset);
     bottom: calc(
@@ -324,5 +354,38 @@
     min-width: 0;
     max-width: none;
     width: auto;
+    max-height: var(--shell-mobile-panel-max-height);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .inshell-topbar__wallet,
+  .inshell-topbar__brand,
+  .inshell-topbar__link,
+  .inshell-wallet-picker__item,
+  .inshell-wallet-modal__actions button {
+    min-height: var(--shell-touch-target-size);
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .inshell-topbar__wallet-surface--with-note > .inshell-wallet-modal,
+  .inshell-topbar__wallet-surface--with-note > .inshell-wallet-picker {
+    top: auto;
+  }
+}
+
+@media (max-width: 380px) {
+  .inshell-topbar {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    row-gap: var(--shell-topbar-narrow-row-gap);
+    margin-bottom: var(--shell-topbar-narrow-margin-block-end);
+  }
+
+  .inshell-topbar__right {
+    width: 100%;
+    justify-self: stretch;
+    justify-content: space-between;
   }
 }

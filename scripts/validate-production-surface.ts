@@ -471,13 +471,19 @@ function checkThoughtProductionGuards() {
       fail(`apps/thought/src/main.ts is missing THOUGHT production guard: ${snippet}`);
     }
   }
-  if (!text.includes("pinned THOUGHT renderer release mismatch; preview stopped.")) {
-    fail("apps/thought/src/main.ts must fail closed when the current renderer release is unavailable");
+  for (const snippet of [
+    "const createPinnedBrowserPreviewProvider = (): ThoughtPreviewProvider => ({",
+    "THOUGHT_V2_ARTIFACT.manifestSha256",
+    'method: "frontendRender"',
+    "buildThoughtV2Svg({",
+    'return { provider: createPinnedBrowserPreviewProvider(), reason: "" };',
+    "currentRunContext?.previewProvider?.method !== \"frontendRender\"",
+  ]) {
+    if (!text.includes(snippet)) {
+      fail(`apps/thought/src/main.ts is missing pinned browser-preview guard: ${snippet}`);
+    }
   }
-  if (
-    text.includes("const createFrontendPreviewProvider =") ||
-    text.includes("buildThoughtV2Svg")
-  ) {
+  if (text.includes("const createFrontendPreviewProvider =")) {
     fail("apps/thought/src/main.ts must not expose an unpinned frontend renderer fallback");
   }
   if (text.includes("sessionStorage.setItem(THOUGHT_SESSION_STORAGE_KEY")) {
@@ -506,7 +512,19 @@ function checkThoughtProductionGuards() {
     "type: \"web_search_20250305\"",
   ]);
   requireSnippets("package.json", ["test:thought-runtime"]);
-  requireSnippets("apps/home/package.json", ["tests/thoughtPreviewFunction.test.ts"]);
+  requireSnippets("apps/home/package.json", [
+    '"test:presepolia": "pnpm run test:unit"',
+    '"test:all": "jest --runInBand --coverage=false"',
+    '"test:coverage": "jest --runInBand --runTestsByPath',
+    '"test:unit": "pnpm run test:all && pnpm run test:coverage"',
+  ]);
+  requireSnippets("apps/home/jest.config.cjs", [
+    'testMatch: ["<rootDir>/tests/**/*.test.{ts,tsx}"]',
+  ]);
+  requireSnippets("apps/home/tests/thoughtPreviewFunction.test.ts", [
+    "onRequestGet",
+    "onRequestPost",
+  ]);
 
   if (text.includes("VITE_THOUGHT_INDEXER_URL")) {
     fail("apps/thought/src/main.ts must not use VITE_THOUGHT_INDEXER_URL as a tx explorer URL");

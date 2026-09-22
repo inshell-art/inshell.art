@@ -170,7 +170,7 @@ describe("THOUGHT Agent V2 protocol helpers", () => {
 
     expect(task).toContain("1-64-byte Terminal English agentLine");
     expect(task).toContain(
-      `<work_profile> = ${THOUGHT_V2_PROTOCOL_RELEASE.identifiers.workProfile}`,
+      `WORK_PROFILE = ${THOUGHT_V2_PROTOCOL_RELEASE.identifiers.workProfile}`,
     );
     expect(task).not.toContain("162 display units");
     expect(task).not.toContain("approval code");

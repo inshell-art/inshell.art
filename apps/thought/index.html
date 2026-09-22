@@ -79,7 +79,14 @@
       } else if (thoughtPathMatch || thoughtQueryId) {
         document.documentElement.classList.add("thought-route");
       }
-      const isCliSurface = params.get("debug") === "cli" || params.get("surface") !== "agent";
+      const requestedSurface = params.get("surface");
+      const useDevAgentDefault =
+        requestedSurface === null &&
+        globalThis.__INSHELL_THOUGHT_DEV_DEFAULT_SURFACE__ === "agent";
+      const isCliSurface =
+        params.get("debug") === "cli" ||
+        requestedSurface === "cli" ||
+        (requestedSurface !== "agent" && !useDevAgentDefault);
       document.documentElement.classList.add(isCliSurface ? "cli-surface" : "agent-surface");
       if (params.get("debug") === "cli") {
         document.documentElement.classList.add("debug-cli");
@@ -116,7 +123,7 @@
           <p class="thought-create__slogan">one person. one Agent. one thought.</p>
         </div>
         <nav class="thought-create__links" aria-label="THOUGHT creation surfaces">
-          <a href="/thought">[ cli ]</a>
+          <a href="/thought?surface=cli">[ cli ]</a>
           <a href="/thought?surface=agent">[ Agent ]</a>
           <a href="/thought/verify">[ verify ]</a>
         </nav>
@@ -155,7 +162,7 @@
               <section id="thought-dock" class="thought-dock" aria-label="THOUGHT work">
                 <div class="thought-dock-prompt-row">
                   <label id="thought-dock-label" class="thought-dock-label" for="thought-dock-prompt">
-                    prompt
+                    Prompt
                   </label>
                   <input
                     id="thought-dock-prompt"
@@ -163,7 +170,7 @@
                     type="text"
                     autocomplete="off"
                     spellcheck="true"
-                    placeholder="give a thought here"
+                    placeholder="Give a thought here"
                     title="Up/Down: prompt history"
                   />
                 </div>
@@ -201,7 +208,7 @@
                     id="thought-dock-path-inventory-label"
                     class="thought-dock-label thought-dock-label--secondary"
                   >
-                    available $PATH
+                    Available $PATH
                   </p>
                   <div class="thought-dock-select-wrap">
                     <select
@@ -240,7 +247,7 @@
                   class="thought-dock-label thought-dock-label--secondary"
                   for="thought-dock-works-select"
                 >
-                  load a saved work
+                  Load a saved work
                 </label>
                 <div class="thought-dock-select-wrap">
                   <select
@@ -635,8 +642,8 @@
             </span>
           </span>
         </p>
-        <a id="gallery-create-link" class="thought-gallery__create" href="/thought">create your THOUGHT</a>
-        <a id="gallery-home-link" class="thought-gallery__home" href="https://inshell.art/">[ home ]</a>
+        <a id="gallery-create-link" class="thought-gallery__create" href="/thought">Create the first THOUGHT</a>
+        <a id="gallery-home-link" class="thought-gallery__home" href="https://inshell.art/">[ Home ]</a>
       </div>
       <div id="gallery-grid" class="thought-gallery__grid"></div>
       <footer class="thought-gallery__footer">
@@ -868,12 +875,10 @@
 
     <section id="thought-page" class="thought-detail is-hidden" aria-labelledby="thought-detail-title">
       <header class="thought-detail__header">
-        <div>
-          <h1 id="thought-detail-title" class="thought-detail__title">THOUGHT #<span id="thought-detail-token-id">-</span></h1>
-        </div>
+        <h1 id="thought-detail-title" class="thought-detail__title">THOUGHT #<span id="thought-detail-token-id">-</span></h1>
         <nav class="thought-detail__links" aria-label="THOUGHT detail links">
-          <a id="thought-detail-gallery-link" class="thought-detail__link" href="https://inshell.art/gallery">[ gallery ]</a>
-          <a id="thought-detail-create-link" class="thought-detail__link" href="/thought">[ create yours ]</a>
+          <a id="thought-detail-gallery-link" class="thought-detail__link" href="https://inshell.art/">[ Home ]</a>
+          <a id="thought-detail-create-link" class="thought-detail__link" href="/thought">[ Create yours ]</a>
         </nav>
       </header>
       <p id="thought-detail-status" class="thought-detail__status" aria-live="polite">loading THOUGHT...</p>
@@ -898,11 +903,7 @@
           </section>
 
           <section class="thought-detail__section">
-            <h2>creation provenance</h2>
-            <p class="thought-detail__attestation-summary">
-              <span id="thought-detail-attestation" class="thought-detail__attestation">-</span>
-              <span id="thought-detail-attestation-copy">Reading the creation record.</span>
-            </p>
+            <h2>creation record</h2>
             <dl class="thought-detail__fields">
               <div>
                 <dt>process</dt>
@@ -926,18 +927,9 @@
               </div>
             </dl>
           </section>
-        </aside>
-
-        <div class="thought-detail__support">
-          <section class="thought-detail__section">
-            <h2>canonical traits</h2>
-            <dl id="thought-detail-traits" class="thought-detail__fields">
-              <div><dt>status</dt><dd>reading token metadata</dd></div>
-            </dl>
-          </section>
 
           <section class="thought-detail__section">
-            <h2>on-chain record</h2>
+            <h2>token details</h2>
             <dl class="thought-detail__fields">
               <div><dt>token</dt><dd id="thought-detail-token">-</dd></div>
               <div><dt>author</dt><dd id="thought-detail-minter">-</dd></div>
@@ -950,11 +942,17 @@
               <div><dt>tx</dt><dd><a id="thought-detail-view-tx" class="thought-detail__value-link" href="#">-</a></dd></div>
             </dl>
           </section>
-        </div>
+        </aside>
 
         <details class="thought-detail__record thought-detail__verification">
           <summary>verify / raw data</summary>
           <div class="thought-detail__record-body">
+            <div class="thought-detail__verification-traits">
+              <h3>canonical traits</h3>
+              <dl id="thought-detail-traits" class="thought-detail__fields">
+                <div><dt>status</dt><dd>reading token metadata</dd></div>
+              </dl>
+            </div>
             <div class="thought-detail__verification-grid">
               <div>
                 <h3>contract commitments</h3>
@@ -983,6 +981,8 @@
         </details>
 
         <div class="thought-detail__legacy-hooks" hidden aria-hidden="true">
+          <p id="thought-detail-attestation">-</p>
+          <p id="thought-detail-attestation-copy">Reading the creation record.</p>
           <p id="thought-detail-canonical-title">-</p>
           <a id="thought-detail-color-font" href="#">archived Color Font v1</a>
           <p id="thought-detail-color-font-status"></p>

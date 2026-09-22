@@ -194,7 +194,24 @@ function colorLabel(glyph: ColorGlyph): string {
   return `${glyph.letter}:${name}:${glyph.hex}`;
 }
 
-function fallbackDoc(): ColorFontDoc {
+function fallbackDoc(studioPreview = false): ColorFontDoc {
+  if (studioPreview) {
+    return {
+      loadKind: "fallback",
+      loadedFrom: COLOR_FONT_LOADED_FROM_FALLBACK,
+      authority: "bundled frontend mirror",
+      chain: "onchain deployment not active",
+      id: COLOR_FONT.id,
+      version: COLOR_FONT.version,
+      format: COLOR_FONT.format,
+      hash: COLOR_FONT.hash,
+      mirror: COLOR_FONT.mirror,
+      raw: COLOR_FONT.raw,
+      glyphs: [...COLOR_FONT.glyphs],
+      status: "The bundled frontend mirror is available now. Onchain authority will appear when the release is deployed.",
+      repositoryUrl: COLOR_FONT.repositoryUrl,
+    };
+  }
   return {
     loadKind: "fallback",
     loadedFrom: COLOR_FONT_LOADED_FROM_FALLBACK,
@@ -452,7 +469,7 @@ function getReplacementBackground(target: globalThis.Element | null) {
   return window.getComputedStyle(document.body).backgroundColor || "var(--bg-body)";
 }
 
-export default function ColorFontPage() {
+export default function ColorFontPage({ studioPreview = false }: { studioPreview?: boolean }) {
   const [state, setState] = useState<ColorFontState>({ kind: "loading" });
   const [reloadToken, setReloadToken] = useState(0);
   const [wordReplacement, setWordReplacement] =
@@ -473,6 +490,10 @@ export default function ColorFontPage() {
     setState({ kind: "loading" });
 
     async function loadColorFont() {
+      if (studioPreview) {
+        setState({ kind: "ready", doc: fallbackDoc(true) });
+        return;
+      }
       try {
         const onchainDoc = await fetchOnchainColorFont();
         if (cancelled) return;
@@ -488,7 +509,7 @@ export default function ColorFontPage() {
     return () => {
       cancelled = true;
     };
-  }, [reloadToken]);
+  }, [reloadToken, studioPreview]);
 
   function handleWordMouseMove(event: MouseEvent<HTMLElement>) {
     if (!doc) return;
@@ -670,11 +691,11 @@ export default function ColorFontPage() {
               <a href={rawMappingHref} target="_blank" rel="noopener noreferrer">
                 Open raw onchain data ↗
               </a>
-            ) : (
+            ) : !studioPreview ? (
               <button type="button" onClick={() => setReloadToken((value) => value + 1)}>
                 Retry onchain load
               </button>
-            )}
+            ) : null}
             <a
               href={state.doc.repositoryUrl}
               target="_blank"

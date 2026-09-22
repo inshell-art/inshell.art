@@ -19,6 +19,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - name: Enable pnpm
         run: corepack enable
       - name: Use Node.js
@@ -28,16 +30,36 @@ jobs:
           cache: "pnpm"
       - name: Install zsh
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes zsh
+          if command -v zsh >/dev/null 2>&1; then
+            zsh --version
+          else
+            sudo apt-get install --yes zsh
+            zsh --version
+          fi
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Require reviewed real-agent evidence for production
+        if: ${{ github.event.pull_request.base.ref == 'main' || github.ref == 'refs/heads/main' }}
+        run: pnpm run check:release-evidence
+      - name: Check public documentation
+        run: pnpm run docs:check
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09
+        with:
+          version: v1.5.1
+          cache: false
+      - name: Verify Anvil
+        run: anvil --version
       - name: Check upstream release freshness
         run: pnpm run check:upstream-releases
       - name: Verify PATH contract release
         run: pnpm run check:path-contract-release
       - name: Validate deployment gates
         run: pnpm run check:deployment
+      - name: Validate deployment integrity and separate activation policy
+        env:
+          DEPLOYMENT_LOCK_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD' }}
+        run: pnpm run check:thought-production-readiness
       - name: Check PUB path boundary
         run: pnpm run pub-boundary:check
       - name: Run linter
@@ -52,6 +74,35 @@ jobs:
         env:
           THOUGHT_RENDER_PARITY_RPC_URL: ${{ vars.THOUGHT_RENDER_PARITY_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com' }}
         run: pnpm run check:thought-renderer-parity
+      - name: Build home
+        run: pnpm run build:home
+      - name: Build THOUGHT
+        run: pnpm run build:thought
+
+  # Fast feedback runs alongside the full build. It is deliberately additive:
+  # the release/runtime job above remains required for every PR and branch.
+  fast-feedback:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+      - name: Enable pnpm
+        run: corepack enable
+      - name: Use Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: "pnpm"
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check public documentation
+        run: pnpm run docs:check
+      - name: Run linter
+        run: pnpm run lint
+      - name: Run type-check
+        run: pnpm run type-check
+      - name: Run fast test suite
+        run: pnpm run test:presepolia
       - name: Build home
         run: pnpm run build:home
       - name: Build THOUGHT

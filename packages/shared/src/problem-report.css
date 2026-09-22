@@ -1,0 +1,47 @@
+.thought-failure-report {
+  --report-width: 42rem; --report-gap: 1rem; --report-padding: 1.5rem;
+  --report-background: #111; --report-color: #eee; --report-border: 1px solid #888;
+  --report-backdrop: #000b; --report-height: 85vh;
+  --report-field-padding: .65rem; --report-small: .8125rem;
+  --report-title: 1.5rem; --report-leading: 1.5; --report-zero: 0;
+  --report-focus: 2px solid #eee; --report-focus-offset: 3px;
+  --report-preview-height: 12rem;
+  width: var(--report-width); max-width: calc(100vw - var(--report-padding) * 2);
+  max-height: var(--report-height); overflow: auto; box-sizing: border-box;
+  background: var(--report-background); color: var(--report-color);
+  border: var(--report-border); padding: var(--report-padding); font: inherit;
+}
+.thought-failure-report h2 {
+  font-size: var(--report-title); margin: var(--report-zero) var(--report-zero) var(--report-gap);
+}
+.thought-failure-report p { line-height: var(--report-leading); }
+.thought-failure-report label {
+  display: block; margin-bottom: var(--report-field-padding);
+}
+.thought-failure-report .report-privacy { font-size: var(--report-small); }
+.thought-failure-report .report-actions { display: flex; flex-wrap: wrap; gap: var(--report-field-padding); }
+.thought-failure-report::backdrop { background: var(--report-backdrop); }
+.thought-failure-report input, .thought-failure-report textarea {
+  display: block; box-sizing: border-box; width: 100%; margin-bottom: var(--report-gap);
+  background: var(--report-background); color: var(--report-color); font: inherit;
+  border: var(--report-border);
+  padding: var(--report-field-padding); line-height: var(--report-leading);
+  border-radius: var(--report-zero);
+}
+.thought-failure-report textarea[readonly] {
+  font-size: var(--report-small); height: var(--report-preview-height); overflow: auto; resize: vertical;
+}
+.thought-failure-report button, .thought-failure-report a {
+  display: inline-block; margin: var(--report-zero); padding: var(--report-field-padding);
+  background: var(--report-background); color: var(--report-color); font: inherit;
+  border: var(--report-border); border-radius: var(--report-zero);
+  text-decoration: none; cursor: pointer; line-height: var(--report-leading);
+}
+.thought-failure-report .report-primary { background: var(--report-color); color: var(--report-background); }
+.thought-failure-report :focus-visible { outline: var(--report-focus); outline-offset: var(--report-focus-offset); }
+@media (max-width: 480px) {
+  .thought-failure-report {
+    --report-padding: 1rem; --report-gap: .75rem; --report-height: 92dvh;
+    --report-preview-height: 9rem; --report-title: 1.25rem; --report-leading: 1.4;
+  }
+}

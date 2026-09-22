@@ -48,13 +48,14 @@ jobs:
       VITE_THOUGHT_URL: ${{ github.event.inputs.branch == 'staging' && 'https://preview.inshell.art/thought' || vars.VITE_THOUGHT_URL || 'https://inshell.art/thought' }}
       VITE_GALLERY_URL: ${{ github.event.inputs.branch == 'staging' && 'https://preview.inshell.art/gallery' || vars.VITE_GALLERY_URL || vars.VITE_THOUGHT_GALLERY_URL || 'https://inshell.art/gallery' }}
       VITE_THOUGHT_GALLERY_URL: ${{ github.event.inputs.branch == 'staging' && 'https://preview.inshell.art/gallery' || vars.VITE_GALLERY_URL || vars.VITE_THOUGHT_GALLERY_URL || 'https://inshell.art/gallery' }}
-      VITE_THOUGHT_AGENT_API_BASE: ${{ github.event.inputs.branch == 'staging' && 'https://staging.thought-inshell-art.pages.dev/api/thought-agent/v2' || vars.VITE_THOUGHT_AGENT_API_BASE || '/api/thought-agent/v2' }}
-      VITE_THOUGHT_AGENT_PUBLIC_API_BASE: ${{ github.event.inputs.branch == 'staging' && 'https://staging.thought-inshell-art.pages.dev/api/thought-agent/v2' || vars.VITE_THOUGHT_AGENT_PUBLIC_API_BASE || '/api/thought-agent/v2' }}
+      VITE_THOUGHT_AGENT_API_BASE: ${{ github.event.inputs.branch == 'staging' && '/api/thought-agent/v2' || vars.VITE_THOUGHT_AGENT_API_BASE || '/api/thought-agent/v2' }}
+      VITE_THOUGHT_AGENT_PUBLIC_API_BASE: ${{ github.event.inputs.branch == 'staging' && 'https://preview.inshell.art/api/thought-agent/v2' || vars.VITE_THOUGHT_AGENT_PUBLIC_API_BASE || '/api/thought-agent/v2' }}
       VITE_PUBLIC_TELEGRAM_CHANNEL_URL: ${{ vars.VITE_PUBLIC_TELEGRAM_CHANNEL_URL }}
     steps:
       - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.inputs.branch }}
+          fetch-depth: 0
       - name: Enable pnpm
         run: corepack enable
       - name: Use Node.js
@@ -62,8 +63,28 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+      - name: Install zsh
+        run: |
+          if command -v zsh >/dev/null 2>&1; then
+            zsh --version
+          else
+            sudo apt-get install --yes zsh
+            zsh --version
+          fi
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Validate deployment integrity before publishing
+        run: pnpm run check:thought-production-readiness
+      - name: Require reviewed real-agent evidence before production publishing
+        if: ${{ github.event.inputs.branch == 'main' }}
+        run: pnpm run check:release-evidence
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09
+        with:
+          version: v1.5.1
+          cache: false
+      - name: Verify Anvil
+        run: anvil --version
       - name: Check deploy config
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -81,6 +102,8 @@ jobs:
           if [ "${{ github.event.inputs.branch }}" = "main" ]; then
             test -n "$VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN"
           fi
+      - name: Check public documentation
+        run: pnpm run docs:check
       - name: Check upstream release freshness
         run: pnpm run check:upstream-releases
       - name: Verify PATH contract release
@@ -93,6 +116,8 @@ jobs:
         run: pnpm --filter @inshell/home lint
       - name: Test home launch surface
         run: pnpm run test:presepolia
+      - name: Test THOUGHT runtime payloads
+        run: pnpm run test:thought-runtime
       - name: Build home
         run: pnpm run build:home
       - name: Verify production analytics bundle
@@ -111,7 +136,7 @@ jobs:
           if [ "${{ github.event.inputs.branch }}" = "main" ]; then
             pnpm run smoke:api-routes -- --scope home --home-base https://inshell.art
           else
-            pnpm run smoke:api-routes -- --scope home --home-base https://staging.inshell-art.pages.dev
+            pnpm run smoke:api-routes -- --scope home --home-base https://staging.inshell-art.pages.dev --allow-unavailable-contracts
           fi
 
   deploy-thought:
@@ -125,7 +150,7 @@ jobs:
       VITE_THOUGHT_RPC_URL: ${{ github.event.inputs.branch == 'staging' && '/api/thought-rpc' || vars.VITE_THOUGHT_RPC_URL || '/api/thought-rpc' }}
       VITE_THOUGHT_PREVIEW_ENDPOINT_ENABLED: ${{ vars.VITE_THOUGHT_PREVIEW_ENDPOINT_ENABLED || 'true' }}
       VITE_THOUGHT_PREVIEW_ENDPOINT_URL: ${{ github.event.inputs.branch == 'staging' && '/api/thought-preview' || vars.VITE_THOUGHT_PREVIEW_ENDPOINT_URL || '/api/thought-preview' }}
-      VITE_THOUGHT_AGENT_API_BASE: ${{ github.event.inputs.branch == 'staging' && 'https://staging.thought-inshell-art.pages.dev/api/thought-agent/v2' || vars.VITE_THOUGHT_AGENT_API_BASE || '/api/thought-agent/v2' }}
+      VITE_THOUGHT_AGENT_API_BASE: ${{ github.event.inputs.branch == 'staging' && '/api/thought-agent/v2' || vars.VITE_THOUGHT_AGENT_API_BASE || '/api/thought-agent/v2' }}
       VITE_THOUGHT_AGENT_PUBLIC_API_BASE: ${{ github.event.inputs.branch == 'staging' && 'https://staging.thought-inshell-art.pages.dev/api/thought-agent/v2' || vars.VITE_THOUGHT_AGENT_PUBLIC_API_BASE || '/api/thought-agent/v2' }}
       VITE_WALLET_CHAIN_RPC_URL: ${{ vars.VITE_WALLET_CHAIN_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com' }}
       VITE_PATH_MINT_URL: ${{ github.event.inputs.branch == 'staging' && 'https://preview.inshell.art/path' || vars.VITE_PATH_MINT_URL || 'https://inshell.art/path' }}
@@ -141,6 +166,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.inputs.branch }}
+          fetch-depth: 0
       - name: Enable pnpm
         run: corepack enable
       - name: Use Node.js
@@ -150,10 +176,29 @@ jobs:
           cache: pnpm
       - name: Install zsh
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes zsh
+          if command -v zsh >/dev/null 2>&1; then
+            zsh --version
+          else
+            sudo apt-get install --yes zsh
+            zsh --version
+          fi
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09
+        with:
+          version: v1.5.1
+          cache: false
+      # This job is independently publishable; repeat the same integrity gate.
+      - name: Validate deployment integrity before publishing
+        run: pnpm run check:thought-production-readiness
+      - name: Require reviewed real-agent evidence before production publishing
+        if: ${{ github.event.inputs.branch == 'main' }}
+        run: pnpm run check:release-evidence
+      - name: Check dependency security and release guard regressions
+        run: pnpm run check:dependency-security && pnpm run test:release-readiness
+      - name: Verify Anvil
+        run: anvil --version
       - name: Check deploy config
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -175,6 +220,8 @@ jobs:
           if [ "${{ github.event.inputs.branch }}" = "main" ]; then
             test -n "$VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN"
           fi
+      - name: Check public documentation
+        run: pnpm run docs:check
       - name: Check upstream release freshness
         run: pnpm run check:upstream-releases
       - name: Verify PATH contract release
@@ -183,6 +230,8 @@ jobs:
         run: pnpm run check:deployment
       - name: Check PUB path boundary
         run: pnpm run pub-boundary:check
+      - name: Test shared Home and Pages API surfaces
+        run: pnpm run test:unit
       - name: Test THOUGHT runtime payloads
         run: pnpm run test:thought-runtime
       - name: Check THOUGHT renderer parity
@@ -192,7 +241,7 @@ jobs:
       - name: Type-check THOUGHT
         run: pnpm --filter @inshell/thought type-check
       - name: Build THOUGHT
-        run: pnpm --filter @inshell/thought build
+        run: pnpm run build:thought
       - name: Verify production analytics bundle
         if: ${{ github.event.inputs.branch == 'main' }}
         run: |
@@ -209,5 +258,5 @@ jobs:
           if [ "${{ github.event.inputs.branch }}" = "main" ]; then
             pnpm run smoke:api-routes -- --scope thought --thought-base https://thought.inshell.art
           else
-            pnpm run smoke:api-routes -- --scope thought --thought-base https://staging.thought-inshell-art.pages.dev
+            pnpm run smoke:api-routes -- --scope thought --thought-base https://staging.thought-inshell-art.pages.dev --allow-unavailable-contracts
           fi

@@ -40,6 +40,12 @@ function rpcRequest(payload: unknown): Request {
   } as Request;
 }
 
+function rawRpcRequest(body: string): Request {
+  return {
+    text: async () => body,
+  } as Request;
+}
+
 function postRpc(payload: unknown): Promise<Response> {
   return onFallbackRpcPost({
     request: rpcRequest(payload),
@@ -59,6 +65,16 @@ function postRpcWithEnv(payload: unknown, env: Record<string, string>): Promise<
 function postPathRpc(payload: unknown): Promise<Response> {
   return onPathRpcPost({
     request: rpcRequest(payload),
+    env: {
+      PATH_RPC_UPSTREAM: "https://path-rpc.example/sepolia",
+      ETH_RPC_UPSTREAM: "https://fallback-rpc.example/sepolia",
+    },
+  });
+}
+
+function postPathRpcBody(body: string): Promise<Response> {
+  return onPathRpcPost({
+    request: rawRpcRequest(body),
     env: {
       PATH_RPC_UPSTREAM: "https://path-rpc.example/sepolia",
       ETH_RPC_UPSTREAM: "https://fallback-rpc.example/sepolia",
@@ -90,6 +106,55 @@ function postThoughtRpcWithEnv(payload: unknown, env: Record<string, string>): P
   });
 }
 
+async function expectRejectedWithoutUpstream(
+  request: () => Promise<Response>,
+  expectedError: string,
+  expectedStatus = 400,
+): Promise<void> {
+  const fetchMock = jest.fn<() => Promise<MockFetchResponse>>();
+  globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+  const response = await request();
+
+  expect(response.status).toBe(expectedStatus);
+  expect(response.status).toBeGreaterThanOrEqual(400);
+  expect(response.status).toBeLessThan(500);
+  await expect(response.json()).resolves.toEqual({ error: expectedError });
+  expect(fetchMock).not.toHaveBeenCalled();
+}
+
+const PATH_NFT_ADDRESS = "0x84915746a1f06850CF41a3E90C60c2DcA3fa116D";
+const PULSE_AUCTION_ADDRESS = "0x1071e99928Bdf020794a5E3e5B9c920450Ac9b39";
+const THOUGHT_NFT_ADDRESS = "0x413efb5C95Bf3158F0E563FB9E19CB650Fc3760a";
+const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+const THOUGHT_MINTED_TOPIC = "0xf83a962c31fcc481a4796d3bd1f81a4b58d1b05ec5cb34e434b2d40962596860";
+
+function ethCallPayload(to: unknown): unknown {
+  return {
+    jsonrpc: "2.0",
+    id: 1,
+    method: "eth_call",
+    params: [{ to, data: "0x1234" }, "latest"],
+  };
+}
+
+function pathLogPayload(overrides: Record<string, unknown> = {}): unknown {
+  return {
+    jsonrpc: "2.0",
+    id: 1,
+    method: "eth_getLogs",
+    params: [
+      {
+        address: PATH_NFT_ADDRESS,
+        fromBlock: "0x1",
+        toBlock: "0xa",
+        topics: [TRANSFER_TOPIC],
+        ...overrides,
+      },
+    ],
+  };
+}
+
 describe("Cloudflare Ethereum RPC proxy", () => {
   beforeEach(() => {
     globalThis.Response = TestResponse as unknown as typeof Response;
@@ -100,6 +165,164 @@ describe("Cloudflare Ethereum RPC proxy", () => {
     globalThis.Response = originalResponse;
     __clearRpcProxyCachesForTests();
     jest.restoreAllMocks();
+  });
+
+  describe.each([
+    ["fallback", postRpc],
+    ["PATH", postPathRpc],
+    ["THOUGHT", postThoughtRpc],
+  ] as const)("%s RPC method boundary", (_service, post) => {
+    test.each([
+      ["write", "eth_sendTransaction"],
+      ["write", "eth_sendRawTransaction"],
+      ["write", "eth_signTransaction"],
+      ["wallet", "eth_accounts"],
+      ["wallet", "eth_requestAccounts"],
+      ["wallet", "eth_sign"],
+      ["wallet", "personal_sign"],
+      ["wallet", "wallet_switchEthereumChain"],
+      ["wallet", "wallet_addEthereumChain"],
+      ["dev", "anvil_setBalance"],
+      ["dev", "hardhat_reset"],
+      ["dev", "evm_mine"],
+      ["dev", "debug_traceTransaction"],
+    ] as const)("rejects the %s method %s before upstream fetch", async (_category, method) => {
+      await expectRejectedWithoutUpstream(
+        () =>
+          post({
+            jsonrpc: "2.0",
+            id: 1,
+            method,
+            params: [],
+          }),
+        `RPC method is not allowed: ${method}`,
+      );
+    });
+  });
+
+  test.each([
+    {
+      label: "PATH rejects a THOUGHT-only contract",
+      request: () => postPathRpc(ethCallPayload(THOUGHT_NFT_ADDRESS)),
+      error: "path RPC does not allow eth_call to that address.",
+    },
+    {
+      label: "THOUGHT rejects a PATH auction contract",
+      request: () => postThoughtRpc(ethCallPayload(PULSE_AUCTION_ADDRESS)),
+      error: "thought RPC does not allow eth_call to that address.",
+    },
+    {
+      label: "fallback rejects a foreign contract",
+      request: () => postRpc(ethCallPayload("0x0000000000000000000000000000000000000000")),
+      error: "fallback RPC does not allow eth_call to that address.",
+    },
+    {
+      label: "PATH rejects a short target",
+      request: () => postPathRpc(ethCallPayload("0x1234")),
+      error: "path RPC does not allow eth_call to that address.",
+    },
+    {
+      label: "THOUGHT rejects an array target",
+      request: () => postThoughtRpc(ethCallPayload([THOUGHT_NFT_ADDRESS])),
+      error: "thought RPC does not allow eth_call to that address.",
+    },
+    {
+      label: "fallback rejects a missing target",
+      request: () =>
+        postRpc({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "eth_call",
+          params: [{ data: "0x1234" }, "latest"],
+        }),
+      error: "fallback RPC does not allow eth_call to that address.",
+    },
+  ])("$label before upstream fetch", async ({ request, error }) => {
+    await expectRejectedWithoutUpstream(request, error);
+  });
+
+  test.each([
+    {
+      label: "foreign address",
+      overrides: { address: THOUGHT_NFT_ADDRESS },
+      error: "path RPC does not allow that eth_getLogs address/topic.",
+    },
+    {
+      label: "address array",
+      overrides: { address: [PATH_NFT_ADDRESS] },
+      error: "eth_getLogs address must be a single allowed address.",
+    },
+    {
+      label: "missing topic0",
+      overrides: { topics: [] },
+      error: "eth_getLogs topic0 is required.",
+    },
+    {
+      label: "foreign topic0",
+      overrides: { topics: [THOUGHT_MINTED_TOPIC] },
+      error: "path RPC does not allow that eth_getLogs address/topic.",
+    },
+    {
+      label: "nonnumeric range",
+      overrides: { fromBlock: "latest" },
+      error: "eth_getLogs requires numeric fromBlock and toBlock.",
+    },
+    {
+      label: "reversed range",
+      overrides: { fromBlock: "0xa", toBlock: "0x9" },
+      error: "eth_getLogs block range is invalid.",
+    },
+    {
+      label: "oversized range",
+      overrides: { fromBlock: "0x0", toBlock: "0x1388" },
+      error: "eth_getLogs range is too large for path RPC.",
+    },
+  ])("rejects a PATH log filter with $label before upstream fetch", async ({ overrides, error }) => {
+    await expectRejectedWithoutUpstream(() => postPathRpc(pathLogPayload(overrides)), error);
+  });
+
+  test("rejects eth_getLogs in a batch before upstream fetch", async () => {
+    await expectRejectedWithoutUpstream(
+      () => postPathRpc([pathLogPayload(), pathLogPayload()]),
+      "eth_getLogs batches are not allowed.",
+    );
+  });
+
+  test.each([
+    {
+      label: "empty batch",
+      request: () => postPathRpc([]),
+      status: 400,
+      error: "Empty RPC batch.",
+    },
+    {
+      label: "oversized batch",
+      request: () =>
+        postPathRpc(
+          Array.from({ length: 26 }, (_, index) => ({
+            jsonrpc: "2.0",
+            id: index + 1,
+            method: "eth_chainId",
+            params: [],
+          })),
+        ),
+      status: 400,
+      error: "RPC batch is too large.",
+    },
+    {
+      label: "malformed JSON",
+      request: () => postPathRpcBody('{"jsonrpc":"2.0"'),
+      status: 400,
+      error: "Invalid JSON-RPC payload.",
+    },
+    {
+      label: "oversized body",
+      request: () => postPathRpcBody(" ".repeat(256 * 1024 + 1)),
+      status: 413,
+      error: "RPC request body is too large.",
+    },
+  ])("rejects $label before upstream fetch", async ({ request, status, error }) => {
+    await expectRejectedWithoutUpstream(request, error, status);
   });
 
   test("caches safe single-call RPC results and rewrites the response id", async () => {

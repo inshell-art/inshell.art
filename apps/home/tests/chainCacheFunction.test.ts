@@ -15,6 +15,7 @@ import {
 import { onRequestPost as onIndexerEventPost } from "../../../functions/api/indexer/event";
 import { onRequestPost as onIndexerRefreshPost } from "../../../functions/api/indexer/refresh";
 import { onRequestGet as onOpsStatusGet } from "../../../functions/api/ops/status";
+import { onRequestGet as onPathRecordGet } from "../../../functions/api/path-record";
 import { onRequestGet as onPathTokensGet } from "../../../functions/api/path-tokens";
 import { onRequestGet as onPulseAuctionGet } from "../../../functions/api/pulse-auction";
 import { onRequestGet as onThoughtGalleryGet } from "../../../functions/api/thought-gallery";
@@ -24,6 +25,7 @@ import {
 } from "../../../functions/api/thought-gallery-release";
 import { onRequestGet as onThoughtImageGet } from "../../../functions/api/thought-image";
 import { onRequestGet as onThoughtProvenanceGet } from "../../../functions/api/thought-provenance";
+import { onRequestGet as onThoughtRecordGet } from "../../../functions/api/thought-record";
 import { onRequestGet as onThoughtSpecGet } from "../../../functions/api/thought-spec";
 
 const originalFetch = globalThis.fetch;
@@ -311,17 +313,83 @@ describe("chain cache Pages functions", () => {
       env: {
         PATH_PRIMARY_RPC_UPSTREAM: "https://target-path-rpc.example/sepolia",
         PATH_RPC_UPSTREAM: "https://path-rpc.example/sepolia",
+        CHAIN_CACHE_DIAGNOSTICS: "1",
       },
     });
-    const payload = (await response.json()) as { items?: Array<{ tokenIdLabel: string; metadata: any }> };
+    const payload = (await response.json()) as {
+      items?: Array<{
+        tokenIdLabel: string;
+        metadata: any;
+        mintBlockNumber?: number;
+        mintLogIndex?: number;
+        mintTxHash?: string;
+      }>;
+    };
 
     expect(response.status).toBe(200);
     expect(payload.items?.map((item) => item.tokenIdLabel)).toEqual(["1"]);
     expect(payload.items?.[0]?.metadata.name).toBe("PATH #1");
+    expect(payload.items?.[0]).toMatchObject({
+      mintBlockNumber: 10856428,
+      mintLogIndex: 0,
+      mintTxHash: `0x${"1".padStart(64, "0")}`,
+    });
     expect(fetchMock).toHaveBeenCalledWith(
       "https://target-path-rpc.example/sepolia",
       expect.objectContaining({ method: "POST" })
     );
+
+    const record = await onPathRecordGet({
+      request: {
+        url: "https://preview.inshell.art/api/path-record?id=1",
+      } as Request,
+      env: {
+        PATH_PRIMARY_RPC_UPSTREAM: "https://target-path-rpc.example/sepolia",
+        PATH_RPC_UPSTREAM: "https://path-rpc.example/sepolia",
+      },
+    });
+    const recordPayload = (await record.json()) as any;
+    expect(record.status).toBe(200);
+    expect(Object.keys(recordPayload).sort()).toEqual([
+      "cache",
+      "chainObservation",
+      "consumerRelease",
+      "schema",
+      "token",
+    ]);
+    expect(recordPayload).toMatchObject({
+      schema: "inshell.path.public-record.v1",
+      chainObservation: {
+        kind: "chain-observation",
+        chainId: 11155111,
+      },
+      cache: {
+        kind: "indexed-chain-cache",
+        cachedAt: expect.any(Number),
+      },
+      consumerRelease: {
+        kind: "contract-release-consumer",
+        deploymentRecordsCoupled: false,
+        releaseTag: "v0.5.0",
+        manifestSha256: "a81355b459b40faea894cf1dfb7f484765a7ec62672039dd62d58a3a52849921",
+      },
+    });
+    expect(recordPayload.token.tokenIdLabel).toBe("1");
+    expect(record.headers.get("x-chain-cache-source")).toBe("memory");
+    expect(record.headers.get("x-chain-cache-key")).toBe("path-tokens:v1:sepolia");
+
+    const missingRecord = await onPathRecordGet({
+      request: {
+        url: "https://preview.inshell.art/api/path-record?id=999",
+      } as Request,
+      env: {
+        PATH_PRIMARY_RPC_UPSTREAM: "https://target-path-rpc.example/sepolia",
+        PATH_RPC_UPSTREAM: "https://path-rpc.example/sepolia",
+      },
+    });
+    expect(missingRecord.status).toBe(404);
+    expect(missingRecord.headers.get("x-chain-cache-source")).toBe("memory");
+    expect(missingRecord.headers.get("x-chain-cache-key")).toBe("path-tokens:v1:sepolia");
   });
 
   test("falls back when primary PATH RPC rejects eth_getLogs block ranges", async () => {
@@ -441,6 +509,69 @@ describe("chain cache Pages functions", () => {
     expect(diagnostics.source).toBe("d1");
     expect(diagnostics.dbRead).toBe(1);
     expect(diagnostics.kvRead).toBe(0);
+  });
+
+  test("serves and persists the pulse snapshot after an empty D1 cache miss", async () => {
+    globalThis.Request = TestRequest as unknown as typeof Request;
+    globalThis.Response = TestResponse as unknown as typeof Response;
+    globalThis.Headers = TestHeaders as unknown as typeof Headers;
+    (globalThis as any).caches = undefined;
+    const d1 = createD1Mock();
+    const deployBlock = 10854123;
+    const latestBlock = deployBlock + 9;
+    const txHash = `0x${"1".padStart(64, "0")}`;
+    const fetchMock = jest.fn(async (url: unknown, init?: any) => {
+      expect(url).toBe("https://path-rpc.example/sepolia");
+      const body = JSON.parse(String(init?.body ?? "{}"));
+      if (body.method === "eth_blockNumber") return rpcResponse(`0x${latestBlock.toString(16)}`);
+      expect(body.method).toBe("eth_getLogs");
+      expect(body.params).toEqual([{
+        address: PULSE_AUCTION,
+        fromBlock: `0x${deployBlock.toString(16)}`,
+        toBlock: `0x${latestBlock.toString(16)}`,
+        topics: [PULSE_SALE_TOPIC],
+      }]);
+      return rpcResponse([{
+        address: PULSE_AUCTION,
+        blockNumber: `0x${latestBlock.toString(16)}`,
+        data: `0x${word(7n)}${word(1_780_000_000n)}${word(1n)}${word(2n)}`,
+        logIndex: "0x0",
+        topics: [PULSE_SALE_TOPIC, addressTopic(OWNER), tokenTopic(1n)],
+        transactionHash: txHash,
+      }]);
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const context = {
+      request: new Request("https://preview.inshell.art/api/pulse-auction"),
+      env: {
+        INSHELL_CHAIN_DATA_DB: d1.db,
+        PATH_PRIMARY_RPC_UPSTREAM: "https://path-rpc.example/sepolia",
+        CHAIN_CACHE_DIAGNOSTICS: "1",
+      },
+    };
+
+    const response = await onPulseAuctionGet(context);
+    const payload = await response.json();
+    expect(response.status).toBe(200);
+    expect(payload).toEqual({
+      cachedAt: expect.any(Number),
+      chainId: 11155111,
+      contract: PULSE_AUCTION,
+      fromBlock: deployBlock,
+      lastScannedBlock: latestBlock,
+      bids: [expect.objectContaining({ key: `tx:${txHash}`, blockNumber: latestBlock })],
+    });
+    expect(response.headers.get("x-live-rpc-calls")).toBe("2");
+    expect(response.headers.get("x-cache-snapshot-block")).toBe(String(latestBlock));
+    const stored = JSON.parse(d1.rows.get("pulse-auction:v1:sepolia") ?? "null");
+    expect(stored.items).toEqual(payload.bids);
+    expect(stored.lastScannedBlock).toBe(latestBlock);
+
+    clearChainCacheForTest();
+    const cachedResponse = await onPulseAuctionGet(context);
+    expect(await cachedResponse.json()).toEqual(payload);
+    expect(cachedResponse.headers.get("x-chain-cache-source")).toBe("d1");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   test("serves pulse auction D1 read model without live RPC", async () => {
@@ -1818,6 +1949,12 @@ describe("chain cache Pages functions", () => {
       },
     });
     const payload = (await response.json()) as {
+      ok: boolean;
+      contract: { version: number };
+      deploymentLock: { enforcement: string; state: string; integrity: string; differences: string[] };
+      network: null;
+      contracts: Record<string, { address: string | null; deployBlock: number | null }>;
+      historicalReadModel: { status: string; notApprovedForCurrentDeployment: boolean };
       routes?: { event?: { route?: string; targets?: string[] } };
       rpcUpstreams?: Record<string, { configuredKey?: string | null; label?: string }>;
       indexerEventIngest?: {
@@ -1838,6 +1975,14 @@ describe("chain cache Pages functions", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(payload.routes?.event?.route).toBe("/api/indexer/event");
+    expect(payload.ok).toBe(true);
+    expect(payload.contract.version).toBe(2);
+    expect(payload.deploymentLock).toMatchObject({
+      enforcement: "always", state: "no-approved-deployment", integrity: "valid", differences: [],
+    });
+    expect(payload.network).toBeNull();
+    expect(Object.values(payload.contracts).every((contract) => contract.address === null && contract.deployBlock === null)).toBe(true);
+    expect(payload.historicalReadModel).toMatchObject({ status: "historical-only", notApprovedForCurrentDeployment: true });
     expect(payload.routes?.event?.targets).toEqual(["pulse-auction", "path-tokens", "thought-gallery"]);
     expect(payload.indexerEventIngest?.enabled).toBe(true);
     expect(payload.indexerEventIngest?.route).toBe("/api/indexer/event");
@@ -1862,6 +2007,22 @@ describe("chain cache Pages functions", () => {
     expect(serialized).not.toContain("api_key");
     expect(serialized).not.toContain("Bearer ");
     expect(serialized).not.toContain("Bearer fallback-secret");
+  });
+
+  test("OPS reports explicit unapproved deployment configuration as drift without echoing values", async () => {
+    globalThis.Request = TestRequest as unknown as typeof Request;
+    globalThis.Response = TestResponse as unknown as typeof Response;
+    globalThis.Headers = TestHeaders as unknown as typeof Headers;
+    const overrides = { VITE_PULSE_AUCTION: "unapproved-private-configuration" };
+    const response = await onOpsStatusGet({
+      request: new Request("https://preview.inshell.art/api/ops/status"),
+      env: { ...overrides },
+    });
+    const payload = await response.json();
+    expect(payload.ok).toBe(false);
+    expect(payload.deploymentLock.integrity).toBe("drift");
+    expect(payload.deploymentLock.differences).toEqual(["VITE_PULSE_AUCTION"]);
+    expect(JSON.stringify(payload)).not.toContain(overrides.VITE_PULSE_AUCTION);
   });
 
   test("writes KV when snapshot content changes", async () => {
@@ -2005,6 +2166,7 @@ describe("chain cache Pages functions", () => {
     } as IndexedSnapshot<any>;
     const kvGet = jest.fn(async () => snapshot);
     const env = {
+      CHAIN_CACHE_DIAGNOSTICS: "1",
       INSHELL_CHAIN_DATA_KV: {
         get: kvGet,
         put: jest.fn(),
@@ -2013,6 +2175,10 @@ describe("chain cache Pages functions", () => {
 
     const provenance = await onThoughtProvenanceGet({
       request: new Request("https://preview.inshell.art/api/thought-provenance?id=9"),
+      env,
+    });
+    const record = await onThoughtRecordGet({
+      request: new Request("https://preview.inshell.art/api/thought-record?id=9"),
       env,
     });
     const spec = await onThoughtSpecGet({
@@ -2029,6 +2195,40 @@ describe("chain cache Pages functions", () => {
       schema: "thought.provenance.v1",
       prompt: "test prompt",
     });
+    expect(record.status).toBe(200);
+    expect(await record.json()).toEqual({
+      schema: "inshell.thought.public-record.v1",
+      chainObservation: {
+        kind: "chain-observation",
+        chainId: 11155111,
+        contract: TEST_THOUGHT_GALLERY_DEPLOYMENT.contractAddress,
+        observedAtBlock: 123,
+        transactionHash: null,
+      },
+      cache: {
+        kind: "indexed-chain-cache",
+        cachedAt: expect.any(Number),
+      },
+      consumerRelease: {
+        kind: "contract-release-consumer",
+        deploymentRecordsCoupled: true,
+        couplingSource: "production-deployment-lock",
+        artifactId: TEST_THOUGHT_GALLERY_DEPLOYMENT.artifactId,
+        manifestSha256: TEST_THOUGHT_GALLERY_DEPLOYMENT.manifestSha256,
+      },
+      token: expect.objectContaining({ tokenId: 9 }),
+    });
+    expect(record.headers.get("x-chain-cache-source")).toBe("memory");
+    expect(record.headers.get("x-chain-cache-key")).toContain("thought-gallery:v2:");
+    const missingRecord = await onThoughtRecordGet({
+      request: {
+        url: "https://preview.inshell.art/api/thought-record?id=999",
+      } as Request,
+      env,
+    });
+    expect(missingRecord.status).toBe(404);
+    expect(missingRecord.headers.get("x-chain-cache-source")).toBe("memory");
+    expect(missingRecord.headers.get("x-chain-cache-key")).toContain("thought-gallery:v2:");
     expect(spec.status).toBe(200);
     expect(await spec.json()).toEqual({
       ref: "THOUGHT.v2.md",

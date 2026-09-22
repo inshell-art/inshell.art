@@ -1,0 +1,63 @@
+{
+  "schema": "inshell.thought.current-v2-consumer-lock.v2",
+  "artifactId": "thought-v2-canonical-portable-release-20260807-r2",
+  "protocolId": "inshell.thought.protocol.v2",
+  "source": {
+    "repository": "https://github.com/inshell-art/THOUGHT.git",
+    "channel": "stable",
+    "tag": "thought-v2-canonical-portable-release-20260807-r2",
+    "commit": "d29ddbfe76ff94c726b0786e43e61519c4087aab",
+    "dirty": false,
+    "eligibleForProduction": true
+  },
+  "contractManifestSha256": "7cf7965edb3de6421c79d9c08f0781cabb78ea675bad354847b56ec8f19306cc",
+  "runtimeRelease": {
+    "protocolReleaseId": "0x556973fd1ded2e8aa704d9e7e90c5eef2e4792bd1a7660e7a434964dac75cc5e",
+    "manifestKeccak256": "0x08ad7d098ffee99bb05eef41d4a270bbeca35f9cdba2830b8754b3d4413996ef"
+  },
+  "selectedSpec": {
+    "artifactId": "thought-v2-selected-spec-20260801-r10",
+    "name": "THOUGHT.v2.md",
+    "version": 2,
+    "ref": "dev://thought/contract-release/thought-v2-canonical-portable-release-20260807-r2/THOUGHT.v2.md",
+    "byteLength": 4627,
+    "sha256": "90df786a3ffb5ec38bffd09ff356ec560d0b7dddcdf57170891149a92a399e9b",
+    "evmSpecId": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410",
+    "evmSpecHash": "0xb2b0a167678816a7ae9dc9098b0d6a6852c0dc95feb59f9581de75bd2cc2231f"
+  },
+  "creativeBrief": {
+    "artifactId": "thought-v2-agent-creative-brief-20260807-r1",
+    "id": "inshell.thought.agent-creative-brief.v2",
+    "byteLength": 1088,
+    "sha256": "8f89266863caa47599c3f162e703fb2197f7b33343c3ea249151d471c706b244",
+    "keccak256": "0x723b332f82d095e9aeaf29e1659b51a4cd09c8fe27ce518689c96aa612bd5f46"
+  },
+  "identifiers": {
+    "agentDeclaration": "inshell.thought.agent-declaration.v1",
+    "agentResult": "inshell.thought.agent-result.v2",
+    "contextProfile": "inshell.thought.context.v2.visible-utf8-64",
+    "generationFile": "THOUGHT.v2.md",
+    "metadataProfile": "inshell.thought.metadata.v2.terminal-chat",
+    "protocolRelease": "inshell.thought.protocol.v2",
+    "provenance": "inshell.thought.provenance.v2",
+    "renderer": "inshell.thought.svg.v2.terminal-chat-path-glyphs",
+    "workProfile": "inshell.thought.work.v2.terminal-english-64"
+  },
+  "limits": {
+    "promptMaxBytes": 64,
+    "agentMaxBytes": 64,
+    "normalization": "none",
+    "displayUnitsAreAcceptanceLimits": false
+  },
+  "deployment": {
+    "status": "canonical-portable-not-deployed",
+    "v2MintEnabled": false,
+    "reason": "The portable Contract release is qualified, but no persistent-chain deployment or registration is authorized."
+  },
+  "provenance": {
+    "artifactId": "thought-provenance-v2-20260731-r1",
+    "id": "inshell.thought.provenance.v2",
+    "schemaSha256": "210abc0735cf7fb480491ec94f04495deb153560838c514c8f2ef19541821ff8",
+    "schemaKeccak256": "0x283afe4c96527dd33c17b99444a5ef27300b01af474e2daca1d5c017a50dafa4"
+  }
+}

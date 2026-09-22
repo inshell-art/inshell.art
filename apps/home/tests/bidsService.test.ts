@@ -55,6 +55,8 @@ describe("auction bids service", () => {
   afterEach(() => {
     globalThis.localStorage?.clear();
     globalThis.fetch = originalFetch;
+    delete (globalThis as any).__VITE_ENV__;
+    delete (globalThis as any).__INSHELL_VITE_ENV__;
     jest.restoreAllMocks();
   });
 
@@ -507,6 +509,53 @@ describe("auction bids service", () => {
       ([arg]: any[]) => arg.method === "eth_getLogs"
     );
     expect(firstGetLogsCall?.[0].params[0].fromBlock).toBe("0x1");
+  });
+
+  test("uses authoritative RPC reads and ignores both cache layers on devnet", async () => {
+    (globalThis as any).__VITE_ENV__ = { VITE_NETWORK: "devnet" };
+    const fetchMock = jest.fn(async () => {
+      throw new Error("devnet must not request /api/pulse-auction");
+    });
+    globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
+    globalThis.localStorage.setItem(
+      `inshell:pulse:bids:${AUCTION.toLowerCase()}:1`,
+      JSON.stringify({
+        version: 5,
+        savedAt: Date.now(),
+        complete: true,
+        lastBlock: 99,
+        bids: [
+          {
+            key: "stale-cache",
+            atMs: 1,
+            amount: { dec: "999" },
+          },
+        ],
+      }),
+    );
+    const provider = {
+      request: jest.fn(async ({ method }: any) => {
+        if (method === "eth_blockNumber") return "0x1";
+        if (method === "eth_getLogs") return [];
+        throw new Error(`unexpected RPC method ${method}`);
+      }),
+    };
+
+    const service = createBidsService({
+      address: AUCTION,
+      provider,
+      preferCacheApi: true,
+      allowDirectFallback: false,
+      fromBlock: 1,
+      reorgDepth: 0,
+    });
+
+    expect(service.getBids()).toEqual([]);
+    await expect(service.pullOnce()).resolves.toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(provider.request).toHaveBeenCalledWith(
+      expect.objectContaining({ method: "eth_getLogs" }),
+    );
   });
 
   test("deduplicates overlapping polling scans", async () => {

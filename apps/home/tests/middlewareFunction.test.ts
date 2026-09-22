@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from "@jest/globals";
 import { onRequest } from "../../../functions/_middleware";
+import { DOCS_SOURCE } from "../src/content/docs";
 
 const originalRequest = globalThis.Request;
 const originalResponse = globalThis.Response;
@@ -113,27 +114,14 @@ function middlewareContext(
   };
 }
 
-function installLegacyHtmlFetchMock() {
-  const fetchMock = jest.fn(
-    async () =>
-      new Response("<!doctype html><title>legacy</title>", {
-        status: 200,
-        headers: {
-          "content-type": "text/html; charset=utf-8",
-          "cache-control": "no-store, max-age=0",
-          "clear-site-data": '"cache"',
-          etag: '"legacy-etag"',
-          "last-modified": "Wed, 10 Jun 2026 00:00:00 GMT",
-          nel: '{"report_to":"legacy"}',
-          "report-to": '{"group":"legacy"}',
-          "set-cookie": "legacy-session=must-not-reach-client",
-          "x-robots-tag": "noindex",
-        },
-      }),
-  );
-  globalThis.fetch = fetchMock as unknown as typeof fetch;
-  return fetchMock;
-}
+const currentFrontendHosts = [
+  ["https://inshell.art", "main"],
+  ["https://inshell.art", "staging"],
+  ["https://preview.inshell.art", "staging"],
+  ["https://staging.inshell-art.pages.dev", "staging"],
+  ["https://inshell-art.pages.dev", "main"],
+  ["https://codex-prod-restore-20260610-fe.inshell-art.pages.dev", "codex/prod-restore-20260610-fe"],
+] as const;
 
 describe("Pages middleware canonical routes", () => {
   beforeEach(() => {
@@ -244,6 +232,216 @@ describe("Pages middleware canonical routes", () => {
     expect(ctx.next).not.toHaveBeenCalled();
   });
 
+  test.each([
+    ["/thought", "/thought/"],
+    ["/thought/", "/thought/"],
+    ["/thought/7", "/thought/"],
+    ["/thought/plugin/codex", "/thought/"],
+    ["/thought/runs/tar_fixture", "/thought/"],
+    ["/gallery", "/"],
+    ["/gallery/", "/"],
+    ["/path/7", "/"],
+    ["/docs", "/"],
+    ["/docs/glossary", "/"],
+  ])("local candidate and hosted preview serve %s from %s", async (route, shell) => {
+    const fetchMock = jest.fn();
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    for (const origin of ["http://127.0.0.1:4175", "https://preview.inshell.art"]) {
+      for (const method of ["GET", "HEAD"]) {
+        const ctx = middlewareContext(`${origin}${route}?ref=navigation-check`, { method });
+        const response = await onRequest(ctx);
+
+        expect(response.status).toBe(200);
+        expect(ctx.assetsFetch).toHaveBeenCalledTimes(1);
+        expect(ctx.assetsFetch).toHaveBeenCalledWith(
+          expect.objectContaining({ url: `${origin}${shell}`, method }),
+        );
+        expect(ctx.next).not.toHaveBeenCalled();
+      }
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    "/assets/does-not-exist.js",
+    "/thought/assets/does-not-exist.js",
+    "/api/does-not-exist",
+    "/not-a-product-page",
+    "/pub/does-not-exist",
+    "/llms.txt",
+    "/pub.manifest.json",
+  ])("local candidate preserves missing-path status for %s instead of an app shell", async (route) => {
+    const fetchMock = jest.fn();
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const ctx = middlewareContext(`http://127.0.0.1:4175${route}`);
+    ctx.next.mockResolvedValueOnce(new Response("Page not found", { status: 404 }));
+
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(404);
+    expect(await response.text()).toBe("Page not found");
+    expect(ctx.next).toHaveBeenCalledTimes(1);
+    expect(ctx.assetsFetch).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test("serves canonical WILL metadata from the current root app shell", async () => {
+    const ctx = middlewareContext("https://inshell.art/will");
+    ctx.assetsFetch.mockResolvedValueOnce(
+      new Response(
+        '<!doctype html><html><head><link rel="canonical" href="https://inshell.art/" /><title>Inshell</title></head></html>',
+        { headers: { "content-type": "text/html; charset=utf-8" } },
+      ),
+    );
+
+    const response = await onRequest(ctx);
+    const html = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe(
+      "public, max-age=60, stale-while-revalidate=300",
+    );
+    expect(response.headers.get("x-inshell-frontend-recovery")).toBeNull();
+    expect(html).toContain('<link rel="canonical" href="https://inshell.art/will" />');
+    expect(html).toContain("<title>WILL</title>");
+    expect(html).toContain(
+      '<meta name="description" content="WILL is an Inshell Agent Art movement study: many people, many Agents, one will." />',
+    );
+    expect(ctx.assetsFetch).toHaveBeenCalledTimes(1);
+    expect(ctx.next).not.toHaveBeenCalled();
+  });
+
+  test("serves the same-origin docs index with canonical and Agent discovery metadata", async () => {
+    const ctx = middlewareContext("https://inshell.art/docs");
+    ctx.assetsFetch.mockResolvedValueOnce(
+      new Response(
+        '<!doctype html><link rel="canonical" href="https://inshell.art/" /><meta property="og:url" content="https://inshell.art/" />',
+        {
+          headers: {
+            "content-type": "text/html; charset=utf-8",
+            "content-length": "999",
+            "content-encoding": "gzip",
+            etag: '"root-shell"',
+          },
+        },
+      ),
+    );
+
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("link")).toContain(
+      '</docs/index.md>; rel="alternate"; type="text/markdown"',
+    );
+    expect(response.headers.get("link")).toContain(
+      '</docs/content.json>; rel="alternate"; type="application/json"',
+    );
+    expect(response.headers.get("link")).toContain(
+      '</docs/agent-index.json>; rel="alternate"; type="application/json"',
+    );
+    const html = await response.text();
+    expect(html).toContain(
+      '<link rel="canonical" href="https://inshell.art/docs" />',
+    );
+    expect(html).toContain("<title>docs — Inshell</title>");
+    expect(html).toContain('<meta property="og:title" content="docs — Inshell" />');
+    expect(html).toContain('<meta name="twitter:title" content="docs — Inshell" />');
+    expect(html).toContain(
+      '<meta name="twitter:description" content="Inshell documentation for the artist, works, contracts, provenance, and verification boundaries." />',
+    );
+    expect(response.headers.get("content-length")).toBeNull();
+    expect(response.headers.get("content-encoding")).toBeNull();
+    expect(response.headers.get("etag")).toBeNull();
+    expect(ctx.assetsFetch).toHaveBeenCalledTimes(1);
+    expect(ctx.next).not.toHaveBeenCalled();
+  });
+
+  test("serves docs articles with article-specific canonical and machine-readable alternates", async () => {
+    const ctx = middlewareContext("https://inshell.art/docs/mono-76");
+    ctx.assetsFetch.mockResolvedValueOnce(
+      new Response(
+        '<!doctype html><link rel="canonical" href="https://inshell.art/" /><meta property="og:url" content="https://inshell.art/" />',
+        { headers: { "content-type": "text/html; charset=utf-8" } },
+      ),
+    );
+
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("link")).toContain(
+      '</docs/mono-76.md>; rel="alternate"; type="text/markdown"',
+    );
+    expect(response.headers.get("link")).toContain(
+      '</docs/mono-76.json>; rel="alternate"; type="application/json"',
+    );
+    const html = await response.text();
+    expect(html).toContain(
+      '<link rel="canonical" href="https://inshell.art/docs/mono-76" />',
+    );
+    expect(html).toContain(
+      '<meta property="og:url" content="https://inshell.art/docs/mono-76" />',
+    );
+    expect(html).toContain("<title>Mono 76 — docs — Inshell</title>");
+    expect(html).toContain(
+      '<meta property="og:title" content="Mono 76 — docs — Inshell" />',
+    );
+    expect(ctx.assetsFetch.mock.calls[0]?.[0].url).toBe("https://inshell.art/");
+    expect(ctx.next).not.toHaveBeenCalled();
+  });
+
+  test.each(DOCS_SOURCE.topics)(
+    "serves canonical metadata from the shared docs source for $slug",
+    async (topic) => {
+      const ctx = middlewareContext(`https://inshell.art/docs/${topic.slug}`);
+      ctx.assetsFetch.mockResolvedValueOnce(
+        new Response("<!doctype html><html><head></head><body></body></html>", {
+          headers: { "content-type": "text/html; charset=utf-8" },
+        }),
+      );
+
+      const response = await onRequest(ctx);
+      const html = await response.text();
+
+      expect(html).toContain(
+        `<link rel="canonical" href="https://inshell.art/docs/${topic.slug}" />`,
+      );
+      expect(html).toContain(`<title>${topic.title} — docs — Inshell</title>`);
+      expect(html).toContain(
+        `<meta name="description" content="${topic.summary.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#39;")}" />`,
+      );
+    },
+  );
+
+  test.each(["/docs/mono-76.md", "/docs/mono-76.json", "/docs/content.json"])(
+    "leaves generated docs artifact %s outside the docs app-shell route",
+    async (pathname) => {
+      const ctx = middlewareContext(`https://inshell.art${pathname}`);
+      const response = await onRequest(ctx);
+
+      expect(response.status).toBe(200);
+      expect(ctx.next).toHaveBeenCalledTimes(1);
+      expect(ctx.assetsFetch).not.toHaveBeenCalled();
+    },
+  );
+
+  test("canonicalizes an unknown docs slug to the docs index", async () => {
+    const ctx = middlewareContext("https://inshell.art/docs/not-a-real-article");
+    ctx.assetsFetch.mockResolvedValueOnce(
+      new Response("<!doctype html><html><head><title>Inshell / PATH</title></head></html>", {
+        headers: { "content-type": "text/html; charset=utf-8" },
+      }),
+    );
+
+    const response = await onRequest(ctx);
+    const html = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(html).toContain('<link rel="canonical" href="https://inshell.art/docs" />');
+    expect(html).toContain("<title>docs — Inshell</title>");
+    expect(response.headers.get("link")).toContain('</docs/content.json>');
+    expect(response.headers.get("link")).not.toContain("not-a-real-article.");
+  });
+
   test("permanently redirects the legacy PATH app route to the canonical path route", async () => {
     const ctx = middlewareContext("https://inshell.art/path-app");
     const response = await onRequest(ctx);
@@ -268,62 +466,55 @@ describe("Pages middleware canonical routes", () => {
     expect(ctx.next).not.toHaveBeenCalled();
   });
 
-  test("serves canonical PATH from the June 10 home artifact without forwarding credentials", async () => {
-    const fetchMock = installLegacyHtmlFetchMock();
-    const ctx = middlewareContext("https://inshell.art/path?returnTo=%2Fthought%2F9", {
-      headers: {
-        authorization: "Bearer must-not-leave-current-origin",
-        cookie: "session=must-not-leave-current-origin",
-        "cf-access-jwt-assertion": "must-not-leave-current-origin",
-      },
-    });
-    const response = await onRequest(ctx);
+  test.each(["/", "/path", "/path/9", "/pulse", "/color-font", "/verify"])(
+    "serves %s from this deployment for GET/HEAD on production and preview hosts",
+    async (pathname) => {
+      for (const [origin, branch] of currentFrontendHosts) {
+        for (const method of ["GET", "HEAD"]) {
+          const fetchMock = jest.fn();
+          globalThis.fetch = fetchMock as unknown as typeof fetch;
+          const url = origin + pathname + "?private=current-origin-only";
+          const ctx = middlewareContext(url, {
+            method,
+            headers: {
+              authorization: "Bearer current-origin-only",
+              cookie: "session=current-origin-only",
+              "cf-access-jwt-assertion": "current-origin-only",
+            },
+            env: { CF_PAGES_BRANCH: branch },
+          });
+          ctx.assetsFetch.mockResolvedValueOnce(new Response(
+            '<!doctype html><html><head><title>current</title></head><body>current-deployment-shell<script src="/assets/current.js"></script></body></html>',
+            { status: 200, headers: { "content-type": "text/html; charset=utf-8" } },
+          ));
 
-    expect(response.status).toBe(200);
-    expect(response.headers.get("x-inshell-frontend-recovery")).toBe("20260610-02b53bb");
-    expect(response.headers.get("x-inshell-frontend-recovery-source")).toBe("home");
-    expect(String(response.body)).not.toContain("inshell-preview-watermark");
-    for (const strippedHeader of [
-      "clear-site-data",
-      "etag",
-      "last-modified",
-      "nel",
-      "report-to",
-      "set-cookie",
-      "x-robots-tag",
-    ]) {
-      expect(response.headers.get(strippedHeader)).toBeNull();
-    }
-    expect(fetchMock).toHaveBeenCalledWith(
-      "https://c02c54b0.inshell-art.pages.dev/",
-      expect.objectContaining({
-        method: "GET",
-        redirect: "manual",
-        headers: {
-          accept: "text/html, application/xhtml+xml;q=0.9, */*;q=0.1",
-        },
-      }),
-    );
-    expect(ctx.assetsFetch).not.toHaveBeenCalled();
-    expect(ctx.next).not.toHaveBeenCalled();
-  });
+          const response = await onRequest(ctx);
 
-  test("limits document recovery to the six June 10 home route classes", async () => {
-    for (const pathname of ["/", "/path", "/path/9", "/pulse", "/color-font", "/verify"]) {
-      const fetchMock = installLegacyHtmlFetchMock();
-      const ctx = middlewareContext(`https://inshell.art${pathname}`);
-      const response = await onRequest(ctx);
-
-      expect(response.status).toBe(200);
-      expect(response.headers.get("x-inshell-frontend-recovery")).toBe("20260610-02b53bb");
-      expect(fetchMock).toHaveBeenCalledWith(
-        "https://c02c54b0.inshell-art.pages.dev/",
-        expect.objectContaining({ method: "GET" }),
-      );
-      expect(ctx.next).not.toHaveBeenCalled();
-      expect(ctx.assetsFetch).not.toHaveBeenCalled();
-    }
-  });
+          expect(response.status).toBe(200);
+          expect(ctx.assetsFetch).toHaveBeenCalledTimes(1);
+          const assetRequest = ctx.assetsFetch.mock.calls[0]?.[0];
+          expect(assetRequest.url).toBe(origin + "/");
+          expect(assetRequest.method).toBe(method);
+          expect(assetRequest.headers.get("authorization")).toBe("Bearer current-origin-only");
+          expect(assetRequest.headers.get("cookie")).toBe("session=current-origin-only");
+          expect(assetRequest.headers.get("cf-access-jwt-assertion")).toBe("current-origin-only");
+          expect(ctx.request.url).toBe(url);
+          expect(fetchMock).not.toHaveBeenCalled();
+          expect(ctx.next).not.toHaveBeenCalled();
+          for (const header of ["x-inshell-frontend-recovery", "x-inshell-frontend-recovery-source", "x-inshell-frontend-recovery-status"]) {
+            expect(response.headers.get(header)).toBeNull();
+          }
+          if (method === "HEAD") {
+            expect(response.body).toBeNull();
+          } else {
+            const html = await response.text();
+            expect(html).toContain('current-deployment-shell<script src="/assets/current.js">');
+            expect(html).not.toContain("inshell-preview-watermark");
+          }
+        }
+      }
+    },
+  );
 
   test("keeps non-GET home route requests on the current app-shell behavior", async () => {
     const fetchMock = jest.fn();
@@ -338,7 +529,7 @@ describe("Pages middleware canonical routes", () => {
     expect(ctx.next).not.toHaveBeenCalled();
   });
 
-  test("keeps current API routes ahead of the frontend recovery proxy", async () => {
+  test("keeps current API routes ahead of frontend app-shell routing", async () => {
     const fetchMock = jest.fn();
     globalThis.fetch = fetchMock as unknown as typeof fetch;
     const ctx = middlewareContext("https://inshell.art/api/ops/status", {
@@ -351,6 +542,83 @@ describe("Pages middleware canonical routes", () => {
     expect(ctx.assetsFetch).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(response.headers.get("x-inshell-frontend-recovery")).toBeNull();
+  });
+
+  test("serves immutable protocol artifacts without accepting an app-shell fallback", async () => {
+    const ctx = middlewareContext(
+      "https://inshell.art/protocol/releases/thought-v2-canonical-portable-release-20260807-r2/manifest.json",
+    );
+    ctx.assetsFetch.mockResolvedValueOnce(
+      new Response('{"artifactId":"thought-v2-canonical-portable-release-20260807-r2"}', {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("application/json; charset=utf-8");
+    expect(response.headers.get("cache-control")).toBe(
+      "public, max-age=31536000, immutable",
+    );
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(ctx.assetsFetch).toHaveBeenCalledTimes(1);
+    expect(ctx.next).not.toHaveBeenCalled();
+  });
+
+  test("serves checksum lists with their declared text media type", async () => {
+    const ctx = middlewareContext(
+      "https://inshell.art/protocol/releases/path-v0.5.0/SHA256SUMS.txt",
+    );
+    ctx.assetsFetch.mockResolvedValueOnce(
+      new Response("abc123  manifest.json\n", {
+        status: 200,
+        headers: { "content-type": "application/octet-stream" },
+      }),
+    );
+
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+    expect(response.headers.get("cache-control")).toBe(
+      "public, max-age=31536000, immutable",
+    );
+  });
+
+  test("returns 404 instead of app HTML for a missing immutable protocol artifact", async () => {
+    const ctx = middlewareContext(
+      "https://inshell.art/protocol/releases/thought-v2-canonical-portable-release-20260807-r2/missing.json",
+    );
+    ctx.assetsFetch.mockResolvedValueOnce(
+      new Response("<!doctype html><title>app</title>", {
+        status: 200,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      }),
+    );
+
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(ctx.assetsFetch).toHaveBeenCalledTimes(1);
+    expect(ctx.next).not.toHaveBeenCalled();
+  });
+
+  test("keeps immutable protocol artifacts read-only", async () => {
+    const ctx = middlewareContext(
+      "https://inshell.art/protocol/releases/thought-v2-canonical-portable-release-20260807-r2/manifest.json",
+      { method: "POST" },
+    );
+
+    const response = await onRequest(ctx);
+
+    expect(response.status).toBe(405);
+    expect(response.headers.get("allow")).toBe("GET, HEAD");
+    expect(ctx.assetsFetch).not.toHaveBeenCalled();
+    expect(ctx.next).not.toHaveBeenCalled();
   });
 
   test("leaves the normal preview host on the current frontend", async () => {
@@ -368,23 +636,18 @@ describe("Pages middleware canonical routes", () => {
     expect(response.headers.get("x-inshell-frontend-recovery")).toBeNull();
   });
 
-  test("enables recovery on only the dedicated hotfix Pages branch preview", async () => {
-    const fetchMock = installLegacyHtmlFetchMock();
-    const ctx = middlewareContext(
-      "https://codex-prod-restore-20260610-fe.inshell-art.pages.dev/path",
-      { env: { CF_PAGES_BRANCH: "codex/prod-restore-20260610-fe" } },
-    );
+  test("advertises the focused $PATH record from the current preview app shell", async () => {
+    const ctx = middlewareContext("https://preview.inshell.art/path/15", {
+      env: { CF_PAGES_BRANCH: "staging" },
+    });
+
     const response = await onRequest(ctx);
 
     expect(response.status).toBe(200);
-    expect(response.headers.get("x-inshell-frontend-recovery-source")).toBe("home");
-    expect(String(response.body)).toContain(
-      '<div class="inshell-preview-watermark" aria-hidden="true">preview</div>',
-    );
-    expect(response.headers.get("etag")).toBeNull();
-    expect(response.headers.get("last-modified")).toBeNull();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(ctx.assetsFetch).not.toHaveBeenCalled();
+    expect(response.headers.get("link")).toContain('</api/path-record?id=15>');
+    expect(response.headers.get("link")).toContain('</docs/agent-index.json>');
+    expect(response.headers.get("x-inshell-frontend-recovery")).toBeNull();
+    expect(ctx.assetsFetch).toHaveBeenCalledTimes(1);
     expect(ctx.next).not.toHaveBeenCalled();
   });
 
@@ -625,11 +888,26 @@ describe("Pages middleware canonical routes", () => {
     const fetchMock = jest.fn();
     globalThis.fetch = fetchMock as unknown as typeof fetch;
     const ctx = middlewareContext("https://inshell.art/thought/9");
+    ctx.assetsFetch.mockResolvedValueOnce(
+      new Response(
+        '<!doctype html><html><head><meta name="description" content="THOUGHT creation" /><meta property="og:title" content="THOUGHT" /><meta property="og:description" content="THOUGHT creation" /><meta property="og:url" content="https://inshell.art/thought" /><meta name="twitter:title" content="THOUGHT" /><meta name="twitter:description" content="THOUGHT creation" /><title>THOUGHT</title></head></html>',
+        { headers: { "content-type": "text/html; charset=utf-8" } },
+      ),
+    );
     const response = await onRequest(ctx);
 
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("public, max-age=60, stale-while-revalidate=300");
     expect(response.headers.get("clear-site-data")).toBeNull();
+    expect(response.headers.get("link")).toContain('</api/thought-record?id=9>');
+    expect(response.headers.get("link")).toContain('</api/thought-provenance?id=9>');
+    const html = await response.text();
+    expect(html).toContain(
+      '<link rel="canonical" href="https://inshell.art/thought/9" />',
+    );
+    expect(html).toContain("<title>THOUGHT #9</title>");
+    expect(html).toContain('<meta property="og:title" content="THOUGHT #9" />');
+    expect(html).toContain('<meta name="twitter:title" content="THOUGHT #9" />');
     expect(response.headers.get("x-inshell-frontend-recovery")).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(ctx.assetsFetch).toHaveBeenCalledTimes(1);
@@ -665,61 +943,62 @@ describe("Pages middleware canonical routes", () => {
     expect(ctx.assetsFetch).not.toHaveBeenCalled();
   });
 
-  test("proxies only the exact June 10 home entry bundle", async () => {
-    const fetchMock = jest.fn(
-      async () =>
-        new Response("legacy bundle", {
-          status: 200,
-          headers: {
-            "content-type": "application/javascript",
-            "cache-control": "public, max-age=0, must-revalidate",
-            "x-robots-tag": "noindex",
-          },
-        }),
-    );
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
-    const ctx = middlewareContext("https://inshell.art/assets/index-6XkpjGyk.js?cache=ignored");
-    const response = await onRequest(ctx);
+  test.each([
+    "/assets/index-6XkpjGyk.js",
+    "/assets/index-CwenU7ox.css",
+    "/assets/source-code-pro-vietnamese-600-normal-NO4inUC1.woff2",
+    "/assets/source-code-pro-vietnamese-600-normal-RwzYAKw5.woff",
+    "/assets/source-code-pro-latin-ext-600-normal-ChD8h2GM.woff2",
+    "/assets/source-code-pro-latin-ext-600-normal-s-QVw45K.woff",
+    "/assets/source-code-pro-latin-600-normal-D9kwMNJ_.woff2",
+    "/assets/source-code-pro-latin-600-normal-DdCNScYx.woff",
+  ])("passes old exact asset %s and its current 404 through without historical fallback", async (pathname) => {
+    for (const [origin, branch] of currentFrontendHosts) {
+      for (const method of ["GET", "HEAD"]) {
+        for (const status of [200, 404]) {
+          const fetchMock = jest.fn();
+          globalThis.fetch = fetchMock as unknown as typeof fetch;
+          const url = origin + pathname + "?private=current-origin-only";
+          const ctx = middlewareContext(url, {
+            method,
+            headers: {
+              authorization: "Bearer current-origin-only",
+              cookie: "session=current-origin-only",
+              "cf-access-jwt-assertion": "current-origin-only",
+            },
+            env: { CF_PAGES_BRANCH: branch },
+          });
+          const currentResponse = new Response(method === "HEAD" ? null : "current asset chain " + status, {
+            status,
+            headers: {
+              "content-type": "application/octet-stream",
+              "cache-control": "public, max-age=60",
+              etag: '"current-asset-etag"',
+            },
+          });
+          ctx.next.mockResolvedValueOnce(currentResponse);
 
-    expect(response.status).toBe(200);
-    expect(response.headers.get("content-type")).toBe("application/javascript");
-    expect(response.headers.get("x-robots-tag")).toBeNull();
-    expect(response.headers.get("x-inshell-frontend-recovery-source")).toBe("home");
-    expect(fetchMock).toHaveBeenCalledWith(
-      "https://c02c54b0.inshell-art.pages.dev/assets/index-6XkpjGyk.js",
-      expect.objectContaining({
-        method: "GET",
-        headers: {
-          accept: "application/javascript, text/javascript;q=0.9, */*;q=0.1",
-        },
-      }),
-    );
-    expect(ctx.next).not.toHaveBeenCalled();
-    expect(ctx.assetsFetch).not.toHaveBeenCalled();
-  });
+          const response = await onRequest(ctx);
 
-  test("returns 404 instead of historical SPA HTML for a legacy font asset", async () => {
-    const fetchMock = jest.fn(
-      async () =>
-        new Response("<!doctype html><title>fallback</title>", {
-          status: 200,
-          headers: { "content-type": "text/html; charset=utf-8" },
-        }),
-    );
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
-    const ctx = middlewareContext(
-      "https://inshell.art/assets/source-code-pro-latin-600-normal-D9kwMNJ_.woff2",
-    );
-    const response = await onRequest(ctx);
-
-    expect(response.status).toBe(404);
-    expect(response.headers.get("content-type")).toBe("text/plain; charset=utf-8");
-    expect(response.headers.get("x-inshell-frontend-recovery-status")).toBe(
-      "mime-rejected",
-    );
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(ctx.next).not.toHaveBeenCalled();
-    expect(ctx.assetsFetch).not.toHaveBeenCalled();
+          expect(response).toBe(currentResponse);
+          expect(response.status).toBe(status);
+          expect(response.headers.get("etag")).toBe('"current-asset-etag"');
+          expect(response.headers.get("cache-control")).toBe("public, max-age=60");
+          expect(ctx.request.url).toBe(url);
+          expect(ctx.request.method).toBe(method);
+          expect(ctx.request.headers.get("authorization")).toBe("Bearer current-origin-only");
+          expect(ctx.request.headers.get("cookie")).toBe("session=current-origin-only");
+          expect(ctx.request.headers.get("cf-access-jwt-assertion")).toBe("current-origin-only");
+          expect(ctx.next).toHaveBeenCalledTimes(1);
+          expect(ctx.next).toHaveBeenCalledWith();
+          expect(ctx.assetsFetch).not.toHaveBeenCalled();
+          expect(fetchMock).not.toHaveBeenCalled();
+          for (const header of ["x-inshell-frontend-recovery", "x-inshell-frontend-recovery-source", "x-inshell-frontend-recovery-status"]) {
+            expect(response.headers.get(header)).toBeNull();
+          }
+        }
+      }
+    }
   });
 
   test("redirects works alias to the gallery route", async () => {

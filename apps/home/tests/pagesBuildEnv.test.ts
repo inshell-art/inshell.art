@@ -1,4 +1,7 @@
-import { resolvePagesBuildDeploymentEnv } from "../../../packages/shared/src/pagesBuildEnv";
+import {
+  resolvePagesBuildDeploymentEnv,
+  sortPagesBuildPublicEnv,
+} from "../../../packages/shared/src/pagesBuildEnv";
 
 describe("resolvePagesBuildDeploymentEnv", () => {
   test.each([
@@ -36,5 +39,27 @@ describe("resolvePagesBuildDeploymentEnv", () => {
 
   test("leaves non-Cloudflare builds unclassified", () => {
     expect(resolvePagesBuildDeploymentEnv()).toBeUndefined();
+  });
+});
+
+describe("sortPagesBuildPublicEnv", () => {
+  test("serializes public build inputs in a stable key order", () => {
+    const first = sortPagesBuildPublicEnv({
+      VITE_THOUGHT_URL: "/thought",
+      VITE_DEPLOY_ENV: "preview",
+      VITE_GALLERY_URL: "/gallery",
+    });
+    const second = sortPagesBuildPublicEnv({
+      VITE_GALLERY_URL: "/gallery",
+      VITE_DEPLOY_ENV: "preview",
+      VITE_THOUGHT_URL: "/thought",
+    });
+
+    expect(JSON.stringify(first)).toBe(JSON.stringify(second));
+    expect(Object.keys(first)).toEqual([
+      "VITE_DEPLOY_ENV",
+      "VITE_GALLERY_URL",
+      "VITE_THOUGHT_URL",
+    ]);
   });
 });

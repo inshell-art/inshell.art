@@ -3,6 +3,12 @@ import { webcrypto, randomFillSync } from "node:crypto";
 import { onRequestPost as onCreateRun } from "../../../functions/api/thought-agent/v1/runs";
 import { onRequestGet as onGetCodexClient } from "../../../functions/api/thought-agent/v2/client";
 import { onRequestPost as onCreateRunV2 } from "../../../functions/api/thought-agent/v2/runs";
+import { onRequestGet as onGetRunV2 } from "../../../functions/api/thought-agent/v2/runs/[runId]";
+import { onRequestPost as onClaimRunV2 } from "../../../functions/api/thought-agent/v2/runs/[runId]/claim";
+import { onRequestPost as onFailRunV2 } from "../../../functions/api/thought-agent/v2/runs/[runId]/fail";
+import { onRequestPost as onReadyRunV2 } from "../../../functions/api/thought-agent/v2/runs/[runId]/ready";
+import { onRequestPut as onSubmitResultV2 } from "../../../functions/api/thought-agent/v2/runs/[runId]/result";
+import { onRequestPost as onStartRunV2 } from "../../../functions/api/thought-agent/v2/runs/[runId]/start";
 import { onRequestGet as onGetRun } from "../../../functions/api/thought-agent/v1/runs/[runId]";
 import { onRequestPost as onCancelRun } from "../../../functions/api/thought-agent/v1/runs/[runId]/cancel";
 import { onRequestPost as onClaimRun } from "../../../functions/api/thought-agent/v1/runs/[runId]/claim";
@@ -10,10 +16,17 @@ import { onRequestPost as onFailRun } from "../../../functions/api/thought-agent
 import { onRequestPut as onSubmitResult } from "../../../functions/api/thought-agent/v1/runs/[runId]/result";
 import { onRequestPost as onStartRun } from "../../../functions/api/thought-agent/v1/runs/[runId]/start";
 import {
+  THOUGHT_AGENT_CONTROL_VERSION,
+  THOUGHT_AGENT_HTTP_USER_AGENT,
   THOUGHT_AGENT_PROTOCOL_VERSION,
   THOUGHT_AGENT_RESULT_VERSION,
+  THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
   THOUGHT_V2_PROTOCOL_RELEASE,
+  parseThoughtAgentControlEvidence,
   sha256Hex,
+  buildThoughtCodexTask,
+  buildThoughtClaudeTask,
+  type ThoughtAgentControlEvidence,
 } from "../../../packages/thought-agent-protocol/src/index";
 
 type Row = Record<string, unknown>;
@@ -120,10 +133,13 @@ function createD1Mock() {
         }
         if (/select\s+count\(\*\)\s+as\s+active_count/i.test(query)) {
           const visitorHash = String(bound[0]);
+          const nowIso = String(bound[1] ?? "9999-12-31T23:59:59.999Z");
           const active_count = [...rows.values()].filter(
             (row) =>
               row.visitor_hash === visitorHash &&
-              ["created", "claimed", "running"].includes(String(row.state)),
+              ((row.state === "created" && String(row.claim_expires_at) > nowIso) ||
+                (["claimed", "ready", "running"].includes(String(row.state)) &&
+                  String(row.run_expires_at) > nowIso)),
           ).length;
           return { active_count };
         }
@@ -182,15 +198,31 @@ function createD1Mock() {
             row.bridge_token_hash = bound[2];
             row.bridge_metadata_json = bound[3];
             row.adapter_metadata_json = bound[4];
-            row.updated_at = bound[5];
-            row.run_expires_at = bound[6];
+            row.requested_adapter_id = bound[5];
+            row.updated_at = bound[6];
+            row.run_expires_at = bound[7];
+          }
+          return { meta: { changes } };
+        }
+        if (/set\s+state\s*=\s*'ready'/i.test(query)) {
+          const row = rows.get(String(bound[0]));
+          const changes =
+            row?.state === "claimed" &&
+            row.bridge_token_hash === bound[3] &&
+            row.invocation_id == null
+              ? 1
+              : 0;
+          if (row && changes) {
+            row.state = "ready";
+            row.execution_metadata_json = bound[1];
+            row.updated_at = bound[2];
           }
           return { meta: { changes } };
         }
         if (/set\s+state\s*=\s*'running'/i.test(query)) {
           const row = rows.get(String(bound[0]));
           const changes =
-            row?.state === "claimed" &&
+            ["claimed", "ready"].includes(String(row?.state)) &&
             row.bridge_token_hash === bound[4] &&
             row.invocation_id == null
               ? 1
@@ -233,7 +265,7 @@ function createD1Mock() {
           const row = rows.get(String(bound[0]));
           const changes =
             row &&
-            ["claimed", "running"].includes(String(row.state)) &&
+            ["claimed", "ready", "running"].includes(String(row.state)) &&
             row.bridge_token_hash === bound[6]
               ? 1
               : 0;
@@ -289,7 +321,7 @@ function auth(token: string, extra: Record<string, string> = {}) {
   };
 }
 
-async function createRun(env: any, prompt = "make a quiet sky") {
+async function createRun(env: any, prompt = "make a quiet sky", adapterId = "codex") {
   const response = await onCreateRun({
     request: request(
       "https://thought.inshell.art/api/thought-agent/v1/runs",
@@ -298,7 +330,7 @@ async function createRun(env: any, prompt = "make a quiet sky") {
         promptLine: prompt,
         specId: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
         requestedAgent: {
-          adapterId: "codex",
+          adapterId,
           model: null,
         },
         client: {
@@ -331,10 +363,27 @@ const claimBody = {
   },
 };
 
-async function claimRun(env: any, runId: string, launchToken: string) {
-  const response = await onClaimRun({
+const controlEvidence = parseThoughtAgentControlEvidence({
+  schema: THOUGHT_AGENT_CONTROL_VERSION,
+  mode: "bounded-preflight",
+  appExchange: "verified",
+  agentProduct: "declared",
+  runtimeModel: "unknown",
+  localPreparation: "verified",
+  installationsRequired: false,
+  creativeInputOpened: false,
+});
+
+async function claimRun(
+  env: any,
+  runId: string,
+  launchToken: string,
+  version: "v1" | "v2" = "v1",
+) {
+  const handler = version === "v2" ? onClaimRunV2 : onClaimRun;
+  const response = await handler({
     request: request(
-      `https://thought.inshell.art/api/thought-agent/v1/runs/${runId}/claim`,
+      `https://thought.inshell.art/api/thought-agent/${version}/runs/${runId}/claim`,
       claimBody,
       auth(launchToken),
     ),
@@ -345,10 +394,17 @@ async function claimRun(env: any, runId: string, launchToken: string) {
   return { response, payload };
 }
 
-async function startRun(env: any, runId: string, bridgeToken: string, invocationId: string) {
-  return onStartRun({
+async function startRun(
+  env: any,
+  runId: string,
+  bridgeToken: string,
+  invocationId: string,
+  version: "v1" | "v2" = "v1",
+) {
+  const handler = version === "v2" ? onStartRunV2 : onStartRun;
+  return handler({
     request: request(
-      `https://thought.inshell.art/api/thought-agent/v1/runs/${runId}/start`,
+      `https://thought.inshell.art/api/thought-agent/${version}/runs/${runId}/start`,
       {
         protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
         invocationId,
@@ -367,15 +423,25 @@ async function submitResult(
   bridgeToken: string,
   invocationId: string,
   agentLine = "QUIET SKY",
+  version: "v1" | "v2" = "v1",
+  resultOverrides: {
+    raw?: string;
+    rawSha256?: string;
+    agentLineSha256?: string;
+    agent?: Record<string, unknown>;
+  } = {},
 ) {
-  const raw = JSON.stringify({
-    schema: THOUGHT_AGENT_RESULT_VERSION,
-    release: THOUGHT_V2_PROTOCOL_RELEASE.release,
-    agentLine,
-  });
-  const response = await onSubmitResult({
+  const raw =
+    resultOverrides.raw ??
+    JSON.stringify({
+      schema: THOUGHT_AGENT_RESULT_VERSION,
+      release: THOUGHT_V2_PROTOCOL_RELEASE.release,
+      agentLine,
+    });
+  const handler = version === "v2" ? onSubmitResultV2 : onSubmitResult;
+  const response = await handler({
     request: request(
-      `https://thought.inshell.art/api/thought-agent/v1/runs/${runId}/result`,
+      `https://thought.inshell.art/api/thought-agent/${version}/runs/${runId}/result`,
       {
         protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
         invocationId,
@@ -389,11 +455,10 @@ async function submitResult(
           adapterId: "codex",
           adapterVersion: "0.1.0",
         },
-        agent: {
+        agent: resultOverrides.agent ?? {
           product: "codex-cli",
           productVersion: "unknown",
           provider: "openai",
-          model: "unknown",
           metadataSource: "unknown",
         },
         execution: {
@@ -409,12 +474,35 @@ async function submitResult(
         output: {
           mediaType: "application/json",
           raw,
-          rawSha256: await sha256Hex(raw),
+          rawSha256: resultOverrides.rawSha256 ?? (await sha256Hex(raw)),
           agentLine,
-          agentLineSha256: await sha256Hex(agentLine),
+          agentLineSha256:
+            resultOverrides.agentLineSha256 ?? (await sha256Hex(agentLine)),
         },
       },
       auth(bridgeToken, { "idempotency-key": invocationId }),
+    ),
+    env,
+    params: { runId },
+  });
+  const payload = await response.json();
+  return { response, payload };
+}
+
+async function readyRunV2(
+  env: any,
+  runId: string,
+  bridgeToken: string,
+  control: ThoughtAgentControlEvidence = controlEvidence,
+) {
+  const response = await onReadyRunV2({
+    request: request(
+      `https://thought.inshell.art/api/thought-agent/v2/runs/${runId}/ready`,
+      {
+        protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+        control,
+      },
+      auth(bridgeToken),
     ),
     env,
     params: { runId },
@@ -444,6 +532,92 @@ describe("THOUGHT Agent Pages API", () => {
       value: originalCrypto,
     });
     jest.restoreAllMocks();
+  });
+
+  test.each([
+    ["codex", "reported"], ["codex", "unknown"],
+    ["claude", "reported"], ["claude", "unknown"],
+  ] as const)("%s/%s handoff survives HTML text conversion and supplies exact authenticated v2 requests", async (adapterId, runtimeModel) => {
+    const d1 = createD1Mock();
+    const env = { INSHELL_CHAIN_DATA_DB: d1.db };
+    const created = await createRun(env, "handshake fixture", adapterId);
+    const launch = new URL(created.payload.launchUri);
+    const runId = launch.searchParams.get("run_id")!;
+    const launchToken = launch.searchParams.get("token")!;
+    const runUrl = `https://thought.inshell.art/api/thought-agent/v2/runs/${runId}`;
+    const buildTask = adapterId === "codex" ? buildThoughtCodexTask : buildThoughtClaudeTask;
+    const handoff = buildTask({ product: adapterId === "codex" ? "Codex" : "Claude", runId, runUrl, launchToken });
+    const composer = document.createElement("div");
+    composer.innerHTML = "<protocol> = inshell.thought.agent-run.v2";
+    expect(composer.textContent).toBe(" = inshell.thought.agent-run.v2");
+    composer.innerHTML = handoff;
+    const transported = composer.textContent!;
+    expect(transported).toBe(handoff);
+    expect(transported).toContain(`User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}`);
+    const agentAuth = (token: string) => ({ ...auth(token), "user-agent": THOUGHT_AGENT_HTTP_USER_AGENT });
+    const body = (name: string) => JSON.parse(transported.split("\n").find((line) => line.startsWith(`${name} = `))!.slice(name.length + 3));
+    const claim = body("CLAIM_BODY");
+    const readyReported = body("READY_BODY_REPORTED");
+    const readyUnknown = body("READY_BODY_UNKNOWN");
+    const ready = runtimeModel === "reported" ? readyReported : readyUnknown;
+    // Wire object key order has no semantic meaning. The handler normalizes it.
+    ready.control = Object.fromEntries(Object.entries(ready.control).reverse());
+    expect(claim.protocolVersion).toBe(THOUGHT_AGENT_PROTOCOL_VERSION);
+    expect(readyReported.protocolVersion).toBe(THOUGHT_AGENT_PROTOCOL_VERSION);
+    expect(readyReported.control.schema).toBe(THOUGHT_AGENT_CONTROL_VERSION);
+    expect(readyReported.control.runtimeModel).toBe("reported");
+    expect(readyUnknown.protocolVersion).toBe(THOUGHT_AGENT_PROTOCOL_VERSION);
+    expect(readyUnknown.control.schema).toBe(THOUGHT_AGENT_CONTROL_VERSION);
+    expect(readyUnknown.control.runtimeModel).toBe("unknown");
+    const before = { ...d1.rows.get(runId)! };
+
+    // Incident attempt 1: control.schema was incorrectly used as protocolVersion.
+    const wrongProtocol = await onClaimRunV2({
+      request: request(`${runUrl}/claim`, { ...claim, protocolVersion: THOUGHT_AGENT_CONTROL_VERSION }, auth(launchToken)),
+      env, params: { runId },
+    });
+    expect(wrongProtocol.status).toBe(400);
+    expect(await wrongProtocol.json()).toMatchObject({ protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION, error: { code: "PROTOCOL_UNSUPPORTED" } });
+    expect(d1.rows.get(runId)).toEqual(before);
+
+    // A body credential is not authentication, even with the correct protocol.
+    const bodyCredential = await onClaimRunV2({
+      request: request(`${runUrl}/claim`, { ...claim, launchCredential: launchToken }),
+      env, params: { runId },
+    });
+    expect(bodyCredential.status).toBe(401);
+    expect(await bodyCredential.json()).toMatchObject({ error: { code: "TOKEN_INVALID" } });
+    expect(d1.rows.get(runId)).toEqual(before);
+
+    const claimed = await onClaimRunV2({
+      request: request(`${runUrl}/claim`, claim, agentAuth(launchToken)), env, params: { runId },
+    });
+    expect(claimed.status).toBe(200);
+    const claimedBody = await claimed.json();
+    expect(claimedBody.state).toBe("claimed");
+    expect(claimedBody.bridgeToken).toEqual(expect.any(String));
+    const afterClaim = { ...d1.rows.get(runId)! };
+    const launchOnReady = await onReadyRunV2({
+      request: request(`${runUrl}/ready`, ready, auth(launchToken)), env, params: { runId },
+    });
+    expect(launchOnReady.status).toBe(401);
+    expect(d1.rows.get(runId)).toEqual(afterClaim);
+    const readyResponse = await onReadyRunV2({
+      request: request(`${runUrl}/ready`, ready, agentAuth(claimedBody.bridgeToken)), env, params: { runId },
+    });
+    expect(readyResponse.status).toBe(200);
+    const readyPayload = await readyResponse.json();
+    expect(readyPayload).toMatchObject({ protocolVersion: ready.protocolVersion, runId, state: "ready", stage: "control-verified" });
+    expect(readyPayload).not.toHaveProperty("creatorAction");
+    expect(readyPayload.control).toStrictEqual(ready.control);
+    expect(readyPayload).not.toStrictEqual(ready);
+    expect(readyPayload.control).not.toStrictEqual(ready);
+    expect(JSON.stringify(readyPayload.control)).not.toBe(JSON.stringify(ready.control));
+    const replay = await onReadyRunV2({
+      request: request(`${runUrl}/ready`, ready, agentAuth(claimedBody.bridgeToken)), env, params: { runId },
+    });
+    expect(replay.status).toBe(200);
+    expect(await replay.json()).toStrictEqual(readyPayload);
   });
 
   test("runs create -> claim -> start -> result -> poll", async () => {
@@ -592,6 +766,797 @@ describe("THOUGHT Agent Pages API", () => {
     });
   });
 
+  test.each(["codex", "claude"] as const)(
+    "binds one unbound v2 chooser run to %s on its first authenticated claim",
+    async (adapterId) => {
+      const d1 = createD1Mock();
+      const env = { INSHELL_CHAIN_DATA_DB: d1.db };
+      const createdResponse = await onCreateRunV2({
+        request: request(
+          "https://thought.inshell.art/api/thought-agent/v2/runs",
+          {
+            protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+            promptLine: `bind this run to ${adapterId}`,
+            specId: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
+            requestedAgent: {
+              adapterId: THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
+              model: null,
+            },
+            client: {
+              surface: "thought-dock:chooser",
+              appVersion: "test",
+            },
+          },
+          {
+            origin: "https://thought.inshell.art",
+            cookie: `inshell_anon_visitor=visitor-unbound-${adapterId}`,
+          },
+        ),
+        env,
+      });
+      const created = await createdResponse.json();
+      expect(createdResponse.status).toBe(201);
+      const launchUrl = new globalThis.URL(created.launchUri);
+      const runId = launchUrl.searchParams.get("run_id") ?? "";
+      const launchToken = launchUrl.searchParams.get("token") ?? "";
+
+      const claimResponse = await onClaimRunV2({
+        request: request(
+          `https://thought.inshell.art/api/thought-agent/v2/runs/${runId}/claim`,
+          {
+            ...claimBody,
+            adapter: {
+              ...claimBody.adapter,
+              adapterId,
+            },
+          },
+          auth(launchToken),
+        ),
+        env,
+        params: { runId },
+      });
+      const claimed = await claimResponse.json();
+      expect(claimResponse.status).toBe(200);
+      expect(claimed.request.requestedAgent.adapterId).toBe(adapterId);
+      expect(d1.rows.get(runId)?.requested_adapter_id).toBe(adapterId);
+
+      const polled = await onGetRunV2({
+        request: request(
+          `https://thought.inshell.art/api/thought-agent/v2/runs/${runId}`,
+          {},
+          auth(created.browserToken),
+        ),
+        env,
+        params: { runId },
+      });
+      await expect(polled.json()).resolves.toMatchObject({
+        state: "claimed",
+        request: {
+          requestedAgent: { adapterId },
+        },
+      });
+    },
+  );
+
+  test("does not allow an unbound chooser run to bind an unsupported adapter", async () => {
+    const d1 = createD1Mock();
+    const env = { INSHELL_CHAIN_DATA_DB: d1.db };
+    const createdResponse = await onCreateRunV2({
+      request: request(
+        "https://thought.inshell.art/api/thought-agent/v2/runs",
+        {
+          protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+          promptLine: "reject an unsupported adapter",
+          specId: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
+          requestedAgent: {
+            adapterId: THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
+            model: null,
+          },
+        },
+        {
+          origin: "https://thought.inshell.art",
+          cookie: "inshell_anon_visitor=visitor-unbound-unsupported",
+        },
+      ),
+      env,
+    });
+    const created = await createdResponse.json();
+    const launchUrl = new globalThis.URL(created.launchUri);
+    const runId = launchUrl.searchParams.get("run_id") ?? "";
+    const launchToken = launchUrl.searchParams.get("token") ?? "";
+
+    const response = await onClaimRunV2({
+      request: request(
+        `https://thought.inshell.art/api/thought-agent/v2/runs/${runId}/claim`,
+        {
+          ...claimBody,
+          adapter: {
+            ...claimBody.adapter,
+            adapterId: "unknown-agent",
+          },
+        },
+        auth(launchToken),
+      ),
+      env,
+      params: { runId },
+    });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "ADAPTER_MISMATCH" },
+    });
+    expect(d1.rows.get(runId)?.requested_adapter_id).toBe(
+      THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
+    );
+  });
+
+  test("does not allow the V1 claim route to bind an unbound V2 chooser run", async () => {
+    const d1 = createD1Mock();
+    const env = { INSHELL_CHAIN_DATA_DB: d1.db };
+    const createdResponse = await onCreateRunV2({
+      request: request(
+        "https://thought.inshell.art/api/thought-agent/v2/runs",
+        {
+          protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+          promptLine: "keep the neutral run on protocol v2",
+          specId: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
+          requestedAgent: {
+            adapterId: THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
+            model: null,
+          },
+        },
+        {
+          origin: "https://thought.inshell.art",
+          cookie: "inshell_anon_visitor=visitor-unbound-v1-claim",
+        },
+      ),
+      env,
+    });
+    const created = await createdResponse.json();
+    const launchUrl = new globalThis.URL(created.launchUri);
+    const runId = launchUrl.searchParams.get("run_id") ?? "";
+    const launchToken = launchUrl.searchParams.get("token") ?? "";
+
+    const response = await onClaimRun({
+      request: request(
+        `https://thought.inshell.art/api/thought-agent/v1/runs/${runId}/claim`,
+        claimBody,
+        auth(launchToken),
+      ),
+      env,
+      params: { runId },
+    });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "ADAPTER_MISMATCH" },
+    });
+    expect(d1.rows.get(runId)?.requested_adapter_id).toBe(
+      THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
+    );
+  });
+
+  test("keeps V2 creative input sealed through bounded preflight and completes the run", async () => {
+    const d1 = createD1Mock();
+    const env = { INSHELL_CHAIN_DATA_DB: d1.db };
+    const createdResponse = await onCreateRunV2({
+      request: request(
+        "https://thought.inshell.art/api/thought-agent/v2/runs",
+        {
+          protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+          promptLine: "make a quiet sky",
+          specId: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
+          requestedAgent: {
+            adapterId: "codex",
+            model: null,
+          },
+          client: {
+            surface: "thought-web",
+            appVersion: "test",
+          },
+        },
+        {
+          origin: "https://thought.inshell.art",
+          cookie: "inshell_anon_visitor=visitor-v2-lifecycle",
+        },
+      ),
+      env,
+    });
+    const created = await createdResponse.json();
+    expect(createdResponse.status).toBe(201);
+    expect(created.controlContract).toEqual({
+      schema: THOUGHT_AGENT_CONTROL_VERSION,
+      mode: "bounded-preflight",
+      claimCreativeInput: "sealed-absent",
+      creativeInputEndpoint: "start",
+    });
+
+    const launchUrl = new globalThis.URL(created.launchUri);
+    const runId = launchUrl.searchParams.get("run_id") ?? "";
+    const launchToken = launchUrl.searchParams.get("token") ?? "";
+    const claimed = await claimRun(env, runId, launchToken, "v2");
+    expect(claimed.response.status).toBe(200);
+    expect(claimed.payload).toMatchObject({
+      runId,
+      state: "claimed",
+      bridgeToken: expect.any(String),
+      request: {
+        intent: "prepare-thought-creation",
+        controlPolicy: {
+          mode: "bounded-preflight",
+          creativeInputState: "sealed",
+        },
+        evidenceContract: {
+          schema: controlEvidence.schema,
+          appExchange: controlEvidence.appExchange,
+          agentProduct: "declared",
+          runtimeModel: "reported-or-unknown",
+          localPreparation: controlEvidence.localPreparation,
+          installationsRequired: controlEvidence.installationsRequired,
+          creativeInputOpened: controlEvidence.creativeInputOpened,
+        },
+      },
+    });
+    expect(claimed.payload.request).not.toHaveProperty("promptLine");
+    expect(claimed.payload.request).not.toHaveProperty("agentInput");
+    expect(claimed.payload.request).not.toHaveProperty("spec");
+    expect(claimed.payload.request).not.toHaveProperty("instructions");
+    expect(JSON.stringify(claimed.payload.request)).not.toContain("make a quiet sky");
+
+    const rowAfterClaim = { ...d1.rows.get(runId)! };
+    const repeatedClaim = await claimRun(env, runId, launchToken, "v2");
+    expect(repeatedClaim.response.status).toBe(409);
+    expect(repeatedClaim.payload).toEqual({
+      protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+      error: {
+        code: "RUN_ALREADY_CLAIMED",
+        message: "THOUGHT Agent run is already claimed.",
+      },
+    });
+    expect(repeatedClaim.payload).not.toHaveProperty("bridgeToken");
+    expect(d1.rows.get(runId)).toEqual(rowAfterClaim);
+
+    const prematureStart = await startRun(
+      env,
+      runId,
+      claimed.payload.bridgeToken,
+      "tai_v2_premature",
+      "v2",
+    );
+    expect(prematureStart.status).toBe(409);
+    await expect(prematureStart.json()).resolves.toMatchObject({
+      error: { code: "RUN_STATE_CONFLICT" },
+    });
+
+    const wrongTokenReady = await readyRunV2(env, runId, "wrong-bridge-token");
+    expect(wrongTokenReady.response.status).toBe(401);
+    expect(wrongTokenReady.payload.error.code).toBe("TOKEN_INVALID");
+
+    const ready = await readyRunV2(env, runId, claimed.payload.bridgeToken);
+    expect(ready.response.status).toBe(200);
+    expect(ready.payload).toMatchObject({
+      runId,
+      state: "ready",
+      stage: "control-verified",
+      control: controlEvidence,
+    });
+    const rowAfterReady = { ...d1.rows.get(runId)! };
+    const repeatedReady = await readyRunV2(env, runId, claimed.payload.bridgeToken);
+    expect(repeatedReady.response.status).toBe(200);
+    expect(repeatedReady.payload).toEqual(ready.payload);
+    expect(d1.rows.get(runId)).toEqual(rowAfterReady);
+
+    const startedResponse = await startRun(
+      env,
+      runId,
+      claimed.payload.bridgeToken,
+      "tai_v2_lifecycle",
+      "v2",
+    );
+    const started = await startedResponse.json();
+    expect(startedResponse.status).toBe(200);
+    expect(started).toMatchObject({
+      runId,
+      state: "running",
+      invocationId: "tai_v2_lifecycle",
+      request: {
+        intent: "generate-thought-candidate",
+        promptLine: {
+          text: "make a quiet sky",
+        },
+        agentInput: {
+          mediaType: "text/plain; charset=utf-8",
+        },
+        spec: {
+          id: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
+        },
+        instructions: {
+          artifactId: THOUGHT_V2_PROTOCOL_RELEASE.creativeBrief.artifactId,
+        },
+        outputContract: {
+          resultSchema: THOUGHT_AGENT_RESULT_VERSION,
+        },
+      },
+    });
+    const rowAfterStart = { ...d1.rows.get(runId)! };
+    const repeatedStartResponse = await startRun(
+      env,
+      runId,
+      claimed.payload.bridgeToken,
+      "tai_v2_lifecycle",
+      "v2",
+    );
+    const repeatedStart = await repeatedStartResponse.json();
+    expect(repeatedStartResponse.status).toBe(409);
+    expect(repeatedStart).toEqual({
+      protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+      error: {
+        code: "RUN_STATE_CONFLICT",
+        message: "THOUGHT Agent run is not in the required state.",
+      },
+    });
+    expect(repeatedStart).not.toHaveProperty("request");
+    expect(JSON.stringify(repeatedStart)).not.toContain("make a quiet sky");
+    expect(d1.rows.get(runId)).toEqual(rowAfterStart);
+
+    const canonicalRaw = JSON.stringify({
+      schema: THOUGHT_AGENT_RESULT_VERSION,
+      release: THOUGHT_V2_PROTOCOL_RELEASE.release,
+      agentLine: "QUIET SKY",
+    });
+    const canonicalRawSha256 = await sha256Hex(canonicalRaw);
+    const readinessResultMismatch = await submitResult(
+      env,
+      runId,
+      claimed.payload.bridgeToken,
+      "tai_v2_lifecycle",
+      "QUIET SKY",
+      "v2",
+      {
+        agent: {
+          product: "codex-cli",
+          provider: "openai",
+          model: "gpt-5.6-sol",
+          metadataSource: "reported",
+        },
+      },
+    );
+    expect(readinessResultMismatch.response.status).toBe(400);
+    expect(readinessResultMismatch.payload.error).toEqual({
+      code: "AGENT_OUTPUT_SCHEMA_INVALID",
+      message: "Result model metadata does not match readiness evidence.",
+    });
+    const missingPrefix = await submitResult(
+      env,
+      runId,
+      claimed.payload.bridgeToken,
+      "tai_v2_lifecycle",
+      "QUIET SKY",
+      "v2",
+      {
+        raw: canonicalRaw,
+        rawSha256: canonicalRawSha256.slice("sha256:".length),
+      },
+    );
+    expect(missingPrefix.response.status).toBe(409);
+    expect(missingPrefix.payload.error).toEqual({
+      code: "RESULT_HASH_MISMATCH",
+      message: "Submitted result hashes do not match exact bytes.",
+    });
+
+    const alternateRaw = JSON.stringify(
+      {
+        agentLine: "QUIET SKY",
+        release: THOUGHT_V2_PROTOCOL_RELEASE.release,
+        schema: THOUGHT_AGENT_RESULT_VERSION,
+      },
+      null,
+      2,
+    );
+    expect(alternateRaw).not.toBe(canonicalRaw);
+    const differentSerializationHash = await submitResult(
+      env,
+      runId,
+      claimed.payload.bridgeToken,
+      "tai_v2_lifecycle",
+      "QUIET SKY",
+      "v2",
+      {
+        raw: alternateRaw,
+        rawSha256: canonicalRawSha256,
+      },
+    );
+    expect(differentSerializationHash.response.status).toBe(409);
+    expect(differentSerializationHash.payload.error).toEqual({
+      code: "RESULT_HASH_MISMATCH",
+      message: "Submitted result hashes do not match exact bytes.",
+    });
+
+    const stillRunning = await onGetRunV2({
+      request: request(
+        `https://thought.inshell.art/api/thought-agent/v2/runs/${runId}`,
+        {},
+        auth(created.browserToken),
+      ),
+      env,
+      params: { runId },
+    });
+    expect(stillRunning.status).toBe(200);
+    await expect(stillRunning.json()).resolves.toMatchObject({
+      runId,
+      state: "running",
+      stage: "agent-running",
+    });
+
+    const returned = await submitResult(
+      env,
+      runId,
+      claimed.payload.bridgeToken,
+      "tai_v2_lifecycle",
+      "QUIET SKY",
+      "v2",
+      { raw: alternateRaw },
+    );
+    expect(returned.response.status).toBe(200);
+    expect(returned.payload).toMatchObject({
+      runId,
+      state: "returned",
+      result: {
+        agentLine: "QUIET SKY",
+      },
+    });
+    expect(returned.payload.result.raw).toBe(alternateRaw);
+    expect(returned.payload.result.receipt).toMatchObject({
+      metadataSource: "unknown",
+      model: null,
+      reasoningEffort: null,
+    });
+
+    const rowAfterResult = { ...d1.rows.get(runId)! };
+    const repeatedResult = await submitResult(
+      env,
+      runId,
+      claimed.payload.bridgeToken,
+      "tai_v2_lifecycle",
+      "QUIET SKY",
+      "v2",
+      { raw: alternateRaw },
+    );
+    expect(repeatedResult.response.status).toBe(200);
+    expect(repeatedResult.payload).toEqual(returned.payload);
+    expect(repeatedResult.payload.result.raw).toBe(alternateRaw);
+    expect(d1.rows.get(runId)).toEqual(rowAfterResult);
+
+    const failAfterSuccessResponse = await onFailRunV2({
+      request: request(
+        `https://thought.inshell.art/api/thought-agent/v2/runs/${runId}/fail`,
+        {
+          protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+          error: {
+            code: "AGENT_START_FAILED",
+            message: "A late failure must not replace success.",
+          },
+        },
+        auth(claimed.payload.bridgeToken),
+      ),
+      env,
+      params: { runId },
+    });
+    expect(failAfterSuccessResponse.status).toBe(409);
+    await expect(failAfterSuccessResponse.json()).resolves.toEqual({
+      protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+      error: {
+        code: "RUN_STATE_CONFLICT",
+        message: "THOUGHT Agent run is not in the required state.",
+      },
+    });
+    expect(d1.rows.get(runId)).toEqual(rowAfterResult);
+
+    const conflictingResult = await submitResult(
+      env,
+      runId,
+      claimed.payload.bridgeToken,
+      "tai_v2_lifecycle",
+      "LOUD SKY",
+      "v2",
+    );
+    expect(conflictingResult.response.status).toBe(409);
+    expect(conflictingResult.payload.error.code).toBe("RESULT_CONFLICT");
+
+    const polled = await onGetRunV2({
+      request: request(
+        `https://thought.inshell.art/api/thought-agent/v2/runs/${runId}`,
+        {},
+        auth(created.browserToken),
+      ),
+      env,
+      params: { runId },
+    });
+    expect(polled.status).toBe(200);
+    await expect(polled.json()).resolves.toMatchObject({
+      runId,
+      state: "returned",
+      stage: "returned",
+      request: {
+        promptLine: {
+          text: "make a quiet sky",
+        },
+      },
+      result: {
+        agentLine: "QUIET SKY",
+      },
+    });
+  });
+
+  test("preserves exact reported model metadata through the v2 result receipt", async () => {
+    const d1 = createD1Mock();
+    const env = { INSHELL_CHAIN_DATA_DB: d1.db };
+    const createdResponse = await onCreateRunV2({
+      request: request(
+        "https://thought.inshell.art/api/thought-agent/v2/runs",
+        {
+          protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+          promptLine: "name the exact model",
+          specId: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
+          requestedAgent: { adapterId: "codex", model: "requested-model" },
+          client: { surface: "thought-web", appVersion: "test" },
+        },
+        {
+          origin: "https://thought.inshell.art",
+          cookie: "inshell_anon_visitor=visitor-v2-reported-model",
+        },
+      ),
+      env,
+    });
+    const created = await createdResponse.json();
+    const launchUrl = new globalThis.URL(created.launchUri);
+    const runId = launchUrl.searchParams.get("run_id") ?? "";
+    const launchToken = launchUrl.searchParams.get("token") ?? "";
+    const claimed = await claimRun(env, runId, launchToken, "v2");
+    const reportedControl = parseThoughtAgentControlEvidence({
+      ...controlEvidence,
+      runtimeModel: "reported",
+    });
+    const ready = await readyRunV2(
+      env,
+      runId,
+      claimed.payload.bridgeToken,
+      reportedControl,
+    );
+    expect(ready.response.status).toBe(200);
+    const started = await startRun(
+      env,
+      runId,
+      claimed.payload.bridgeToken,
+      "tai_v2_reported_model",
+      "v2",
+    );
+    expect(started.status).toBe(200);
+    const returned = await submitResult(
+      env,
+      runId,
+      claimed.payload.bridgeToken,
+      "tai_v2_reported_model",
+      "EXACT MODEL",
+      "v2",
+      {
+        agent: {
+          product: "Codex",
+          provider: "openai",
+          model: "gpt-5.6-sol",
+          reasoningEffort: "high",
+          metadataSource: "reported",
+        },
+      },
+    );
+    expect(returned.response.status).toBe(200);
+    expect(returned.payload.result.receipt).toMatchObject({
+      model: "gpt-5.6-sol",
+      reasoningEffort: "high",
+      metadataSource: "reported",
+    });
+    expect(returned.payload.result.receipt.model).not.toBe("requested-model");
+  });
+
+  test.each(["claimed", "ready", "running"] as const)(
+    "keeps the v2 Agent failure response noncreative from %s while preserving browser status",
+    async (failureState) => {
+      const d1 = createD1Mock();
+      const env = { INSHELL_CHAIN_DATA_DB: d1.db };
+      const prompt = `sealed ${failureState} failure prompt`;
+      const createdResponse = await onCreateRunV2({
+        request: request(
+          "https://thought.inshell.art/api/thought-agent/v2/runs",
+          {
+            protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+            promptLine: prompt,
+            specId: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
+            requestedAgent: {
+              adapterId: "codex",
+              model: null,
+            },
+            client: {
+              surface: "thought-web",
+              appVersion: "test",
+            },
+          },
+          {
+            origin: "https://thought.inshell.art",
+            cookie: `inshell_anon_visitor=visitor-v2-fail-${failureState}`,
+          },
+        ),
+        env,
+      });
+      const created = await createdResponse.json();
+      expect(createdResponse.status).toBe(201);
+      const launchUrl = new globalThis.URL(created.launchUri);
+      const runId = launchUrl.searchParams.get("run_id") ?? "";
+      const launchToken = launchUrl.searchParams.get("token") ?? "";
+      const claimed = await claimRun(env, runId, launchToken, "v2");
+      expect(claimed.response.status).toBe(200);
+
+      if (failureState === "ready" || failureState === "running") {
+        const ready = await readyRunV2(env, runId, claimed.payload.bridgeToken);
+        expect(ready.response.status).toBe(200);
+      }
+      if (failureState === "running") {
+        const started = await startRun(
+          env,
+          runId,
+          claimed.payload.bridgeToken,
+          "tai_v2_failure",
+          "v2",
+        );
+        expect(started.status).toBe(200);
+      }
+      expect(d1.rows.get(runId)?.state).toBe(failureState);
+
+      const failureMessage = `Agent failed from ${failureState}.`;
+      const failureBody = {
+        protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+        error: {
+          code: "AGENT_START_FAILED",
+          message: failureMessage,
+        },
+      };
+      const failedResponse = await onFailRunV2({
+        request: request(
+          `https://thought.inshell.art/api/thought-agent/v2/runs/${runId}/fail`,
+          failureBody,
+          auth(claimed.payload.bridgeToken),
+        ),
+        env,
+        params: { runId },
+      });
+      const failed = await failedResponse.json();
+      expect(failedResponse.status).toBe(200);
+      expect(failed).toEqual({
+        protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+        runId,
+        state: "failed",
+        error: {
+          code: "AGENT_START_FAILED",
+          message: failureMessage,
+        },
+      });
+      expect(JSON.stringify(failed)).not.toContain(prompt);
+
+      const browserResponse = await onGetRunV2({
+        request: request(
+          `https://thought.inshell.art/api/thought-agent/v2/runs/${runId}`,
+          {},
+          auth(created.browserToken),
+        ),
+        env,
+        params: { runId },
+      });
+      const browserStatus = await browserResponse.json();
+      expect(browserResponse.status).toBe(200);
+      expect(browserStatus).toMatchObject({
+        runId,
+        state: "failed",
+        stage: "failed",
+        request: {
+          promptLine: { text: prompt },
+          agentInput: { text: prompt },
+        },
+        error: {
+          code: "AGENT_START_FAILED",
+          message: failureMessage,
+        },
+      });
+
+      const rowAfterFailure = { ...d1.rows.get(runId)! };
+      const repeatedFailureResponse = await onFailRunV2({
+        request: request(
+          `https://thought.inshell.art/api/thought-agent/v2/runs/${runId}/fail`,
+          failureBody,
+          auth(claimed.payload.bridgeToken),
+        ),
+        env,
+        params: { runId },
+      });
+      const repeatedFailure = await repeatedFailureResponse.json();
+      expect(repeatedFailureResponse.status).toBe(409);
+      expect(repeatedFailure).toEqual({
+        protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+        error: {
+          code: "RUN_STATE_CONFLICT",
+          message: "THOUGHT Agent run is not in the required state.",
+        },
+      });
+      expect(JSON.stringify(repeatedFailure)).not.toContain(prompt);
+      expect(d1.rows.get(runId)).toEqual(rowAfterFailure);
+    },
+  );
+
+  test("rejects missing, wrong-role, and invalid credentials on the v2 failure route without leaking or mutating", async () => {
+    const d1 = createD1Mock();
+    const env = { INSHELL_CHAIN_DATA_DB: d1.db };
+    const prompt = "sealed credential failure prompt";
+    const createdResponse = await onCreateRunV2({
+      request: request(
+        "https://thought.inshell.art/api/thought-agent/v2/runs",
+        {
+          protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+          promptLine: prompt,
+          specId: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
+          requestedAgent: {
+            adapterId: "codex",
+            model: null,
+          },
+        },
+        {
+          origin: "https://thought.inshell.art",
+          cookie: "inshell_anon_visitor=visitor-v2-fail-auth",
+        },
+      ),
+      env,
+    });
+    const created = await createdResponse.json();
+    const launchUrl = new globalThis.URL(created.launchUri);
+    const runId = launchUrl.searchParams.get("run_id") ?? "";
+    const launchToken = launchUrl.searchParams.get("token") ?? "";
+    const claimed = await claimRun(env, runId, launchToken, "v2");
+    expect(claimed.response.status).toBe(200);
+    const before = { ...d1.rows.get(runId)! };
+    const body = {
+      protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+      error: {
+        code: "AGENT_START_FAILED",
+        message: "Agent could not prepare this run.",
+      },
+    };
+    const attempts = [
+      ["missing", {}, "Missing bearer token."],
+      ["browser", auth(created.browserToken), "Invalid token."],
+      ["invalid", auth("invalid-bridge-token"), "Invalid token."],
+    ] as const;
+
+    for (const [, headers, message] of attempts) {
+      const response = await onFailRunV2({
+        request: request(
+          `https://thought.inshell.art/api/thought-agent/v2/runs/${runId}/fail`,
+          body,
+          headers,
+        ),
+        env,
+        params: { runId },
+      });
+      const payload = await response.json();
+      expect(response.status).toBe(401);
+      expect(payload).toEqual({
+        protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+        error: {
+          code: "TOKEN_INVALID",
+          message,
+        },
+      });
+      expect(JSON.stringify(payload)).not.toContain(prompt);
+      expect(d1.rows.get(runId)).toEqual(before);
+    }
+  });
+
   test("retires the compatibility Codex protocol client", async () => {
     const response = onGetCodexClient() as unknown as TestResponse;
     const payload = await response.json();
@@ -674,10 +1639,13 @@ describe("THOUGHT Agent Pages API", () => {
       env,
       params: { runId: failRunId },
     });
-    await expect(failed.json()).resolves.toMatchObject({
+    await expect(failed.json()).resolves.toEqual({
+      protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+      runId: failRunId,
       state: "failed",
       error: {
         code: "AGENT_OUTPUT_UNPARSEABLE",
+        message: "The agent final response did not match the required schema.",
       },
     });
   });
@@ -709,5 +1677,56 @@ describe("THOUGHT Agent Pages API", () => {
       },
     });
     expect(d1.rows.size).toBe(0);
+  });
+
+  test("accepts the canonical home staging alias only on a preview branch", async () => {
+    const d1 = createD1Mock();
+    const env = {
+      INSHELL_CHAIN_DATA_DB: d1.db,
+      CF_PAGES_BRANCH: "staging",
+    };
+    const response = await onCreateRunV2({
+      request: request(
+        "https://staging.inshell-art.pages.dev/api/thought-agent/v2/runs",
+        {
+          protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+          promptLine: "staging chooser",
+          specId: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
+          requestedAgent: {
+            adapterId: THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
+            model: null,
+          },
+        },
+        { origin: "https://staging.inshell-art.pages.dev" },
+      ),
+      env,
+    });
+
+    expect(response.status).toBe(201);
+    expect(d1.rows.size).toBe(1);
+
+    const productionD1 = createD1Mock();
+    const productionResponse = await onCreateRunV2({
+      request: request(
+        "https://staging.inshell-art.pages.dev/api/thought-agent/v2/runs",
+        {
+          protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+          promptLine: "production rejection",
+          specId: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
+          requestedAgent: {
+            adapterId: THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
+            model: null,
+          },
+        },
+        { origin: "https://staging.inshell-art.pages.dev" },
+      ),
+      env: {
+        INSHELL_CHAIN_DATA_DB: productionD1.db,
+        CF_PAGES_BRANCH: "main",
+      },
+    });
+
+    expect(productionResponse.status).toBe(403);
+    expect(productionD1.rows.size).toBe(0);
   });
 });

@@ -59,6 +59,19 @@ type TargetedPathTokenEvent = {
 
 export const onRequestOptions = onOptions;
 
+function hasCanonicalMintOrder(item: PathTokenApiItem) {
+  return Number.isFinite(item.mintBlockNumber) &&
+    Number.isFinite(item.mintLogIndex) &&
+    typeof item.mintTxHash === "string";
+}
+
+function usablePathSnapshot(
+  snapshot: IndexedSnapshot<PathTokenApiItem> | null | undefined,
+) {
+  if (!snapshot) return null;
+  return snapshot.items.every(hasCanonicalMintOrder) ? snapshot : null;
+}
+
 export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
   const diagnostics = createChainCacheDiagnostics(SNAPSHOT_KEY);
   const cached = await readResponseCache(ctx, SNAPSHOT_KEY);
@@ -67,7 +80,9 @@ export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
     return withChainCacheDiagnostics(ctx, cached, diagnostics);
   }
 
-  const previous = await readSnapshot<PathTokenApiItem>(ctx.env, SNAPSHOT_KEY, diagnostics);
+  const previous = usablePathSnapshot(
+    await readSnapshot<PathTokenApiItem>(ctx.env, SNAPSHOT_KEY, diagnostics),
+  );
   if (previous && readModelEnabled(ctx.env)) {
     const response = responseFromSnapshot(previous);
     writeResponseCache(ctx, SNAPSHOT_KEY, response, RESPONSE_CACHE_SECONDS, previous.lastScannedBlock);
@@ -97,10 +112,13 @@ async function loadPathTokens(
   previousOverride?: IndexedSnapshot<PathTokenApiItem> | null,
   options: { force?: boolean; bounded?: boolean; maxLogChunks?: number } = {},
 ): Promise<RefreshOutcome<PathTokenApiItem>> {
-  const previous =
+  const storedPrevious =
     previousOverride === undefined
       ? await readSnapshot<PathTokenApiItem>(env, SNAPSHOT_KEY, diagnostics)
       : previousOverride;
+  const previous = options.bounded
+    ? storedPrevious
+    : usablePathSnapshot(storedPrevious);
   if (!options.force && previous && Date.now() - previous.cachedAt < RESPONSE_CACHE_SECONDS * 1000) {
     return {
       snapshot: previous,
@@ -150,12 +168,19 @@ async function loadPathTokens(
       continue;
     }
     const existing = tokens.get(tokenIdLabel);
+    const isMint = lowerTopicAddress(log.topics[1]) === ZERO_TOPIC;
     tokens.set(tokenIdLabel, {
       tokenId: tokenIdLabel,
       tokenIdLabel,
       owner: topicToAddress(log.topics[2]),
       tokenUri: existing?.tokenUri ?? "",
       metadata: existing?.metadata ?? {},
+      mintBlockNumber: existing?.mintBlockNumber ??
+        (isMint ? hexToNumber(log.blockNumber) : undefined),
+      mintLogIndex: existing?.mintLogIndex ??
+        (isMint ? hexToNumber(log.logIndex) : undefined),
+      mintTxHash: existing?.mintTxHash ??
+        (isMint ? log.transactionHash : undefined),
       blockNumber: hexToNumber(log.blockNumber),
       txHash: log.transactionHash,
     });
@@ -424,6 +449,8 @@ async function readPathTokenItem(
   const transferOwner = (log.topics[0] ?? "").toLowerCase() === TRANSFER_TOPIC
     ? topicToAddress(log.topics[2])
     : "";
+  const isMint = (log.topics[0] ?? "").toLowerCase() === TRANSFER_TOPIC &&
+    lowerTopicAddress(log.topics[1]) === ZERO_TOPIC;
   let owner = existing?.owner ?? transferOwner;
   try {
     owner = normalizeAddressResult(
@@ -453,6 +480,12 @@ async function readPathTokenItem(
     owner,
     tokenUri,
     metadata,
+    mintBlockNumber: existing?.mintBlockNumber ??
+      (isMint ? hexToNumber(log.blockNumber) : undefined),
+    mintLogIndex: existing?.mintLogIndex ??
+      (isMint ? hexToNumber(log.logIndex) : undefined),
+    mintTxHash: existing?.mintTxHash ??
+      (isMint ? log.transactionHash : undefined),
     blockNumber: hexToNumber(log.blockNumber),
     txHash: log.transactionHash,
   };

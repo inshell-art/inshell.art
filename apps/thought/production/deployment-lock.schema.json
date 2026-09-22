@@ -1,0 +1,316 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Always-enforced approved deployment reference",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "revision",
+    "state",
+    "requiredRelease",
+    "deployment",
+    "evidence",
+    "review"
+  ],
+  "properties": {
+    "schema": {
+      "const": "inshell.thought.production-deployment-lock.v2"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "state": {
+      "enum": [
+        "no-approved-deployment",
+        "approved-deployment"
+      ]
+    },
+    "requiredRelease": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactId",
+        "manifestSha256"
+      ],
+      "properties": {
+        "artifactId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "manifestSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "deployment": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "artifactId",
+            "manifestSha256",
+            "chainId",
+            "contracts",
+            "deployBlocks",
+            "release",
+            "attestation"
+          ],
+          "properties": {
+            "artifactId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "manifestSha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "chainId": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "contracts": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "pathNft",
+                "pulseAuction",
+                "pathPulseAdapter",
+                "thoughtNft",
+                "thoughtRenderer",
+                "thoughtSpecRegistry",
+                "protocolRegistry",
+                "creationAttestationVerifier"
+              ],
+              "properties": {
+                "pathNft": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{40}$",
+                  "not": {
+                    "pattern": "^0x0{40}$"
+                  }
+                },
+                "pulseAuction": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{40}$",
+                  "not": {
+                    "pattern": "^0x0{40}$"
+                  }
+                },
+                "pathPulseAdapter": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{40}$",
+                  "not": {
+                    "pattern": "^0x0{40}$"
+                  }
+                },
+                "thoughtNft": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{40}$",
+                  "not": {
+                    "pattern": "^0x0{40}$"
+                  }
+                },
+                "thoughtRenderer": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{40}$",
+                  "not": {
+                    "pattern": "^0x0{40}$"
+                  }
+                },
+                "thoughtSpecRegistry": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{40}$",
+                  "not": {
+                    "pattern": "^0x0{40}$"
+                  }
+                },
+                "protocolRegistry": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{40}$",
+                  "not": {
+                    "pattern": "^0x0{40}$"
+                  }
+                },
+                "creationAttestationVerifier": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{40}$",
+                  "not": {
+                    "pattern": "^0x0{40}$"
+                  }
+                }
+              }
+            },
+            "deployBlocks": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "pathNft",
+                "pulseAuction",
+                "pathPulseAdapter",
+                "thoughtNft",
+                "thoughtRenderer",
+                "thoughtSpecRegistry",
+                "protocolRegistry",
+                "creationAttestationVerifier"
+              ],
+              "properties": {
+                "pathNft": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "pulseAuction": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "pathPulseAdapter": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "thoughtNft": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "thoughtRenderer": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "thoughtSpecRegistry": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "protocolRegistry": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "creationAttestationVerifier": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "release": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "protocolReleaseId",
+                "manifestKeccak256"
+              ],
+              "properties": {
+                "protocolReleaseId": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{64}$",
+                  "not": {
+                    "pattern": "^0x0{64}$"
+                  }
+                },
+                "manifestKeccak256": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{64}$",
+                  "not": {
+                    "pattern": "^0x0{64}$"
+                  }
+                }
+              }
+            },
+            "attestation": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "authority",
+                "authorityEpoch"
+              ],
+              "properties": {
+                "authority": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{40}$",
+                  "not": {
+                    "pattern": "^0x0{40}$"
+                  }
+                },
+                "authorityEpoch": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "evidence": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reference",
+            "sha256"
+          ],
+          "properties": {
+            "reference": {
+              "type": "string",
+              "pattern": "^(docs|evidence)/[A-Za-z0-9_/-]+\\.(md|json)$"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        }
+      ]
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reference"
+      ],
+      "properties": {
+        "reference": {
+          "type": "string",
+          "pattern": "^(docs|evidence)/[A-Za-z0-9_/-]+\\.(md|json)$"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "no-approved-deployment"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "deployment": {
+            "type": "null"
+          },
+          "evidence": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "deployment": {
+            "$ref": "#/properties/deployment/oneOf/1"
+          },
+          "evidence": {
+            "$ref": "#/properties/evidence/oneOf/1"
+          }
+        }
+      }
+    }
+  ]
+}

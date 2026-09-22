@@ -6,6 +6,16 @@ export type PagesBuildDeploymentEnvOptions = {
   productionBranch?: string | null;
 };
 
+export function sortPagesBuildPublicEnv(
+  env: Readonly<Record<string, string>>,
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(env).sort(([left], [right]) =>
+      left < right ? -1 : left > right ? 1 : 0,
+    ),
+  );
+}
+
 function normalizeConfiguredDeployEnv(
   value: string | null | undefined,
 ): PagesBuildDeploymentEnv | null {

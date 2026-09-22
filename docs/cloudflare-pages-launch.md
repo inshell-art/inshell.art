@@ -135,6 +135,51 @@ Attach the canonical preview domain to the home project's `staging` branch:
 preview.inshell.art -> staging.inshell-art.pages.dev
 ```
 
+### Staging Agent API access
+
+For the canonical home project's staging build, set the public
+`VITE_THOUGHT_AGENT_PUBLIC_API_BASE` to
+`https://preview.inshell.art/api/thought-agent/v2`. Browser API requests remain
+same-origin. The manual deployment workflow pins this staging-only value;
+production and the standalone compatibility project's values are unchanged.
+Cloudflare built-in preview builds must use the same public value before they
+replace a manually deployed candidate.
+
+External Agents use run-scoped launch/bridge bearer credentials, not the
+operator's Cloudflare Access cookie. Keep the existing preview page login and
+browser control routes protected. The only intended Access exception is on the
+exact host `preview.inshell.art` for:
+
+- `/api/thought-agent/v2/connectivity`
+- `/api/thought-agent/v2/runs/*/claim`
+- `/api/thought-agent/v2/runs/*/ready`
+- `/api/thought-agent/v2/runs/*/start`
+- `/api/thought-agent/v2/runs/*/result`
+- `/api/thought-agent/v2/runs/*/fail`
+
+Use a separate path-scoped Access application for these public API operations,
+with a Bypass policy, and disable only Browser Integrity Check on the same host
+and paths. Keep the existing token checks, other WAF protections, private page
+application, and production settings unchanged. Do not use a broad `/runs/*`
+exception: `/runs/` can reach run creation. Status, cancel, claim-authorization,
+client, v1 APIs, and the collection route (with or without trailing slash) remain
+outside this exception.
+
+Deploy and verify the V2 API method/path guard before activating the exception.
+Cloudflare path wildcards can match multiple path segments, so unmatched paths
+and unsupported methods must return JSON 404/405 rather than an app-shell
+fallback. Confirm this on the deployed candidate, including nested and encoded
+paths. The five operation handlers must still reject missing or invalid bearer
+credentials; connectivity is deliberately stateless and public.
+
+Before a real Agent retest, verify the public endpoint with an ordinary
+non-browser client; verify preview pages and browser-only endpoints still demand
+Access; and run the canary against the actual endpoint embedded in its handoff.
+Set `THOUGHT_BROWSER_CANARY_API_ORIGIN=https://preview.inshell.art` (and
+`THOUGHT_LIVE_API_ORIGIN=https://preview.inshell.art` for the Codex live script).
+Synthetic protocol traffic is not evidence of a real Agent run. Keep a distinct
+fresh manual Agent canary as the final product check.
+
 The canonical route map is:
 
 ```text

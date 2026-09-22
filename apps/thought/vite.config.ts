@@ -19,8 +19,10 @@ import {
   THOUGHT_AGENT_RUN_AUTHORITY,
   THOUGHT_AGENT_RESULT_VERSION,
   THOUGHT_AGENT_ERROR_CODES,
+  THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
   THOUGHT_AGENT_CREATIVE_BRIEF,
   ThoughtAgentProtocolError,
+  assertThoughtAgentMetadataMatchesControl,
   assertProtocolVersion,
   buildThoughtAgentReceipt,
   formatThoughtAgentModelLabel,
@@ -40,7 +42,10 @@ import {
   type ThoughtSha256,
 } from "../../packages/thought-agent-protocol/src/index";
 import type { RollupLog, RollupLogHandler } from "rollup";
-import { resolvePagesBuildDeploymentEnv } from "../../packages/shared/src/pagesBuildEnv";
+import {
+  resolvePagesBuildDeploymentEnv,
+  sortPagesBuildPublicEnv,
+} from "../../packages/shared/src/pagesBuildEnv";
 import {
   buildThoughtV2LocalAgentTaskBinding,
   buildThoughtV2LocalAgentOutputSchema,
@@ -67,6 +72,12 @@ import {
   persistDevRuns,
   retainLiveDevRuns,
 } from "./scripts/thought-agent-dev-run-store";
+import {
+  loadThoughtDevSnapshotModule,
+  restoreThoughtDevIndexSnapshot,
+  shouldRestoreThoughtDevIndexSnapshot,
+  THOUGHT_DEV_INDEX_SNAPSHOT,
+} from "./scripts/dev-index-snapshot.mjs";
 
 function ignoreKnownRollupWarnings(warning: RollupLog, warn: RollupLogHandler) {
   if (
@@ -87,6 +98,40 @@ function normalizeViteBase(value: string | undefined) {
   if (!raw || raw === "/") return "/";
   const withLeadingSlash = raw.startsWith("/") ? raw : `/${raw}`;
   return withLeadingSlash.endsWith("/") ? withLeadingSlash : `${withLeadingSlash}/`;
+}
+
+export function resolveThoughtRouteBaseRedirect(
+  requestUrl: string | undefined,
+  routeBase: string,
+) {
+  if (routeBase === "/") return null;
+  const request = new URL(requestUrl ?? "/", "http://127.0.0.1");
+  const routeWithoutTrailingSlash = routeBase.slice(0, -1);
+  if (request.pathname !== routeWithoutTrailingSlash) return null;
+  return `${routeBase}${request.search}`;
+}
+
+function createThoughtRouteBaseRedirectPlugin(routeBase: string): Plugin {
+  return {
+    name: "thought-route-base-redirect",
+    enforce: "pre",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.method !== "GET" && req.method !== "HEAD") {
+          next();
+          return;
+        }
+        const location = resolveThoughtRouteBaseRedirect(req.url, routeBase);
+        if (!location) {
+          next();
+          return;
+        }
+        res.statusCode = 307;
+        res.setHeader("Location", location);
+        res.end();
+      });
+    },
+  };
 }
 
 function readOutDir(rootDir: string) {
@@ -206,26 +251,47 @@ function createThoughtDevRuntimeBootstrapPlugin({
   contractRuntime,
   evmAddresses,
   publicEnv,
+  useLockedSurface,
+  workspaceRoot,
 }: {
   contractRuntime: Record<string, unknown> | null;
   evmAddresses: Record<string, unknown> | null;
   publicEnv: Record<string, string>;
+  useLockedSurface: boolean;
+  workspaceRoot: string;
 }): Plugin {
   const bootstrap = [
+    `globalThis.__INSHELL_THOUGHT_DEV_INDEX_SNAPSHOT__ = ${serializeForInlineScript(THOUGHT_DEV_INDEX_SNAPSHOT)};`,
     `globalThis.__INSHELL_VITE_ENV__ = ${serializeForInlineScript(publicEnv)};`,
     `globalThis.__INSHELL_THOUGHT_CONTRACT_RUNTIME__ = ${serializeForInlineScript(contractRuntime)};`,
     `globalThis.__INSHELL_THOUGHT_EVM_ADDRESSES__ = ${serializeForInlineScript(evmAddresses)};`,
   ].join("\n");
 
   return {
-    name: "inshell-thought-dev-runtime-bootstrap",
-    apply: "serve",
-    transformIndexHtml() {
-      return [{
-        tag: "script",
-        children: bootstrap,
-        injectTo: "head-prepend",
-      }];
+    name: "inshell-thought-locked-runtime-bootstrap",
+    apply: useLockedSurface ? undefined : "serve",
+    enforce: "pre",
+    load(id) {
+      return loadThoughtDevSnapshotModule(workspaceRoot, id);
+    },
+    transformIndexHtml: {
+      order: "pre",
+      handler(html, context) {
+        const restoredHtml = useLockedSurface || shouldRestoreThoughtDevIndexSnapshot(
+          context.originalUrl,
+          context.path,
+        )
+          ? restoreThoughtDevIndexSnapshot(html)
+          : html;
+        return {
+          html: restoredHtml,
+          tags: [{
+            tag: "script",
+            children: bootstrap,
+            injectTo: "head-prepend",
+          }],
+        };
+      },
     },
   };
 }
@@ -544,7 +610,7 @@ function statusPayload(run: DevThoughtAgentRun) {
         receiptVersion: THOUGHT_AGENT_RECEIPT_VERSION,
         receiptSha256: run.receiptSha256,
         adapterId: run.requestedAdapterId,
-        model: run.agent?.model ?? "unknown",
+        model: run.agent?.model ?? null,
         reasoningEffort: run.agent?.reasoningEffort ?? null,
         metadataSource: run.agent?.metadataSource ?? "unknown",
         appAcceptedAndBound: true,
@@ -605,14 +671,16 @@ function controlRequestPayload(run: DevThoughtAgentRun) {
       allowMultipleControlTurns: true,
       continueOnSuccess: true,
       recoverySignal: "RETRY",
-      requireRuntimeIdentityBeforeCreativeInput: true,
+      requireAgentProductBeforeCreativeInput: true,
+      runtimeModelPolicy: "reported-or-unknown",
       installationsAllowed: false,
       creativeInputState: "sealed",
     },
     evidenceContract: {
       schema: THOUGHT_AGENT_CONTROL_VERSION,
       appExchange: "verified",
-      runtimeIdentity: "available",
+      agentProduct: "declared",
+      runtimeModel: "reported-or-unknown",
       localPreparation: "verified",
       installationsRequired: false,
       creativeInputOpened: false,
@@ -695,16 +763,14 @@ function devAgentInfo(): ThoughtAgentInfo {
     return {
       product: "THOUGHT Bridge dev fake",
       provider: "codex",
-      model: "fake-dev",
-      metadataSource: "configured",
+      metadataSource: "unknown",
     };
   }
 
   return {
     product: "Codex CLI",
     provider: "codex",
-    model: "codex",
-    metadataSource: "configured",
+    metadataSource: "unknown",
   };
 }
 
@@ -834,7 +900,8 @@ async function autoRunDevCodex(
     schema: THOUGHT_AGENT_CONTROL_VERSION,
     mode: "bounded-preflight",
     appExchange: "verified",
-    runtimeIdentity: "available",
+    agentProduct: "declared",
+    runtimeModel: "unknown",
     localPreparation: "verified",
     installationsRequired: false,
     creativeInputOpened: false,
@@ -1255,9 +1322,13 @@ function createThoughtAgentDevApiPlugin(
               protocolError(res, 404, "SPEC_NOT_FOUND", "THOUGHT spec not found.");
               return;
             }
+            const unboundV2Chooser =
+              apiPrefix.endsWith("/v2") &&
+              requestedAgent?.adapterId === THOUGHT_AGENT_UNBOUND_ADAPTER_ID;
             if (
               requestedAgent?.adapterId !== "codex" &&
-              requestedAgent?.adapterId !== "claude"
+              requestedAgent?.adapterId !== "claude" &&
+              !unboundV2Chooser
             ) {
               protocolError(res, 400, "ADAPTER_NOT_INSTALLED", "Requested adapter is not supported.");
               return;
@@ -1407,7 +1478,11 @@ function createThoughtAgentDevApiPlugin(
             assertProtocolVersion(body.protocolVersion);
             const bridge = parseBridgeInfo(body.bridge);
             const adapter = parseAdapterInfo(body.adapter);
-            if (adapter?.adapterId !== run.requestedAdapterId) {
+            const adapterCanBindRun =
+              apiPrefix.endsWith("/v2") &&
+              run.requestedAdapterId === THOUGHT_AGENT_UNBOUND_ADAPTER_ID &&
+              (adapter.adapterId === "codex" || adapter.adapterId === "claude");
+            if (!adapterCanBindRun && adapter.adapterId !== run.requestedAdapterId) {
               protocolError(res, 409, "ADAPTER_MISMATCH", "Bridge adapter does not match requested adapter.");
               return;
             }
@@ -1417,6 +1492,7 @@ function createThoughtAgentDevApiPlugin(
             }
             run.bridge = bridge;
             run.adapter = adapter;
+            run.requestedAdapterId = adapter.adapterId;
             const bridgeToken = randomToken(32);
             run.bridgeToken = bridgeToken;
             run.bridgeTokenSha256 = tokenSha256(bridgeToken);
@@ -1604,6 +1680,22 @@ function createThoughtAgentDevApiPlugin(
               protocolError(res, 409, "ADAPTER_MISMATCH", "Result adapter does not match requested adapter.");
               return;
             }
+            if (run.control) {
+              try {
+                assertThoughtAgentMetadataMatchesControl(run.control, body.agent);
+              } catch (error) {
+                if (!(error instanceof ThoughtAgentProtocolError)) {
+                  throw error;
+                }
+                protocolError(
+                  res,
+                  400,
+                  error.code,
+                  error.message,
+                );
+                return;
+              }
+            }
             run.bridge = body.bridge;
             run.adapter = body.adapter;
             run.agent = body.agent;
@@ -1728,6 +1820,19 @@ export default defineConfig(({ command, mode }) => {
   const rootDir = process.cwd();
   const workspaceRoot = path.resolve(rootDir, "../..");
   const currentContractRuntime = readCurrentThoughtContractRuntime(workspaceRoot, command, mode);
+  const publicRuntimeRpcUrl = process.env.INSHELL_THOUGHT_PUBLIC_RPC_URL?.trim();
+  const browserContractRuntime = currentContractRuntime?.raw
+    ? {
+        ...currentContractRuntime.raw,
+        ...(publicRuntimeRpcUrl ? { rpcUrl: publicRuntimeRpcUrl } : {}),
+      }
+    : null;
+  const browserEvmAddresses = currentContractRuntime?.evmAddresses
+    ? {
+        ...currentContractRuntime.evmAddresses,
+        ...(publicRuntimeRpcUrl ? { rpcUrl: publicRuntimeRpcUrl } : {}),
+      }
+    : null;
   const activeLocalRelease = currentContractRuntime?.evmAddresses
     ? buildThoughtV2LocalRelease(currentContractRuntime.evmAddresses)
     : THOUGHT_V2_LOCAL_RELEASE;
@@ -1741,23 +1846,39 @@ export default defineConfig(({ command, mode }) => {
       processPublicEnv.VITE_DEPLOY_ENV ?? loadedEnv.VITE_DEPLOY_ENV,
     pagesBranch: process.env.CF_PAGES_BRANCH,
   });
-  const publicEnv = {
+  const homeStagingApiDefaults =
+    command === "build" &&
+    process.env.CF_PAGES_BRANCH?.trim() === "staging" &&
+    deployEnv === "preview" &&
+    readOutDir(rootDir) === path.resolve(workspaceRoot, "dist/home/thought")
+      ? {
+          VITE_THOUGHT_AGENT_PUBLIC_API_BASE:
+            "https://preview.inshell.art/api/thought-agent/v2",
+        }
+      : {};
+  const publicEnv = sortPagesBuildPublicEnv({
+    ...homeStagingApiDefaults,
     ...loadedEnv,
     ...(mode === "sepolia" ? { VITE_NETWORK: "sepolia" } : {}),
     ...processPublicEnv,
     ...(deployEnv ? { VITE_DEPLOY_ENV: deployEnv } : {}),
-  };
+  });
   const useRemoteAgentApi =
     process.env.INSHELL_THOUGHT_USE_REMOTE_AGENT_API === "1";
+  const useLockedSurface =
+    process.env.INSHELL_THOUGHT_USE_LOCKED_SURFACE === "1";
 
   return {
     root: rootDir,
     base: routeBase,
     plugins: [
+      createThoughtRouteBaseRedirectPlugin(routeBase),
       createThoughtDevRuntimeBootstrapPlugin({
-        contractRuntime: currentContractRuntime?.raw ?? null,
-        evmAddresses: currentContractRuntime?.evmAddresses ?? null,
+        contractRuntime: browserContractRuntime,
+        evmAddresses: browserEvmAddresses,
         publicEnv,
+        useLockedSurface,
+        workspaceRoot,
       }),
       createThoughtAgentDevApiPlugin(
         currentContractRuntime?.raw
@@ -1802,10 +1923,10 @@ export default defineConfig(({ command, mode }) => {
     define: {
       "globalThis.__INSHELL_VITE_ENV__": JSON.stringify(publicEnv),
       "globalThis.__INSHELL_THOUGHT_CONTRACT_RUNTIME__": JSON.stringify(
-        currentContractRuntime?.raw ?? null,
+        browserContractRuntime,
       ),
       "globalThis.__INSHELL_THOUGHT_EVM_ADDRESSES__": JSON.stringify(
-        currentContractRuntime?.evmAddresses ?? null,
+        browserEvmAddresses,
       ),
       ...(deployEnv
         ? { "import.meta.env.VITE_DEPLOY_ENV": JSON.stringify(deployEnv) }

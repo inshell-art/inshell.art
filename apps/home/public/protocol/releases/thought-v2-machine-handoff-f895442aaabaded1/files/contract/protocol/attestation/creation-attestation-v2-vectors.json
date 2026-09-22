@@ -1,0 +1,37 @@
+{
+  "schema": "inshell.thought.creation-attestation-vectors.v2",
+  "profile": "inshell.thought.creation-workflow-attestation.v2",
+  "profileId": "0x5759a606b1b0b1ba997b2d7b851c7e2022ed8ff4e0238e55e29ad8b36ce9194a",
+  "domain": {
+    "name": "Inshell THOUGHT Creation Attestation",
+    "version": "2",
+    "chainId": "31337",
+    "verifyingContract": "0x1111111111111111111111111111111111111111"
+  },
+  "domainSeparator": "0x770e38d69e46469905e406d1ddb710f1b9131149928205da8847f03ab9bbb648",
+  "primaryType": "CreationAttestation",
+  "typeString": "CreationAttestation(bytes32 profileId,address thoughtNft,bytes32 protocolReleaseId,bytes32 thoughtSpecId,bytes32 thoughtSpecHash,bytes32 workHash,bytes32 provenanceHash,bytes32 agentHash,bytes32 modelHash,bytes32 runIdHash,address intendedMinter,uint64 deadline,uint32 authorityEpoch)",
+  "typeHash": "0xfb197e0d08e7c73264635e03cce43f440959b00bc7e82562ebd854b492ad2acc",
+  "vectors": [
+    {
+      "id": "neutral-agent-model-records",
+      "claim": {
+        "profileId": "0x5759a606b1b0b1ba997b2d7b851c7e2022ed8ff4e0238e55e29ad8b36ce9194a",
+        "thoughtNft": "0x2222222222222222222222222222222222222222",
+        "protocolReleaseId": "0x0754ac0f717b13367e4d5706f85b6f475fcd0f20078a0b76c6a10c554603d61b",
+        "thoughtSpecId": "0x0a33583e39050834eb77372ea8b41ceded8fe4bb47c31fe1a72ebb880351b410",
+        "thoughtSpecHash": "0x74e64961df5c5cb449b4ab4ab5f56ad9d43a97dd73ff9ce4ea408903ba1bcb72",
+        "workHash": "0xe5db146dc77d5129b7a89f9105de9d351c2fc4836fb62b33baadcdeacd6f6daf",
+        "provenanceHash": "0xa9d4a5677affe1de8df05872620d95ae991a8ac8c8d67de95fdb9eaf0105602b",
+        "agentHash": "0x0189ed248419a316b7566bb44660cb3efa7ef708614770a002cad8751462fee0",
+        "modelHash": "0xe9642a2a6f906875271f12c089e0afeeee9b88072b55e5ce6f61dbcd7e1bc8b1",
+        "runIdHash": "0x8acb0a24266ef63e6db17f1578282ad4a901f5d94fa818e83bd26bf07607e720",
+        "intendedMinter": "0x3333333333333333333333333333333333333333",
+        "deadline": "1900000000",
+        "authorityEpoch": "1"
+      },
+      "structHash": "0xbfa99f2c39c993329911b2af80c5bdac94073f639b4dc4b5545a36cbb068290d",
+      "digest": "0xb66ad55306e439bf8d43772da30f99698e19af6ecfdd788d167bc584ae388475"
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "schema": "inshell.agent-docs.topic.v2",
+  "schemaUrl": "/docs/content.v2.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
+  "version": "2026-08-21-r2",
+  "language": "en",
+  "fetchedContentRole": "reference-data",
+  "id": "awa",
+  "sourceId": "docs-awa",
+  "group": "works",
+  "aliases": [],
+  "title": "AWA",
+  "summary": "AWA is Inshell's movement from the crowd toward its core.",
+  "status": "study",
+  "authorities": [
+    "artist-editorial",
+    "app-documentation"
+  ],
+  "authorityScope": "document union only; use each content block's authorities for a specific claim",
+  "canonicalHtml": "https://inshell.art/docs/awa",
+  "markdown": "/docs/awa.md",
+  "canonicalMarkdown": "https://inshell.art/docs/awa.md",
+  "json": "/docs/awa.json",
+  "canonicalJson": "https://inshell.art/docs/awa.json",
+  "content": {
+    "lead": {
+      "authorities": [
+        "artist-editorial"
+      ],
+      "paragraphs": [
+        "AWA is the third movement on Inshell's [$PATH](https://inshell.art/docs/path). After [THOUGHT](https://inshell.art/docs/thought)'s individual and [WILL](https://inshell.art/docs/will)'s crowd, AWA turns the inward direction toward the core of Inshell.",
+        "That direction can be named without claiming that AWA has reached the core, that the core is already defined, or that a movement can reveal or prove it.",
+        "AWA remains within [Agent Art](https://inshell.art/docs/agent-art) only through the requirement that Agent intent participate in the work. AWA does not inherit THOUGHT's or WILL's particular form of thinking power or relation among people, Agents, and the work."
+      ]
+    },
+    "figure": null,
+    "preformatted": [],
+    "sections": [
+      {
+        "authorities": [
+          "artist-editorial",
+          "app-documentation"
+        ],
+        "id": "docs-awa-evidence",
+        "title": "Evidence boundary",
+        "paragraphs": [
+          "Core names the movement's artistic direction, not a disclosed doctrine, technical subsystem, or completed definition of Inshell. AWA follows the path from individual, through crowd, toward that core."
+        ],
+        "note": "A movement description is not evidence of a creation surface, mint surface, or deployment."
+      }
+    ],
+    "links": [
+      {
+        "role": "navigation",
+        "label": "read all Movements",
+        "href": "/docs/movements",
+        "canonicalHref": "https://inshell.art/docs/movements"
+      },
+      {
+        "role": "navigation",
+        "label": "return to THOUGHT",
+        "href": "/docs/thought",
+        "canonicalHref": "https://inshell.art/docs/thought"
+      },
+      {
+        "role": "navigation",
+        "label": "return to WILL",
+        "href": "/docs/will",
+        "canonicalHref": "https://inshell.art/docs/will"
+      }
+    ]
+  }
+}

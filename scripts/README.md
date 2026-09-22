@@ -12,7 +12,10 @@ Task scripts for syncing **addresses**, writing **env**, and validating imported
 | `sync-env.ts` | Generate `.env.<net>.local` for apps from RPC + addresses (supports deploy block). |
 | `check-deployment.mjs` | Run the integrated deployment validation gates in offline-by-default mode. |
 | `dev-github-quality-loop.mjs` | Inspect DEV-owned GitHub Actions/security quality surfaces and write OPS-readable status artifacts. |
-| `validate-path-artifacts.ts` | Reject stale PATH ABI/release JSON that still exposes deprecated spark/reserved mint surface. |
+| `validate-path-artifacts.ts` | Reject issuer-direct Spark minting and incomplete PATH self-claim ABI/release config. |
+| `sync-path-contract-release.mjs` | Pin and verify the address-free PATH v0.5.0 ABI/bytecode bundle used by local deployment tooling. |
+| `generate-agent-docs.ts` | Generate human/Agent docs plus the digest-bound THOUGHT App↔Contract machine handoff. |
+| `check-upstream-releases.mjs` | Compare pinned PATH and THOUGHT locks with the latest canonical upstream tags. |
 | `validate-inshell-contracts.mjs` | Generate the Sepolia PATH/THOUGHT validation report from release manifests, bytecode hashes, sibling repo evidence, and optional live RPC reads. |
 | `abi-json-to-ts.ts` | Convert ABI JSON into a typed TS export for runtime/typing. |
 | `loadEnv.ts` | Load the best matching `.env.*` file for scripts/builds. |
@@ -23,25 +26,58 @@ Task scripts for syncing **addresses**, writing **env**, and validating imported
 
 - `utils.ts` — shared CLI + I/O helpers (flags, fetch, JSON, address normalization).
 - `sync-addresses.ts` — writes `packages/contracts/src/addresses/addresses.<net>.json` from a local file or URL.
-- `sync-path-release.ts` — validates a `path/artifacts/<net>/current/fe-release/` bundle, rejects stale protocol surface, then writes the FE address book, protocol release manifest, and ABI snapshots.
+- `sync-path-release.ts` — validates a `path/artifacts/<net>/current/fe-release/` bundle, rejects obsolete or partial Spark surfaces, then writes the FE address book, protocol release manifest, and ABI snapshots.
 - `sync-thought-release.ts` — validates a `THOUGHT/` FE release bundle with `protocol="thought"` / `schema_version=1`, verifies checksums, merges THOUGHT addresses into the FE address book, writes `thought-release.<net>.json`, and copies THOUGHT ABI snapshots.
 - `sync-env.ts` — writes `apps/home/.env.<net>.local` and `apps/thought/.env.<net>.local` from RPC + addresses.
 - `check-deployment.mjs` — orchestrates production-surface validation, imported artifact validation, and contract deployment report generation. It skips live RPC by default; use `pnpm run check:deployment:live` for an operator release check.
 - `dev-github-quality-loop.mjs` — writes `.ops/dev-quality/status.json` and a run note for OPS. It checks default-branch Actions, Dependabot, code scanning, and secret scanning through `gh api`; use `pnpm run quality:github`.
-- `validate-path-artifacts.ts` — scans imported PATH JSON artifacts for deleted spark/reserved surface before syncing.
+- `validate-path-artifacts.ts` — accepts Spark-free releases or the complete self-claim surface, and rejects issuer-direct or partial Spark artifacts.
+- `sync-path-contract-release.mjs` — keeps immutable PATH contract artifacts separate from network deployment addresses; `--check` verifies checksums and the canonical movement/self-claim ABI.
+- `generate-agent-docs.ts` — emits the Agent index, structured docs, a repo-wide public-source lock, and a derived THOUGHT machine-handoff package. `pnpm docs:check` fails when a registered source, generated file, manifest digest, or index drifts.
+- `check-upstream-releases.mjs` — fails when the latest canonical PATH or THOUGHT upstream release is newer than this repo's consumer lock, or when a published tag no longer resolves to the pinned commit.
 - `validate-inshell-contracts.mjs` — writes contract validation reports to `tmp/validation/` by default. Set `INSHELL_VALIDATION_SKIP_LIVE=1` to avoid live RPC reads. Set `INSHELL_VALIDATION_ENV_FILE=<path>` when you want it to read an operator-managed env file outside the repo.
+
+## Agent docs and THOUGHT handoff
+
+Edit the structured source in `apps/home/src/content/docs.ts` and the curated
+machine handoff in `apps/home/src/content/thought-machine-handoff.ts`. Do not
+hand-edit generated files under `apps/home/public/docs/` or generated protocol
+release directories.
+
+```bash
+pnpm docs:generate
+pnpm docs:check
+```
+
+The Agent index publishes exact URLs, byte lengths, SHA-256 digests, ownership
+boundaries, and release relations. A meaningful handoff-source change derives a
+new immutable handoff ID. Generation validates the current R2 Contract release,
+App integration lock, Agent-protocol consumer lock, Creative Work Specification,
+provenance/metadata locks, and every copied artifact before writing output.
+
+The source registry is `apps/home/src/content/docs-source-registry.ts`. Register
+every source that can change a public claim. When a registered source changes,
+regenerate, review the generated diff, and require `pnpm docs:check` to pass.
+
+Upstream freshness remains a separate network gate:
+
+```bash
+pnpm check:upstream-releases
+```
+
+It checks both PATH and THOUGHT without narrowing or weakening either producer.
 
 ## PATH artifact policy
 
 - `inshell.art` does not currently have a `sync-abi.ts` pipeline.
 - Treat imported PATH ABI/release bundles as untrusted until validated.
-- After `path/` spark-drop commit `070ee8342833a4249027146d3ed61cf555e4762f`, reject any imported artifact containing:
-  - `RESERVED_ROLE`
-  - `SPARK_BASE`
-  - `mintSparker`
-  - `getReservedCap`
-  - `getReservedRemaining`
-  - `reserved_cap`
+- Public PATH issuance remains the Pulse auction flow below.
+- Spark PATH grants use `allowSparker(address)` by `RESERVED_ROLE`, followed by
+  `mintSparker(bytes)` from the allowlisted recipient wallet.
+- Reject the obsolete issuer-direct `mintSparker(address,bytes)` signature.
+- Spark-enabled releases must expose the full self-claim read/write/event surface
+  and include `reserved_cap` plus a positive `spark_claim_duration_sec`.
+  Spark-free releases remain valid.
 - Canonical PATH issuance now uses `PathPulseAdapter`:
   - `tokenBase`
   - `epochBase`

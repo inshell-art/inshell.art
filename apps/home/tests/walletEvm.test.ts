@@ -59,13 +59,76 @@ describe("wallet EVM transport helpers", () => {
   test("window.ethereum.providers fallback keeps MetaMask and Rabby separate", () => {
     (window as any).ethereum = {
       providers: [
-        mockProvider({ isRabby: true }),
+        mockProvider({ isRabby: true, isMetaMask: true }),
         mockProvider({ isMetaMask: true }),
       ],
     };
 
     const providers = fallbackWindowEthereumProviders();
 
+    expect(providers.map((provider) => provider.info.name)).toEqual([
+      "MetaMask",
+      "Rabby",
+    ]);
+  });
+
+  test("keeps top-level Rabby when nested providers list only MetaMask", () => {
+    const metamask = mockProvider({ isMetaMask: true });
+    const rabby = mockProvider({
+      isRabby: true,
+      isMetaMask: true,
+      providers: [metamask],
+    });
+    (window as any).ethereum = rabby;
+
+    const providers = fallbackWindowEthereumProviders();
+
+    expect(providers.map((provider) => provider.info.name)).toEqual([
+      "MetaMask",
+      "Rabby",
+    ]);
+    expect(providers.find((provider) => provider.info.name === "Rabby")?.provider)
+      .toBe(rabby);
+  });
+
+  test("does not expose a generic top-level multi-wallet aggregator", () => {
+    (window as any).ethereum = {
+      request: jest.fn(),
+      providers: [
+        mockProvider({ isRabby: true, isMetaMask: true }),
+        mockProvider({ isMetaMask: true }),
+      ],
+    };
+
+    const providers = fallbackWindowEthereumProviders();
+
+    expect(providers.map((provider) => provider.info.name)).toEqual([
+      "MetaMask",
+      "Rabby",
+    ]);
+  });
+
+  test("EIP-6963 discovery keeps fallback MetaMask when Rabby announces", async () => {
+    const metamask = mockProvider({ isMetaMask: true });
+    const rabby = mockProvider({ isRabby: true, isMetaMask: true });
+    (window as any).ethereum = {
+      providers: [metamask, rabby],
+    };
+    const onRequest = () => {
+      window.dispatchEvent(
+        new globalThis.CustomEvent(EIP6963_ANNOUNCE_EVENT, {
+          detail: {
+            info: { uuid: "rabby", name: "Rabby", rdns: "io.rabby" },
+            provider: rabby,
+          },
+        }),
+      );
+    };
+    window.addEventListener(EIP6963_REQUEST_EVENT, onRequest);
+
+    const providers = await discoverEip6963Providers(0);
+
+    window.removeEventListener(EIP6963_REQUEST_EVENT, onRequest);
     expect(providers.map((provider) => provider.info.name)).toEqual([
       "MetaMask",
       "Rabby",

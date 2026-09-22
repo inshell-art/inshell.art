@@ -4,7 +4,12 @@ import { useWallet, type WalletConnector } from "@inshell/wallet";
 import { resolveInshellLinks } from "./links";
 import { INSHELL_OPEN_WALLET_EVENT } from "./wallet-events";
 
-export { resolveInshellLinks } from "./links";
+export {
+  isInshellPagesPreviewHost,
+  isLocalRuntimeHost,
+  resolveInshellLinks,
+  resolveInshellLinksForLocation,
+} from "./links";
 export { INSHELL_OPEN_WALLET_EVENT, openInshellWallet } from "./wallet-events";
 
 export type InshellSurface = "home" | "path" | "thought" | "works";
@@ -14,6 +19,7 @@ export type InshellTopBarProps = {
   expectedChainId?: number;
   compact?: boolean;
   disconnectedWalletNote?: string;
+  studioPreview?: boolean;
   onWalletRefresh?: () => void | Promise<void>;
 };
 
@@ -78,6 +84,21 @@ export function InshellWalletPicker({
         </button>
       ))}
     </div>
+  );
+}
+
+function InshellWalletPrelaunchNotice() {
+  return (
+    <section className="inshell-wallet-modal" role="dialog" aria-label="wallet">
+      <h2>wallet</h2>
+      <p className="inshell-wallet-modal__copy">
+        Wallet connection is not needed yet.
+        <br />
+        Onchain minting is not open.
+        <br />
+        <a href="/thought">Create a THOUGHT now</a>; connect a wallet when minting opens.
+      </p>
+    </section>
   );
 }
 
@@ -214,6 +235,7 @@ export function InshellTopBar({
   expectedChainId,
   compact,
   disconnectedWalletNote,
+  studioPreview = false,
   onWalletRefresh,
 }: InshellTopBarProps) {
   const {
@@ -224,6 +246,7 @@ export function InshellTopBar({
     connectError,
     isConnected,
     isConnecting,
+    refreshConnectors,
   } = useWallet();
   const [open, setOpen] = useState(false);
   const [notice, setNotice] = useState("");
@@ -232,14 +255,16 @@ export function InshellTopBar({
   const expectedMismatch = Boolean(
     expectedChainId && chainId && chainId !== expectedChainId
   );
-  const dotState = connectError
-    ? "error"
-    : isConnecting || expectedMismatch
-    ? "pending"
-    : isConnected
-    ? "on"
-    : "off";
-  const addressLabel = shortAddress(address);
+  const dotState = studioPreview
+    ? "off"
+    : connectError
+      ? "error"
+      : isConnecting || expectedMismatch
+        ? "pending"
+        : isConnected
+          ? "on"
+          : "off";
+  const addressLabel = studioPreview ? "" : shortAddress(address);
 
   const connectWith = async (connector: WalletConnector) => {
     setNotice("");
@@ -270,12 +295,15 @@ export function InshellTopBar({
   }, [open]);
 
   useEffect(() => {
-    const openWallet = () => setOpen(true);
+    const openWallet = () => {
+      setOpen(true);
+      if (!studioPreview && !isConnected) void refreshConnectors();
+    };
     window.addEventListener(INSHELL_OPEN_WALLET_EVENT, openWallet);
     return () => {
       window.removeEventListener(INSHELL_OPEN_WALLET_EVENT, openWallet);
     };
-  }, []);
+  }, [isConnected, refreshConnectors, studioPreview]);
 
   return (
     <header className={`inshell-topbar${compact ? " inshell-topbar--compact" : ""}`} ref={barRef}>
@@ -321,7 +349,13 @@ export function InshellTopBar({
           <button
             className="inshell-topbar__wallet"
             type="button"
-            onClick={() => setOpen((value) => !value)}
+            onClick={() => {
+              const nextOpen = !open;
+              setOpen(nextOpen);
+              if (nextOpen && !studioPreview && !isConnected) {
+                void refreshConnectors();
+              }
+            }}
             aria-label={isConnected && addressLabel ? `wallet ${addressLabel}` : "connect wallet"}
             aria-expanded={open}
             aria-haspopup="dialog"
@@ -347,7 +381,9 @@ export function InshellTopBar({
             <span className={`inshell-topbar__dot inshell-topbar__dot--${dotState}`} aria-hidden="true" />
           </button>
           {open ? (
-            isConnected ? (
+            studioPreview ? (
+              <InshellWalletPrelaunchNotice />
+            ) : isConnected ? (
               <InshellWalletModal expectedChainId={expectedChainId} onRefresh={onWalletRefresh} />
             ) : connectors.length ? (
               <>

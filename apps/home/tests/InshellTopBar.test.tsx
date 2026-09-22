@@ -2,6 +2,9 @@ import React from "react";
 import { beforeEach, describe, expect, jest, test } from "@jest/globals";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { cwd } from "node:process";
 
 const mockUseWallet = jest.fn();
 
@@ -10,7 +13,11 @@ jest.mock("@inshell/wallet", () => ({
   useWallet: () => mockUseWallet(),
 }));
 
-import { InshellTopBar, openInshellWallet } from "@inshell/inshell-shell";
+import {
+  InshellTopBar,
+  isLocalRuntimeHost,
+  openInshellWallet,
+} from "@inshell/inshell-shell";
 
 const ADDRESS = "0x170af4d923de5e3155067e10413c3b11d82e100";
 
@@ -36,6 +43,7 @@ function walletState(overrides: Record<string, unknown> = {}) {
     evm: { provider: null },
     isConnected: true,
     isConnecting: false,
+    refreshConnectors: jest.fn().mockResolvedValue(undefined),
     refreshWallet: jest.fn(),
     ...overrides,
   };
@@ -72,6 +80,15 @@ describe("InshellTopBar", () => {
     expect(
       screen.getByRole("button", { name: "connect wallet" })
     ).toBeTruthy();
+  });
+
+  test("recognizes LAN hosts as local same-origin runtimes", () => {
+    expect(isLocalRuntimeHost("192.168.0.105")).toBe(true);
+    expect(isLocalRuntimeHost("10.0.0.42")).toBe(true);
+    expect(isLocalRuntimeHost("172.16.4.8")).toBe(true);
+    expect(isLocalRuntimeHost("studio-mac.local")).toBe(true);
+    expect(isLocalRuntimeHost("inshell.art")).toBe(false);
+    expect(isLocalRuntimeHost("preview.inshell.art")).toBe(false);
   });
 
   test("uses the PATH wallet-options picker while disconnected", async () => {
@@ -117,6 +134,164 @@ describe("InshellTopBar", () => {
     fireEvent.click(walletControl);
 
     expect(screen.getByRole("menu", { name: "Wallet options" })).toBeTruthy();
+  });
+
+  test("keeps wallet guidance before deployment without opening a connector", () => {
+    const refreshConnectors = jest.fn().mockResolvedValue(undefined);
+    const connectAsync = jest.fn().mockResolvedValue(undefined);
+    mockUseWallet.mockReturnValue(
+      walletState({
+        address: null,
+        chain: null,
+        chainId: null,
+        isConnected: false,
+        connectAsync,
+        connectors: [{ id: "metamask", name: "MetaMask" }],
+        refreshConnectors,
+      })
+    );
+
+    render(<InshellTopBar studioPreview />);
+
+    expect(screen.queryByText(/Studio Preview/i)).toBeNull();
+    const walletControl = screen.getByRole("button", { name: "connect wallet" });
+    expect(walletControl).not.toHaveTextContent(/Sepolia|Local ETH/);
+    fireEvent.click(walletControl);
+    const walletGuidance = screen.getByRole("dialog", { name: "wallet" });
+    expect(walletGuidance).toHaveTextContent(
+      /Wallet connection is not needed yet\.\s*Onchain minting is not open\.\s*Create a THOUGHT now; connect a wallet when minting opens\./,
+    );
+    expect(screen.getByRole("link", { name: "Create a THOUGHT now" })).toHaveAttribute(
+      "href",
+      "/thought",
+    );
+    expect(screen.queryByRole("menu", { name: "Wallet options" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "MetaMask" })).toBeNull();
+    expect(refreshConnectors).not.toHaveBeenCalled();
+    expect(connectAsync).not.toHaveBeenCalled();
+  });
+
+  test("does not expose a remembered wallet session before deployment", () => {
+    const refreshConnectors = jest.fn().mockResolvedValue(undefined);
+    const disconnectWallet = jest.fn().mockResolvedValue(undefined);
+    mockUseWallet.mockReturnValue(
+      walletState({
+        disconnectWallet,
+        refreshConnectors,
+      })
+    );
+
+    render(<InshellTopBar studioPreview />);
+
+    const walletControl = screen.getByRole("button", { name: "connect wallet" });
+    expect(walletControl).toHaveTextContent("connect wallet");
+    expect(walletControl).not.toHaveTextContent("0x170a...e100");
+    fireEvent.click(walletControl);
+    expect(screen.getByRole("dialog", { name: "wallet" })).toHaveTextContent(
+      "Wallet connection is not needed yet.",
+    );
+    expect(screen.queryByRole("button", { name: "disconnect" })).toBeNull();
+    expect(refreshConnectors).not.toHaveBeenCalled();
+    expect(disconnectWallet).not.toHaveBeenCalled();
+  });
+
+  test("refreshes injected wallets whenever the disconnected picker opens", () => {
+    const refreshConnectors = jest.fn().mockResolvedValue(undefined);
+    mockUseWallet.mockReturnValue(
+      walletState({
+        address: null,
+        chain: null,
+        chainId: null,
+        isConnected: false,
+        connectors: [{ id: "metamask", name: "MetaMask" }],
+        refreshConnectors,
+      })
+    );
+
+    render(<InshellTopBar />);
+    fireEvent.click(screen.getByRole("button", { name: "connect wallet" }));
+
+    expect(refreshConnectors).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("menu", { name: "Wallet options" })).toBeTruthy();
+  });
+
+  test("keeps the noted wallet picker inside the mobile viewport", () => {
+    const css = readFileSync(
+      resolve(cwd(), "../../packages/inshell-shell/src/topbar.css"),
+      "utf8"
+    );
+
+    expect(css).toMatch(
+      /@media \(max-width: 760px\)[\s\S]*\.inshell-topbar__wallet-surface--with-note > \.inshell-wallet-picker[\s\S]*top:\s*auto;/
+    );
+    expect(css).toMatch(
+      /@media \(max-width: 760px\)[\s\S]*\.inshell-wallet-modal,[\s\S]*\.inshell-wallet-picker,[\s\S]*\.inshell-wallet-picker__notice\s*\{[\s\S]*position:\s*fixed;[\s\S]*max-height:\s*var\(--shell-mobile-panel-max-height\);[\s\S]*overflow-y:\s*auto;/
+    );
+    expect(css).toMatch(
+      /\.inshell-topbar__wallet,[\s\S]*\.inshell-wallet-picker__item,[\s\S]*\.inshell-wallet-modal__actions button\s*\{[\s\S]*min-height:\s*var\(--shell-touch-target-size\)/
+    );
+    const tokens = readFileSync(
+      resolve(cwd(), "../../packages/inshell-shell/src/tokens.css"),
+      "utf8"
+    );
+    expect(tokens).toMatch(/--shell-touch-target-size:\s*44px/);
+  });
+
+  test("stacks the topbar before narrow phones can overlap the wallet", () => {
+    const css = readFileSync(
+      resolve(cwd(), "../../packages/inshell-shell/src/topbar.css"),
+      "utf8"
+    );
+
+    expect(css).toMatch(
+      /@media \(max-width: 380px\)[\s\S]*\.inshell-topbar\s*\{[\s\S]*grid-template-columns:\s*minmax\(0, 1fr\);[\s\S]*row-gap:\s*var\(--shell-topbar-narrow-row-gap\)/
+    );
+    expect(css).toMatch(
+      /@media \(max-width: 380px\)[\s\S]*\.inshell-topbar__right\s*\{[\s\S]*width:\s*100%;[\s\S]*justify-content:\s*space-between/
+    );
+  });
+
+  test("uses the current underlined secondary-action treatment for wallet modal actions", () => {
+    const tokens = readFileSync(
+      resolve(cwd(), "../../packages/inshell-shell/src/tokens.css"),
+      "utf8"
+    );
+    const css = readFileSync(
+      resolve(cwd(), "../../packages/inshell-shell/src/topbar.css"),
+      "utf8"
+    );
+    const homeCss = readFileSync(resolve(cwd(), "src/main.css"), "utf8");
+
+    expect(css).toMatch(
+      /\.inshell-wallet-modal__actions\s*{[^}]*justify-content:\s*flex-start;[^}]*gap:\s*var\(--shell-context-popover-row-gap\);[^}]*color:\s*var\(--muted\);[^}]*font-style:\s*italic;/s
+    );
+    expect(css).toMatch(
+      /\.inshell-wallet-modal__actions button\s*{[^}]*min-height:\s*var\(--shell-topbar-min-height\);[^}]*padding:\s*var\(--shell-wallet-modal-action-padding\);[^}]*color:\s*inherit;[^}]*border:\s*0;[^}]*text-decoration:\s*underline;[^}]*text-underline-offset:\s*var\(--shell-secondary-action-underline-offset\);/s
+    );
+    expect(css).toMatch(
+      /\.inshell-wallet-modal__actions button:not\(:disabled\):hover,[^}]*:focus-visible\s*{[^}]*color:\s*var\(--accent\);/s
+    );
+    expect(css).not.toMatch(
+      /\.inshell-wallet-modal__actions button::(?:before|after)\s*{/s
+    );
+    expect(homeCss).toMatch(
+      /\.dotfield__mint-review-link\s*{[^}]*text-underline-offset:\s*var\(--shell-secondary-action-underline-offset\);/s
+    );
+    expect(css).not.toMatch(
+      /\.inshell-wallet-modal__actions button\s*{[^}]*border:\s*1px solid var\(--accent\);/s
+    );
+    expect(tokens).toMatch(
+      /--shell-context-panel-font-size:\s*var\(--font-size-14\);/
+    );
+    expect(css).toMatch(
+      /\.inshell-wallet-modal\s*{[^}]*font-size:\s*var\(--shell-context-panel-font-size\);/s
+    );
+    expect(homeCss).toMatch(
+      /\.dotfield__mint-review\s*{[^}]*font-size:\s*var\(--shell-context-panel-font-size\);/s
+    );
+    expect(homeCss).toMatch(
+      /\.dotfield__mint-proof\s*{[^}]*font-size:\s*var\(--shell-context-panel-font-size\);/s
+    );
   });
 
   test("opens the wallet picker when an app flow requests the global wallet", () => {

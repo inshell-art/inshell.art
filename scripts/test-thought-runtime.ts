@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import "../apps/thought/src/thought-v2-mono76.test";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -40,7 +41,9 @@ import { runThoughtPathConsumeAuthorizationTests } from "../apps/thought/src/tho
 import { runThoughtMintSubmissionLockTests } from "../apps/thought/src/thought-mint-submission-lock.test";
 import {
   formatSavedWorkPromptLabel,
+  readThoughtWorks,
   sanitizeWorkRecord,
+  writeThoughtWorks,
 } from "../apps/thought/src/works";
 import {
   canonicalThoughtTitle,
@@ -96,6 +99,8 @@ import {
   buildThoughtV2LocalAgentTaskBinding,
   parseThoughtV2LocalAgentResult,
   thoughtV2AgentLabelForAdapter,
+  thoughtV2AgentEvidenceModelRecord,
+  thoughtV2RecordedModel,
 } from "../apps/thought/src/thought-v2-local-agent";
 import { describeThoughtTextPolicyIssue } from "../apps/thought/src/thought-text-policy";
 import {
@@ -313,6 +318,29 @@ const localAgentEvidence = {
   reasoningEffort: "ultra",
   metadataSource: "reported",
 } as const;
+const unknownLocalAgentEvidence = {
+  result: declaredLocalAgentEnvelope,
+  runId: "tar_local_unknown",
+  adapter: "codex",
+  rawResponseSha256: "b".repeat(64),
+  metadataSource: "unknown",
+} as const;
+assert.equal(thoughtV2AgentEvidenceModelRecord(localAgentEvidence), "gpt-5.6-sol");
+assert.equal(thoughtV2AgentEvidenceModelRecord(unknownLocalAgentEvidence), "unknown");
+assert.equal(
+  thoughtV2RecordedModel("local-model", undefined),
+  "local-model",
+  "non-Agent routes must preserve their configured model",
+);
+assert.equal(
+  thoughtV2AgentEvidenceModelRecord({
+    ...localAgentEvidence,
+    model: "requested-model-must-not-be-runtime-fact",
+    metadataSource: "configured",
+  }),
+  "unknown",
+  "configured/requested model names must not be recorded as runtime facts",
+);
 assert.equal(
   formatSavedWorkPromptLabel("  a prompt   with spaces  "),
   "a prompt with spaces",
@@ -403,6 +431,71 @@ const storedCodexWork = sanitizeWorkRecord({
 });
 assert(storedCodexWork, "Codex work history must survive storage sanitization");
 assert.deepEqual(storedCodexWork.runContext.agentEvidence, localAgentEvidence);
+assert.equal(storedCodexWork.model, "gpt-5.6-sol");
+assert.equal(storedCodexWork.runContext.model, "gpt-5.6-sol");
+const historicalReleaseWork = sanitizeWorkRecord({
+  ...storedCodexWork,
+  runContext: {
+    ...storedCodexWork.runContext,
+    agentEvidence: {
+      ...localAgentEvidence,
+      result: {
+        ...localAgentEvidence.result,
+        release: {
+          protocolReleaseId: `0x${"1".repeat(64)}`,
+          manifestKeccak256: `0x${"2".repeat(64)}`,
+        },
+      },
+    },
+  },
+});
+assert(
+  historicalReleaseWork,
+  "an older-bound saved work must remain loadable without becoming current-release mint evidence",
+);
+const storedUnknownWork = sanitizeWorkRecord({
+  ...storedCodexWork,
+  model: "codex",
+  runContext: {
+    ...storedCodexWork.runContext,
+    model: "requested-model-must-not-survive",
+    agentEvidence: unknownLocalAgentEvidence,
+  },
+});
+assert(storedUnknownWork, "unknown-model Agent work must survive storage sanitization");
+assert.equal(storedUnknownWork.model, "unknown");
+assert.equal(storedUnknownWork.runContext.model, "unknown");
+const storedNonAgentWork = sanitizeWorkRecord({
+  ...storedCodexWork,
+  model: "historical-record-model",
+  runContext: {
+    ...storedCodexWork.runContext,
+    model: "run-context-model",
+    agentEvidence: undefined,
+  },
+});
+assert(storedNonAgentWork, "non-Agent work must survive storage sanitization");
+assert.equal(
+  storedNonAgentWork.model,
+  "historical-record-model",
+  "non-Agent work must preserve the saved record model before falling back to runContext",
+);
+assert.equal(
+  storedNonAgentWork.runContext.model,
+  "run-context-model",
+  "non-Agent work must preserve its independent run-context model",
+);
+const memory = new Map<string, string>();
+const workStorage = {
+  getItem: (key: string) => memory.get(key) ?? null,
+  setItem: (key: string, value: string) => { memory.set(key, value); },
+  removeItem: (key: string) => { memory.delete(key); },
+};
+writeThoughtWorks(workStorage, [storedCodexWork, storedUnknownWork]);
+const restoredAgentWorks = readThoughtWorks(workStorage);
+assert.equal(restoredAgentWorks[0]?.model, "gpt-5.6-sol");
+assert.equal(restoredAgentWorks[1]?.model, "unknown");
+assert.equal(restoredAgentWorks[1]?.runContext.agentEvidence?.metadataSource, "unknown");
 assert.equal(
   sanitizeWorkRecord({
     ...storedCodexWork,
@@ -414,6 +507,35 @@ assert.equal(
   null,
   "invalid Agent evidence must fail closed during work-history restore",
 );
+assert.throws(
+  () => buildThoughtV2LocalAgentProcess(
+    unknownLocalAgentEvidence,
+    declaredLocalAgentEnvelope.agentLine,
+  ),
+  /no exact model metadata/i,
+  "unknown-model work must remain blocked at the App-attested mint boundary",
+);
+for (const malformedEvidence of [
+  { ...unknownLocalAgentEvidence, model: "unknown" },
+  { ...unknownLocalAgentEvidence, reasoningEffort: "high" },
+  { ...unknownLocalAgentEvidence, model: "gpt-5.6-sol" },
+  { ...localAgentEvidence, model: "unknown" },
+  { ...localAgentEvidence, model: "UNKNOWN" },
+  { ...localAgentEvidence, model: " gpt-5.6-sol " },
+  { ...localAgentEvidence, reasoningEffort: "extreme" },
+]) {
+  assert.equal(
+    sanitizeWorkRecord({
+      ...storedCodexWork,
+      runContext: {
+        ...storedCodexWork.runContext,
+        agentEvidence: malformedEvidence,
+      },
+    }),
+    null,
+    "malformed saved Agent metadata must fail closed",
+  );
+}
 assert.deepEqual(
   buildThoughtV2LocalAgentProcess(localAgentEvidence, declaredLocalAgentEnvelope.agentLine),
   {
@@ -1465,9 +1587,9 @@ assert.deepEqual(
     maxBytes: 64,
   }),
   {
-    title: "trailing space",
+    title: "Trailing space",
     detail: "The prompt ends with a space.",
-    nextStep: "delete the final space",
+    nextStep: "Delete the final space",
   },
 );
 assert.deepEqual(
@@ -1478,9 +1600,9 @@ assert.deepEqual(
     maxBytes: 64,
   }),
   {
-    title: "invisible character",
+    title: "Invisible character",
     detail: "The prompt contains an invisible character at character 5.",
-    nextStep: "delete the invisible character at character 5",
+    nextStep: "Delete the invisible character at character 5",
   },
 );
 assert.deepEqual(
@@ -1491,9 +1613,9 @@ assert.deepEqual(
     maxBytes: 64,
   }),
   {
-    title: "trailing space",
+    title: "Trailing space",
     detail: "The Agent output ends with a space.",
-    nextStep: "reset and run the Agent again; output is never auto-corrected",
+    nextStep: "Reset and run the Agent again; output is never auto-corrected",
   },
 );
 assert.deepEqual(
@@ -1504,9 +1626,9 @@ assert.deepEqual(
     maxBytes: 64,
   }),
   {
-    title: "extra spaces",
+    title: "Extra spaces",
     detail: "The prompt has more than one space together at character 8.",
-    nextStep: "delete the extra space at character 8",
+    nextStep: "Delete the extra space at character 8",
   },
 );
 assert.deepEqual(
@@ -1519,7 +1641,7 @@ assert.deepEqual(
   {
     title: "prompt empty",
     detail: "The prompt is empty.",
-    nextStep: "enter a prompt",
+    nextStep: "Enter a prompt",
   },
 );
 assert.deepEqual(
@@ -1530,9 +1652,9 @@ assert.deepEqual(
     maxBytes: 64,
   }),
   {
-    title: "tab not allowed",
+    title: "Tab not allowed",
     detail: "The prompt contains a tab at character 4.",
-    nextStep: "replace the tab at character 4 with one regular space",
+    nextStep: "Replace the tab at character 4 with one regular space",
   },
 );
 assert.deepEqual(
@@ -1548,7 +1670,7 @@ assert.deepEqual(
   {
     title: "prompt not accepted",
     detail: "The prompt does not match THOUGHT text rules.",
-    nextStep: "check the prompt for extra spaces or unsupported characters",
+    nextStep: "Check the prompt for extra spaces or unsupported characters",
   },
 );
 console.log("[test-thought-runtime] OK");

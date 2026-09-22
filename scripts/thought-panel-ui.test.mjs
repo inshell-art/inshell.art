@@ -1,10 +1,28 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
+import { runInNewContext } from "node:vm";
+import ts from "typescript";
+import {
+  loadThoughtDevSnapshotFile,
+  restoreThoughtDevIndexSnapshot,
+  shouldRestoreThoughtDevIndexSnapshot,
+  THOUGHT_DEV_INDEX_SNAPSHOT,
+} from "../apps/thought/scripts/dev-index-snapshot.mjs";
+import {
+  pathLaneEnvironmentFromRuntime,
+  thoughtLaneEnvironment,
+} from "./thought-local-lane.mjs";
 
 const indexHtml = await readFile(new URL("../apps/thought/index.html", import.meta.url), "utf8");
 const thoughtCss = await readFile(new URL("../apps/thought/src/style.css", import.meta.url), "utf8");
 const thoughtMain = await readFile(new URL("../apps/thought/src/main.ts", import.meta.url), "utf8");
+const thoughtLaunchState = await readFile(
+  new URL("../apps/thought/src/thought-launch-state.ts", import.meta.url),
+  "utf8",
+);
+const thoughtRenderer = await readFile(new URL("../apps/thought/src/thought-v2-renderer.ts", import.meta.url), "utf8");
 const thoughtClaudeCoworkQualification = await readFile(
   new URL(
     "../apps/thought/src/thought-claude-cowork-qualification.ts",
@@ -49,6 +67,11 @@ const thoughtViteConfig = await readFile(
   new URL("../apps/thought/vite.config.ts", import.meta.url),
   "utf8",
 );
+const thoughtDevSnapshot = await readFile(
+  new URL("../apps/thought/scripts/dev-index-snapshot.mjs", import.meta.url),
+  "utf8",
+);
+const repoRoot = fileURLToPath(new URL("../", import.meta.url));
 const homeViteConfig = await readFile(
   new URL("../apps/home/vite.config.ts", import.meta.url),
   "utf8",
@@ -77,6 +100,19 @@ test("THOUGHT route keeps its canonical stylesheet in the document head", () => 
   assert.match(
     thoughtMain,
     /window\.addEventListener\("pageshow",[\s\S]*?requestAnimationFrame\(restoreThoughtStylesheetAfterHistory\)/,
+  );
+});
+
+test("Home and THOUGHT serialize public build inputs deterministically", () => {
+  assert.match(
+    homeViteConfig,
+    /const publicEnv = sortPagesBuildPublicEnv\(\{/,
+    "Home must sort public build inputs before embedding them",
+  );
+  assert.match(
+    thoughtViteConfig,
+    /const publicEnv = sortPagesBuildPublicEnv\(\{/,
+    "THOUGHT must sort public build inputs before embedding them",
   );
 });
 
@@ -111,6 +147,32 @@ test("plain THOUGHT dev defaults to the generated current-contract lane", () => 
   assert.doesNotMatch(runtimeReader, /apps\/thought\/evm\/addresses\.anvil\.json/);
 });
 
+test("THOUGHT dev normalizes the route base before Vite handles launch fixtures", () => {
+  const redirectStart = thoughtViteConfig.indexOf(
+    "export function resolveThoughtRouteBaseRedirect",
+  );
+  const redirectEnd = thoughtViteConfig.indexOf(
+    "function readOutDir",
+    redirectStart,
+  );
+  const redirectSource = thoughtViteConfig.slice(redirectStart, redirectEnd);
+  assert.match(
+    redirectSource,
+    /request\.pathname !== routeWithoutTrailingSlash/,
+    "only the exact no-slash route base is redirected",
+  );
+  assert.match(
+    redirectSource,
+    /return `\$\{routeBase\}\$\{request\.search\}`/,
+    "the redirect preserves launch fixture query parameters",
+  );
+  assert.match(
+    thoughtViteConfig,
+    /plugins:\s*\[\s*createThoughtRouteBaseRedirectPlugin\(routeBase\)/,
+    "the redirect runs before Vite's base-path middleware",
+  );
+});
+
 test("canonical home proxies THOUGHT through the configured stack origin", () => {
   assert.match(
     homeViteConfig,
@@ -120,7 +182,6 @@ test("canonical home proxies THOUGHT through the configured stack origin", () =>
     "/api/thought-contract",
     "/api/thought-agent",
     "/thought",
-    "/gallery",
   ]) {
     const routeStart = homeViteConfig.indexOf(`"${route}":`);
     assert.ok(routeStart >= 0, `missing home proxy route ${route}`);
@@ -129,6 +190,11 @@ test("canonical home proxies THOUGHT through the configured stack origin", () =>
       /target: thoughtAppOrigin/,
     );
   }
+  assert.doesNotMatch(
+    homeViteConfig,
+    /["']\/gallery["']\s*:/,
+    "canonical gallery belongs to the Home app in development as it does in Pages middleware",
+  );
   assert.match(
     homeViteConfig,
     /command !== "serve" \|\| mode !== "devnet"/,
@@ -155,23 +221,91 @@ test("THOUGHT detail uses the canonical record layout", () => {
   const detailStart = indexHtml.indexOf('id="thought-page"');
   const detailEnd = indexHtml.indexOf('id="thought-report-bug-link"', detailStart);
   const detailMarkup = indexHtml.slice(detailStart, detailEnd);
+  const railStart = detailMarkup.indexOf('class="thought-detail__rail"');
+  const railEnd = detailMarkup.indexOf("</aside>", railStart);
+  const railMarkup = detailMarkup.slice(railStart, railEnd);
+  const detailStyleStart = thoughtCss.indexOf(
+    "/* INSHELL_CURRENT_THOUGHT_DETAIL_PATH_CANON_START */",
+  );
+  const detailStyleEnd = thoughtCss.indexOf(
+    "/* INSHELL_CURRENT_THOUGHT_DETAIL_PATH_CANON_END */",
+    detailStyleStart,
+  );
+  const detailStyle = thoughtCss.slice(detailStyleStart, detailStyleEnd);
 
   assert.ok(detailStart >= 0 && detailEnd > detailStart);
-  assert.match(detailMarkup, /<h2>work<\/h2>/);
-  assert.match(detailMarkup, /<h2>creation provenance<\/h2>/);
-  assert.match(detailMarkup, /<h2>canonical traits<\/h2>/);
-  assert.match(detailMarkup, /<h2>on-chain record<\/h2>/);
+  assert.ok(railStart >= 0 && railEnd > railStart);
+  assert.ok(detailStyleStart >= 0 && detailStyleEnd > detailStyleStart);
+  assert.match(railMarkup, /<h2>work<\/h2>/);
+  assert.match(railMarkup, /<h2>creation record<\/h2>/);
+  assert.match(railMarkup, /<h2>token details<\/h2>/);
+  assert.doesNotMatch(railMarkup, /<h2>canonical traits<\/h2>/);
+  assert.doesNotMatch(railMarkup, /<dt>attestation<\/dt>/);
+  assert.match(detailMarkup, /thought-detail__legacy-hooks" hidden[\s\S]*?id="thought-detail-attestation"/);
   assert.match(detailMarkup, /<summary>verify \/ raw data<\/summary>/);
+  assert.match(
+    detailMarkup,
+    /<summary>verify \/ raw data<\/summary>[\s\S]*?<h3>canonical traits<\/h3>[\s\S]*?id="thought-detail-traits"/,
+    "canonical metadata remains available inside the collapsed verification record",
+  );
+  assert.ok(
+    detailMarkup.indexOf('<summary>verify / raw data</summary>') > railEnd,
+    "raw verification stays collapsed below the canonical record rail",
+  );
+  assert.doesNotMatch(detailMarkup, /thought-detail__support/);
   assert.match(detailMarkup, /canonical artwork · ThoughtNFT\.svgOf/);
+  assert.match(
+    detailMarkup,
+    /id="thought-detail-spec-ref"[^>]*>THOUGHT\.v2\.md ↗<\/a>/,
+    "the creation record presents the selected spec as a Markdown document",
+  );
   assert.doesNotMatch(detailMarkup, /<h2>color font<\/h2>/i);
   assert.doesNotMatch(detailMarkup, /<h2>model return<\/h2>/i);
   assert.match(thoughtCss, /\.thought-detail__body\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) var\(--thought-detail-rail-width\)/);
-  assert.match(thoughtCss, /\.thought-detail__support\s*\{[\s\S]*?grid-column:\s*1 \/ -1/);
+  assert.match(
+    detailStyle,
+    /\.thought-detail__body\s*\{[\s\S]*?align-content:\s*var\(--thought-detail-body-align-content\);[\s\S]*?grid-auto-rows:\s*var\(--thought-detail-body-auto-rows\)/,
+    "the verification row stays content-sized instead of stretching with the browser viewport",
+  );
+  assert.match(thoughtCss, /\.thought-detail__record\s*\{[\s\S]*?grid-column:\s*1 \/ -1/);
+  assert.match(thoughtCss, /@media \(max-width:\s*980px\)[\s\S]*?\.thought-detail__body\s*\{[\s\S]*?grid-template-columns:\s*1fr/);
+  assert.match(detailStyle, /\.thought-detail__section\s*\{[\s\S]*?display:\s*grid;[\s\S]*?gap:\s*var\(--thought-detail-section-title-gap\)/);
+  assert.match(
+    detailStyle,
+    /html\.thought-route\s*\{[\s\S]*?--thought-detail-mobile-frame-padding-inline:\s*20px;[\s\S]*?overflow-x:\s*hidden/,
+    "the mobile shell gutter token is available on the shell ancestor",
+  );
+  assert.match(
+    detailStyle,
+    /html\.thought-route body\.frontpage:has\(#thought-page\) \.frontpage-shell\s*\{\s*padding-inline:\s*var\(--thought-detail-mobile-frame-padding-inline\)/,
+    "the canonical mobile gutter outranks the later CLI shell rule on detail routes",
+  );
+  assert.doesNotMatch(detailMarkup, /thought-detail__attestation-summary/);
   assert.match(thoughtCss, /\.thought-detail\s*\{[\s\S]*?--thought-detail-font-weight:\s*var\(--weight-mid\)/);
   assert.match(thoughtCss, /\.thought-detail__section h2\s*\{[\s\S]*?font-weight:\s*var\(--weight-semibold\)/);
   assert.match(thoughtCss, /\.thought-detail__text\s*\{[\s\S]*?font-weight:\s*var\(--thought-detail-font-weight\)/);
   assert.match(thoughtCss, /\.thought-detail__fields dt\s*\{[\s\S]*?font-weight:\s*var\(--thought-detail-font-weight\)/);
   assert.match(thoughtCss, /\.thought-detail__fields dd\s*\{[\s\S]*?font-weight:\s*var\(--thought-detail-font-weight\)/);
+  assert.match(
+    detailStyle,
+    /\.thought-detail\s*\{[\s\S]*?text-rendering:\s*auto;[\s\S]*?-webkit-font-smoothing:\s*auto;[\s\S]*?-moz-osx-font-smoothing:\s*auto;/,
+    "THOUGHT detail uses PATH's exact text rasterization",
+  );
+  assert.match(
+    detailStyle,
+    /\.thought-detail__dialogue-role\s*\{\s*color:\s*var\(--muted\);\s*line-height:\s*var\(--thought-detail-text-line-height\);\s*letter-spacing:\s*normal;/,
+    "THOUGHT work labels use the same muted color as creation-record keys",
+  );
+  assert.match(
+    detailStyle,
+    /\.thought-detail__fields dt\s*\{\s*color:\s*var\(--muted\);\s*line-height:\s*var\(--thought-detail-text-line-height\);/,
+    "THOUGHT field labels use PATH's line height",
+  );
+  assert.doesNotMatch(
+    detailStyle,
+    /\.thought-detail__fields div\s*,?[\s\S]{0,120}?grid-template-columns:\s*1fr/,
+    "mobile THOUGHT records retain PATH's dense label/value columns",
+  );
 });
 
 test("THOUGHT detail is pinned to the current release and bypasses stale gallery data", () => {
@@ -195,6 +329,13 @@ test("THOUGHT detail is pinned to the current release and bypasses stale gallery
   assert.match(detailLoader, /readGalleryThoughts\(\{ bypassCache: true \}\)/);
   assert.match(detailLoader, /EVM_ADDRESSES\.protocolRelease\?\.id/);
   assert.match(detailLoader, /EVM_ADDRESSES\.protocolRelease\?\.manifestHash/);
+  assert.match(thoughtMain, /const specMarkdownFilename = \(ref\?: string\) =>/);
+  assert.match(
+    thoughtMain,
+    /new Blob\(\[spec\.text\], \{ type: "text\/markdown;charset=utf-8" \}\)/,
+    "the verified registry bytes open as Markdown rather than a JSON wrapper",
+  );
+  assert.doesNotMatch(thoughtMain, /const thoughtSpecCachePayload =/);
 });
 
 test("local Agent runs keep one release snapshot from creation through return", () => {
@@ -227,6 +368,30 @@ test("local Agent runs keep one release snapshot from creation through return", 
 test("the browser canary verifies release parity through the actual Agent deep links", () => {
   assert.match(thoughtBrowserReleaseCanary, /deep link and stored browser handoff differ/);
   assert.match(thoughtBrowserReleaseCanary, /editable bootstrap, not creative authority/);
+  assert.match(
+    thoughtBrowserReleaseCanary,
+    /Please complete one THOUGHT run with Claude/,
+  );
+  assert.match(
+    thoughtBrowserReleaseCanary,
+    /Receive the creative input from THOUGHT, make one short text artwork/,
+  );
+  assert.match(thoughtBrowserReleaseCanary, /No repository files are needed/);
+  assert.match(thoughtBrowserReleaseCanary, /request\\\.authority exactly equal to RUN_AUTHORITY/);
+  assert.match(thoughtBrowserReleaseCanary, /Serialize the compact candidate once/);
+  assert.match(thoughtBrowserReleaseCanary, /Do not sort keys or apply JCS/);
+  assert.match(
+    thoughtBrowserReleaseCanary,
+    /output\\\.rawSha256 to sha256: followed by 64 lowercase hex digits/,
+  );
+  assert.match(
+    thoughtBrowserReleaseCanary,
+    /decoded output\\\.agentLine string, not its JSON-escaped literal/,
+  );
+  assert.match(thoughtBrowserReleaseCanary, /general trust\|safety question\|permission controls\|host permission/);
+  assert.match(thoughtBrowserReleaseCanary, /sole source for release fields/);
+  assert.match(thoughtBrowserReleaseCanary, /JSON\.parse\(authorityLine\.slice/);
+  assert.match(thoughtBrowserReleaseCanary, /THOUGHT_AGENT_RUN_AUTHORITY/);
   assert.match(thoughtBrowserReleaseCanary, /!handoff\.includes\(created\.release\.protocolReleaseId\)/);
   assert.match(thoughtBrowserReleaseCanary, /!handoff\.includes\(created\.release\.manifestKeccak256\)/);
   assert.match(thoughtBrowserReleaseCanary, /operation\.release, created\.release/);
@@ -244,9 +409,23 @@ test("the browser canary verifies release parity through the actual Agent deep l
     rootPackageJson.scripts["canary:thought-agent-browser-release"],
     /browser-release:codex.*browser-release:claude/,
   );
+  assert.match(
+    thoughtBrowserReleaseCanary,
+    /"--remote-debugging-port=0"/,
+    "Chrome chooses an available DevTools port instead of racing a random fixed port",
+  );
+  assert.match(thoughtBrowserReleaseCanary, /DevToolsActivePort/);
+  assert.match(thoughtBrowserReleaseCanary, /THOUGHT_BROWSER_CANARY_CHROME_TIMEOUT_MS/);
+  assert.match(thoughtBrowserReleaseCanary, /Chrome exited before DevTools started/);
+  assert.match(thoughtBrowserReleaseCanary, /spawnError=/);
 });
 
 test("the browser canary passes dynamic page values through CDP arguments", () => {
+  assert.match(
+    thoughtBrowserReleaseCanary,
+    /node\.getAttribute\("aria-label"\) === "Run this THOUGHT with your Agent"/,
+    "the browser canary follows the current product-cased Agent action label",
+  );
   assert.match(
     thoughtBrowserReleaseCanary,
     /client\.send\("Runtime\.callFunctionOn", \{[\s\S]*?arguments: argumentValues\.map\(\(value\) => \(\{ value \}\)\)/,
@@ -265,14 +444,16 @@ test("the browser canary passes dynamic page values through CDP arguments", () =
   );
   assert.match(
     thoughtBrowserReleaseCanary,
-    /clickAgentActionFunction,[\s\S]*?\[agentActionLabel, product\]/,
+    /getAgentActionCenterFunction,[\s\S]*?\[agentActionLabel, product\]/,
   );
+  assert.match(thoughtBrowserReleaseCanary, /Input\.dispatchMouseEvent/);
+  assert.match(thoughtBrowserReleaseCanary, /launchEventTrusted/);
   assert.doesNotMatch(
     thoughtBrowserReleaseCanary,
     /JSON\.stringify\((?:promptLine|agentActionLabel|product)/,
   );
   assert.match(thoughtBrowserReleaseCanary, /url\.searchParams\.set\("surface", "agent"\)/);
-  assert.match(thoughtBrowserReleaseCanary, /document\.documentElement\.classList\.contains\("agent-surface"\)/);
+  assert.match(thoughtBrowserReleaseCanary, /document\.querySelector\("#thought-dock-prompt"\)/);
   assert.match(thoughtBrowserReleaseCanary, /node\.getBoundingClientRect\(\)\.width > 0/);
 });
 
@@ -334,7 +515,7 @@ test("THOUGHT creation page presents its canonical slogan below the title", () =
   );
 });
 
-test("THOUGHT creation keeps the production CLI surface visible by default", () => {
+test("THOUGHT creation keeps the explicit CLI source and locks the Agent snapshot into same-origin builds", () => {
   assert.match(
     indexHtml,
     /id="thought-cli-panel" class="frontpage-side thought-cli-panel"[\s\S]*?aria-label="THOUGHT operator panel"[\s\S]*?id="thought-cli-transcript"[\s\S]*?id="thought-cli-suggestions"[\s\S]*?id="thought-cli-form"[\s\S]*?thought&gt;/,
@@ -357,12 +538,38 @@ test("THOUGHT creation keeps the production CLI surface visible by default", () 
     /display:\s*none/,
     "the Agent panel must not cover the default CLI canvas",
   );
-  assert.match(indexHtml, /params\.get\("surface"\) !== "agent"/);
+  assert.match(
+    thoughtViteConfig,
+    /loadThoughtDevSnapshotModule\(workspaceRoot, id\)/,
+    "the Vite bootstrap loads the tagged Agent modules from byte-verified sources",
+  );
+  assert.match(
+    thoughtViteConfig,
+    /name: "inshell-thought-locked-runtime-bootstrap",\s*apply: useLockedSurface \? undefined : "serve"/,
+    "the Agent default must run in dev and in explicitly opted-in same-origin builds",
+  );
+  assert.match(
+    rootPackageJson.scripts["build:thought:same-origin"],
+    /INSHELL_THOUGHT_USE_LOCKED_SURFACE=1/,
+    "the canonical same-origin build must fail closed onto the locked Agent surface",
+  );
+  assert.match(
+    thoughtViteConfig,
+    /const publicRuntimeRpcUrl = process\.env\.INSHELL_THOUGHT_PUBLIC_RPC_URL\?\.trim\(\);[\s\S]*?const browserContractRuntime[\s\S]*?rpcUrl: publicRuntimeRpcUrl[\s\S]*?const browserEvmAddresses[\s\S]*?rpcUrl: publicRuntimeRpcUrl/,
+    "the LAN bootstrap must inject its filtered public RPC instead of the loopback descriptor URL",
+  );
+  assert.match(indexHtml, /requestedSurface === "cli"/);
+  assert.match(
+    indexHtml,
+    /requestedSurface === null &&\s*globalThis\.__INSHELL_THOUGHT_DEV_DEFAULT_SURFACE__ === "agent"/,
+  );
   assert.match(
     indexHtml,
     /classList\.add\(isCliSurface \? "cli-surface" : "agent-surface"\)/,
   );
+  assert.match(indexHtml, /href="\/thought\?surface=cli">\[ cli \]<\/a>/);
   assert.match(indexHtml, /href="\/thought\?surface=agent">\[ Agent \]<\/a>/);
+  assert.match(indexHtml, /href="\/thought\/verify">\[ verify \]<\/a>/);
   assert.match(
     thoughtCss,
     /html\.agent-surface \.thought-panel\s*\{\s*display:\s*flex;/,
@@ -370,6 +577,31 @@ test("THOUGHT creation keeps the production CLI surface visible by default", () 
   assert.match(
     thoughtCss,
     /html\.agent-surface \.frontpage-side\s*\{\s*display:\s*none;/,
+  );
+  assert.match(
+    thoughtCss,
+    /html:root:has\(body\.frontpage\)\s*\{[\s\S]*?max-width:\s*100%;[\s\S]*?overflow-x:\s*hidden;/,
+    "every THOUGHT route inherits the PATH-canonical root overflow boundary",
+  );
+  assert.match(
+    thoughtCss,
+    /html:root[\s\S]*?body\.frontpage:has\(\.frontpage-shell\)[\s\S]*?\.frontpage-shell\s*\{[\s\S]*?--shell-route-frame-padding-inline:\s*var\(--shell-route-padding-inline\);[\s\S]*?padding-block-start:\s*var\(--shell-route-padding-block-start\);[\s\S]*?padding-inline:\s*var\(--shell-route-frame-padding-inline\);/,
+    "all visible THOUGHT routes use the shared PATH-canonical shell frame",
+  );
+  assert.match(
+    thoughtCss,
+    /html:root[\s\S]*?body\.frontpage:has\(\.frontpage-stage:not\(\.is-hidden\)\)[\s\S]*?\.frontpage-shell\s*\{\s*justify-content:\s*flex-start;/,
+    "the Agent creation surface keeps its topbar on the shared route baseline",
+  );
+  assert.match(
+    thoughtCss,
+    /\.thought-detail__fields dd\s*\{[\s\S]*?min-width:\s*0;[\s\S]*?overflow-wrap:\s*anywhere;/,
+    "THOUGHT detail values preserve the PATH-canonical mobile containment",
+  );
+  assert.match(
+    thoughtCss,
+    /\.thought-detail__value-link\s*\{[\s\S]*?max-width:\s*100%;[\s\S]*?overflow-wrap:\s*anywhere;/,
+    "THOUGHT detail links wrap inside the canonical PATH value column",
   );
   assert.match(thoughtMain, /const IS_CLI_SURFACE = document\.documentElement\.classList\.contains\("cli-surface"\)/);
   assert.match(
@@ -380,6 +612,244 @@ test("THOUGHT creation keeps the production CLI surface visible by default", () 
     thoughtMain,
     /const getThoughtDockViewportReserve = \(\) => \{\s*if \(IS_CLI_SURFACE \|\| frontpageStage\.classList\.contains\("is-hidden"\)\) \{\s*return 0;/,
   );
+});
+
+test("bare Vite dev restores the immutable end-to-end Agent UI snapshot", () => {
+  const restoredIndexHtml = restoreThoughtDevIndexSnapshot(indexHtml);
+  const restoredMain = loadThoughtDevSnapshotFile(repoRoot, "main");
+  assert.match(restoredMain, /thoughtSvgPreview\.src = thoughtV2DisplayImage\(image\)/,
+    "the locked staging surface must apply the same display-only Mono 76 recovery");
+  const restoredStyle = loadThoughtDevSnapshotFile(repoRoot, "style");
+
+  assert.deepEqual(THOUGHT_DEV_INDEX_SNAPSHOT, {
+    tag: "thought-app-e2e-integration-20260810-r1",
+    tagCommit: "da998e1145d20b4a7301aaa61748c68fbc91a2e1",
+    immutableDeployment: "https://9f8ac359.inshell-art.pages.dev/thought/",
+    securityHardenedPreviewCommit: "bdd9640f7a2969b3b7a27a1c81c11a0b94df4b4f",
+    indexBlob: "ac5a07c18176a6e8e05984e30840c1925e3149b9",
+    indexSha256: "e991fe996e1732aca3ec6d9f77a9cac73609505ba29128c7892afabaa9908164",
+    mainBlob: "0366396bcfaac34b1ad770b37a6cb8e117ff4406",
+    mainSha256: "bb8424109fb12bd980014e942114a507d8629ff027d8b271a5e73d4168a8972f",
+    styleBlob: "5d5448e8766bf4f32d1867e1534ce73797465de5",
+    styleSha256: "950156fb82ff9d4449dfb03e914445eeeace10de0796361108e29e5637a48cf1",
+  });
+  assert.doesNotMatch(restoredIndexHtml, /THOUGHT creation surfaces/);
+  assert.doesNotMatch(restoredIndexHtml, /thought-cli-title/);
+  assert.doesNotMatch(restoredIndexHtml, /requestedSurface/);
+  assert.match(
+    restoredIndexHtml,
+    /<aside class="thought-detail__rail"[\s\S]*?<h2>work<\/h2>[\s\S]*?<h2>creation record<\/h2>[\s\S]*?<h2>token details<\/h2>[\s\S]*?<\/aside>\s*<details class="thought-detail__record[\s\S]*?<h3>canonical traits<\/h3>/,
+    "the tagged Agent shell receives the current tightened PATH-canonical detail rail only after byte verification",
+  );
+  assert.doesNotMatch(restoredIndexHtml, /thought-detail__support/);
+  assert.match(
+    restoredIndexHtml,
+    /id="thought-detail-gallery-link"[^>]*href="https:\/\/inshell\.art\/">\[ Home \]<\/a>/,
+    "the detail surface returns to the canonical Home gallery",
+  );
+  assert.match(restoredIndexHtml, /style\.css\?inshell-thought-dev-snapshot=da998e1/);
+  assert.match(restoredIndexHtml, /main\.ts\?inshell-thought-dev-snapshot=da998e1/);
+  assert.match(
+    restoredMain,
+    /const IS_CLI_DEBUG = ROUTE_SEARCH_PARAMS\.get\("debug"\) === "cli"/,
+  );
+  /*
+  assert.match(
+    restoredMain,
+    /const reserveThoughtDockAgentLaunch = \(\): ThoughtDockLaunchReservation \| null =>[\s\S]*?window\.open\("about:blank", "_blank"\)/,
+    "the locked Agent surface uses a same-tab-safe deep link without a popup reservation",
+  );
+  */
+  assert.match(
+    restoredMain,
+    /const thoughtDockLink = \([\s\S]*?document\.createElement\("a"\)[\s\S]*?link\.href = href\(\)[\s\S]*?onClick\(\)/,
+    "the locked Agent surface gives the trusted chooser click a same-tab custom-protocol link",
+  );
+  assert.match(
+    restoredMain,
+    /const createPinnedBrowserPreviewProvider = \(\): ThoughtPreviewProvider => \(\{[\s\S]*?THOUGHT_V2_ARTIFACT\.manifestSha256[\s\S]*?buildThoughtV2Svg[\s\S]*?method: "frontendRender"/,
+    "the locked same-origin artifact layers the pinned browser preview after immutable byte verification",
+  );
+  assert.match(
+    restoredMain,
+    /title: "Agent line received",[\s\S]*?nextStep: "Canonical artwork preview is unavailable in this environment"/,
+    "the locked artifact must not restore the obsolete preview-unavailable console copy",
+  );
+  assert.doesNotMatch(restoredMain, /The App could not prepare the artwork preview\./);
+  assert.match(
+    restoredMain,
+    /const prepareThoughtDockAgentSelection = async \(prompt: string\) => \{[\s\S]*?const payload = await buildThoughtDockRunPayload\(prompt\)[\s\S]*?const run = await createThoughtDockRun\(prompt, payload\)[\s\S]*?preparedThoughtDockAgentSelection = \{ prompt, payload, run, runSessionId \};[\s\S]*?setThoughtDockState\(\{ kind: "agent_select", prompt \}\)/,
+    "the chooser must prepare exactly one neutral run before Agent controls become clickable",
+  );
+  assert.match(
+    restoredMain,
+    /const prepareThoughtDockAdapter =[\s\S]*?preparedThoughtDockAgentSelection = null;[\s\S]*?window\.setTimeout\(\(\) => prepareThoughtDockRun\(selection, adapterId\), 0\)/,
+    "the final Agent-choice link must navigate before the run UI transitions",
+  );
+  assert.doesNotMatch(restoredMain, /Promise\.allSettled/);
+  assert.doesNotMatch(restoredMain, /case "agent_task_ready"/);
+  assert.match(
+    restoredMain,
+    /const INSHELL_HOME_URL = INSHELL_LINKS\.home;[\s\S]*?const GALLERY_URL =[\s\S]*?INSHELL_LINKS\.works;[\s\S]*?return INSHELL_LINKS\.thought;/,
+    "the verified tagged UI keeps the current same-origin navigation policy",
+  );
+  assert.match(
+    restoredMain,
+    /if \(IS_GALLERY_PAGE && \(!IS_GALLERY_PATH \|\| IS_GALLERY_HOST\)\) \{\s*window\.location\.replace\(galleryUrl\(GALLERY_TARGET_TOKEN_ID\)\)/,
+    "only same-origin canonical gallery paths bypass legacy gallery redirects",
+  );
+  assert.match(
+    restoredMain,
+    /const initFrontpage = async \(\) => \{[\s\S]*?if \(IS_GALLERY_PAGE\) \{[\s\S]*?galleryPage\.classList\.remove\("is-hidden"\);[\s\S]*?await loadThoughtGallery\(\);[\s\S]*?return;[\s\S]*?if \(IS_THOUGHT_PAGE\)/,
+    "the canonical same-origin gallery renders and loads its chain records",
+  );
+  assert.match(
+    restoredMain,
+    /thoughtDetailGalleryLink\.href = inshellHomeUrl\(ROUTE_THOUGHT_NFT_ID\)/,
+    "the detail Home link targets the matching card in the canonical Home gallery",
+  );
+  assert.match(restoredMain, /const specMarkdownFilename = \(ref\?: string\) =>/);
+  assert.match(
+    restoredMain,
+    /new Blob\(\[spec\.text\], \{ type: "text\/markdown;charset=utf-8" \}\)/,
+    "the byte-verified snapshot receives the current Markdown spec link after verification",
+  );
+  assert.doesNotMatch(
+    restoredMain,
+    /void initFrontpage\(\);[\s\S]*?if \(IS_GALLERY_PAGE\)/,
+    "the gallery render branch must stay inside initFrontpage",
+  );
+  assert.doesNotMatch(restoredMain, /const IS_CLI_SURFACE/);
+  assert.match(restoredStyle, /\.frontpage-side\s*\{[\s\S]*?display:\s*none;/);
+  assert.match(restoredStyle, /\.thought-panel\s*\{[\s\S]*?display:\s*flex;/);
+  assert.match(
+    restoredStyle,
+    /\.thought-dock-actions a\.thought-dock-button\s*\{\s*text-decoration:\s*none;/,
+    "the byte-verified dev surface removes redundant underlines from framed Agent links",
+  );
+  assert.match(
+    restoredStyle,
+    /INSHELL_CURRENT_THOUGHT_DETAIL_PATH_CANON_START[\s\S]*?@media \(max-width: 980px\)[\s\S]*?\.thought-detail__body\s*\{\s*grid-template-columns:\s*1fr/,
+    "the tagged stylesheet receives the current responsive detail overlay only after byte verification",
+  );
+  assert.match(
+    restoredStyle,
+    /INSHELL_CURRENT_THOUGHT_DETAIL_PATH_CANON_START[\s\S]*?\.thought-detail__body\s*\{[\s\S]*?align-content:\s*var\(--thought-detail-body-align-content\);[\s\S]*?grid-auto-rows:\s*var\(--thought-detail-body-auto-rows\)/,
+    "the restored snapshot keeps verification spacing independent of viewport height",
+  );
+  assert.equal(shouldRestoreThoughtDevIndexSnapshot("/thought/", "/thought/"), true);
+  assert.equal(
+    shouldRestoreThoughtDevIndexSnapshot("/thought/?surface=agent", "/thought/"),
+    true,
+  );
+  assert.equal(
+    shouldRestoreThoughtDevIndexSnapshot("/thought/?surface=cli", "/thought/"),
+    false,
+  );
+  assert.equal(
+    shouldRestoreThoughtDevIndexSnapshot("/thought/?debug=cli", "/thought/"),
+    false,
+  );
+  assert.match(
+    thoughtViteConfig,
+    /order: "pre",[\s\S]*?useLockedSurface \|\| shouldRestoreThoughtDevIndexSnapshot\([\s\S]*?restoreThoughtDevIndexSnapshot\(html\)/,
+  );
+  assert.match(
+    thoughtViteConfig,
+    /globalThis\.__INSHELL_THOUGHT_DEV_INDEX_SNAPSHOT__/,
+    "served dev HTML exposes the verified immutable snapshot provenance",
+  );
+  assert.doesNotMatch(
+    thoughtDevSnapshot,
+    /node:child_process|execFileSync|git\s+cat-file/,
+    "snapshot restoration must work in a shallow CI checkout",
+  );
+});
+
+test("the local lane keeps every product link on the shared Home origin", () => {
+  const lane = thoughtLaneEnvironment();
+  const home = new URL(lane.VITE_INSHELL_HOME_URL);
+  const productUrls = [
+    lane.VITE_THOUGHT_URL,
+    lane.VITE_GALLERY_URL,
+    lane.VITE_PATH_MINT_URL,
+    lane.VITE_THOUGHT_DETAIL_BASE_URL,
+  ].map((value) => new URL(value));
+
+  assert.deepEqual(
+    productUrls.map((url) => url.origin),
+    productUrls.map(() => home.origin),
+  );
+  assert.equal(new URL(lane.VITE_THOUGHT_URL).pathname, "/thought");
+  assert.equal(new URL(lane.VITE_GALLERY_URL).pathname, "/gallery");
+  assert.equal(new URL(lane.VITE_PATH_MINT_URL).pathname, "/path");
+  assert.equal(new URL(lane.VITE_THOUGHT_DETAIL_BASE_URL).pathname, "/thought");
+});
+
+test("the local lane binds PATH dev to the same dedicated Anvil runtime", () => {
+  const lane = pathLaneEnvironmentFromRuntime({
+    schema: "inshell.thought.v2.anvil-gallery-runtime.v1",
+    status: "ready",
+    chainId: 31338,
+    localLane: {
+      id: "thought",
+      isolation: "dedicated-anvil",
+      pathRelease: {
+        releaseTag: "v0.5.0",
+        manifestSha256: "a81355b459b40faea894cf1dfb7f484765a7ec62672039dd62d58a3a52849921",
+      },
+    },
+    pathNft: { address: "0x1111111111111111111111111111111111111111" },
+    pathPulseAdapter: { address: "0x2222222222222222222222222222222222222222" },
+    pulseAuction: { address: "0x3333333333333333333333333333333333333333" },
+    paymentToken: { address: "0x0000000000000000000000000000000000000000" },
+    pathDeployment: {
+      schema: "inshell.path.local-deployment.v1",
+      chainId: 31338,
+      releaseTag: "v0.5.0",
+      releasePublicationCommit: "085cfc084b0e568740e0da639e968eb535f7e5c8",
+      contractSourceCommit: "5a1ab1f137e76c80dc69045dc520454f6e07cbb1",
+      manifestSha256: "a81355b459b40faea894cf1dfb7f484765a7ec62672039dd62d58a3a52849921",
+      paymentToken: "0x0000000000000000000000000000000000000000",
+      auction: {
+        openTime: 1_786_459_217,
+        k: "600000000000000000",
+        genesisPrice: "10000000000000000",
+        genesisFloor: "9000000000000000",
+        pts: "100000000000000",
+      },
+      contracts: {
+        pathNft: {
+          address: "0x1111111111111111111111111111111111111111",
+          deployBlock: 1,
+          codeHash: `0x${"11".repeat(32)}`,
+        },
+        pathPulseAdapter: {
+          address: "0x2222222222222222222222222222222222222222",
+          deployBlock: 2,
+          codeHash: `0x${"22".repeat(32)}`,
+        },
+        pulseAuction: {
+          address: "0x3333333333333333333333333333333333333333",
+          deployBlock: 3,
+          codeHash: `0x${"33".repeat(32)}`,
+        },
+      },
+    },
+  });
+
+  assert.deepEqual(lane, {
+    VITE_NETWORK: "devnet",
+    VITE_EVM_CHAIN_IDS: "31338",
+    VITE_EXPECTED_CHAIN_ID: "0x7a6a",
+    VITE_PATH_NFT: "0x1111111111111111111111111111111111111111",
+    VITE_PATH_PULSE_ADAPTER: "0x2222222222222222222222222222222222222222",
+    VITE_PULSE_AUCTION: "0x3333333333333333333333333333333333333333",
+    VITE_PAYMENT_TOKEN: "0x0000000000000000000000000000000000000000",
+    VITE_PATH_NFT_DEPLOY_BLOCK: "1",
+    VITE_PULSE_AUCTION_DEPLOY_BLOCK: "3",
+    VITE_PATH_ALLOW_DIRECT_AUCTION: "1",
+  });
 });
 
 test("canonical CLI canvas preserves the immutable June 10 snapshot", () => {
@@ -525,10 +995,10 @@ test("Agent empty canvas and generated work preserve the active contract frame",
     /buildThoughtV2Svg/,
     "the active V2 contract preview must not be reconstructed by the frontend",
   );
-  assert.doesNotMatch(
+  assert.match(
     thoughtMain,
-    /const createFrontendPreviewProvider =/,
-    "the current App must not expose an unpinned frontend renderer fallback",
+    /const createPinnedBrowserPreviewProvider = \(\): ThoughtPreviewProvider => \(\{[\s\S]*?THOUGHT_V2_ARTIFACT\.manifestSha256[\s\S]*?buildThoughtV2Svg[\s\S]*?method: "frontendRender"/,
+    "the no-RPC preview must be bound to the generated renderer artifact",
   );
   const providerSelectionStart = thoughtMain.indexOf("const selectThoughtPreviewProvider =");
   const providerSelectionEnd = thoughtMain.indexOf(
@@ -536,8 +1006,16 @@ test("Agent empty canvas and generated work preserve the active contract frame",
     providerSelectionStart,
   );
   const providerSelectionBody = thoughtMain.slice(providerSelectionStart, providerSelectionEnd);
-  assert.match(providerSelectionBody, /pinned THOUGHT renderer release mismatch; preview stopped\./);
-  assert.doesNotMatch(providerSelectionBody, /frontend-renderer|createFrontendPreviewProvider/);
+  assert.match(providerSelectionBody, /return \{ provider: createPinnedBrowserPreviewProvider\(\), reason: "" \};/);
+  assert.doesNotMatch(providerSelectionBody, /pinned THOUGHT renderer release mismatch; preview stopped\./);
+  assert.match(
+    thoughtMain,
+    /const hasCurrentContractWorkSvg = \(\) =>[\s\S]*?currentRunContext\?\.previewProvider\?\.method !== "frontendRender"/,
+    "a browser preview must never satisfy the mint-readiness contract check",
+  );
+  assert.match(thoughtRenderer, /mono-76.*glyphs\.json/);
+  assert.match(thoughtRenderer, /data-renderer=.*mono-76-v1-im76-native-paths/);
+  assert.doesNotMatch(thoughtRenderer, /<circle|binary-weave/);
   const rpcStart = thoughtMain.indexOf("const resolveThoughtRpcUrl =");
   const rpcEnd = thoughtMain.indexOf("const THOUGHT_RPC_URL =", rpcStart);
   const rpcBody = thoughtMain.slice(rpcStart, rpcEnd);
@@ -551,7 +1029,7 @@ test("Agent empty canvas and generated work preserve the active contract frame",
   const previewStart = thoughtMain.indexOf("const showContractImagePreview =");
   const previewEnd = thoughtMain.indexOf("const syncCurrentWorkVisual =", previewStart);
   const previewBody = thoughtMain.slice(previewStart, previewEnd);
-  assert.match(previewBody, /thoughtSvgPreview\.src = image/);
+  assert.match(previewBody, /thoughtSvgPreview\.src = thoughtV2DisplayImage\(image\)/);
   assert.match(previewBody, /thoughtSvgPreview\.classList\.remove\("is-hidden"\)/);
   assert.match(previewBody, /canvas\.classList\.add\("is-hidden"\)/);
   assert.equal(
@@ -575,13 +1053,13 @@ test("local runtime bootstrap preserves provenance eligibility facts", () => {
 
 test("Save/Load uses prompt-labelled one-line options and loads the selected canvas work", () => {
   assert.match(indexHtml, /aria-label="THOUGHT load a saved work"/);
-  assert.match(thoughtMain, /thoughtDockWorksLabel\.textContent = "load a saved work"/);
-  assert.match(thoughtMain, /placeholder\.textContent = works\.length \? "load a saved work" : "no saved works"/);
-  assert.doesNotMatch(thoughtMain, /"select a saved work"/);
-  assert.doesNotMatch(thoughtMain, /thoughtDockWorksLabel\.textContent = `saved works/);
+  assert.match(thoughtMain, /thoughtDockWorksLabel\.textContent = "Load a saved work"/);
+  assert.match(thoughtMain, /placeholder\.textContent = works\.length \? "Load a saved work" : "No saved works"/);
+  assert.doesNotMatch(thoughtMain, /"select a Saved work"/);
+  assert.doesNotMatch(thoughtMain, /thoughtDockWorksLabel\.textContent = `Saved works/);
   assert.match(
     thoughtMain,
-    /kind: "work_library_opened",\s*title: "load a saved work",\s*detail: "Saved in this browser only—not on-chain or synced\."/,
+    /kind: "work_library_opened",\s*title: "Load a saved work",\s*detail: "Saved in this browser only—not on-chain or synced\."/,
   );
   const loadActionStart = thoughtMain.indexOf("const loadAction = () =>");
   const loadActionEnd = thoughtMain.indexOf("const newThoughtAction =", loadActionStart);
@@ -625,12 +1103,18 @@ test("THOUGHT panel copy uses canonical product terms", () => {
   assert.doesNotMatch(productCopy, /load a work/);
   assert.doesNotMatch(productCopy, /\$PATHs/);
   assert.doesNotMatch(productCopy, /THOUGHT (?:mint )?unit/);
-  assert.doesNotMatch(productCopy, /["'`][^"'`\n]*\bonchain\b[^"'`\n]*["'`]/);
-  assert.match(productCopy, /load a saved work/);
+  // One copy source now serves every "you cannot mint yet" moment, and it
+  // never reaches for network or phase vocabulary.
+  assert.doesNotMatch(thoughtLaunchState, /getThoughtLaunchGuidance/);
+  assert.doesNotMatch(
+    thoughtLaunchState,
+    /"[^"]*(?:Studio|Onchain|Sepolia|Mainnet)[^"]*"/,
+  );
+  assert.match(productCopy, /Load a saved work/);
   assert.match(productCopy, /THOUGHT mint available/);
   assert.match(productCopy, /on-chain/);
   assert.doesNotMatch(productCopy, /choose an agent\.|agent result schema invalid\.|agent request (?:timed out|failed)\./);
-  assert.match(productCopy, /choose an Agent\.|Agent result schema invalid\.|Agent request (?:timed out|failed)\./);
+  assert.match(productCopy, /Choose an Agent\.|Agent result schema invalid\.|Agent request (?:timed out|failed)\./);
   assert.doesNotMatch(productCopy, /agent output:/);
   assert.match(productCopy, /Agent output:/);
   assert.match(thoughtMintPresentation, /action\("confirm_mint", "Try again"\)/);
@@ -645,6 +1129,94 @@ test("THOUGHT panel copy uses canonical product terms", () => {
   );
 });
 
+test("THOUGHT Studio Preview keeps guidance controls visible and fails closed", () => {
+  assert.doesNotMatch(
+    thoughtCss,
+    /data-thought-launch-phase[\s\S]{0,240}\.inshell-topbar__wallet-surface\s*\{\s*display:\s*none;/,
+    "shared shell controls are not hidden with page-specific CSS",
+  );
+  assert.match(
+    thoughtMain,
+    /const shouldShowThoughtMintSurface = \(\) =>\s*thoughtLaunchState\.phase !== "studio-preview"/,
+    "Studio Preview owns an explicit fail-closed mint-panel boundary",
+  );
+  assert.doesNotMatch(
+    thoughtMain,
+    /\.\.\.\(showMintSurface\s*\? \[dockRailAction\(/,
+    "the Work Mint guidance CTA remains visible in Studio Preview",
+  );
+  assert.match(
+    thoughtMain,
+    /if \(!canOpenMint\) \{\s*noticeThoughtMintUnavailable\(\);\s*syncThoughtDock\(\);\s*return;\s*\}/,
+    "the closed Mint CTA reports the phase and returns before opening the mint flow",
+  );
+  assert.match(
+    thoughtMain,
+    /const isVisible = shouldShowThoughtMintSurface\(\) && mintDockRevealed/,
+    "a persisted Mint disclosure cannot reopen inside Studio Preview",
+  );
+  assert.match(
+    thoughtMain,
+    /const visibleHistoryEntries = shouldShowThoughtMintSurface\(\)[\s\S]*?isStudioPreviewOnchainConsoleEntry/,
+    "Studio Preview removes stale transactional history from the visible Console",
+  );
+  assert.match(
+    thoughtMain,
+    /entry\.kind !== "thought_launch_mint_closed" &&/,
+    "the closed-phase Mint guidance remains visible in the Console",
+  );
+});
+
+test("THOUGHT closed onchain phases explain themselves at the mint CTA and fail closed", () => {
+  const workActionsIndex = indexHtml.indexOf('id="thought-dock-action-area"');
+  const mintPanelIndex = indexHtml.indexOf('id="thought-dock-path"');
+  assert.ok(workActionsIndex >= 0);
+  assert.ok(mintPanelIndex > workActionsIndex);
+  assert.doesNotMatch(indexHtml, /thought-launch-status/);
+  assert.doesNotMatch(thoughtCss, /\.thought-launch-status/);
+
+  // The persistent phase banner is gone. Closed phases explain themselves
+  // only when the visitor reaches for Mint.
+  assert.doesNotMatch(thoughtMain, /kind: "thought_launch_guidance"/);
+  assert.doesNotMatch(thoughtMain, /thought-launch-guidance:plain-v1:/);
+
+  // Reaching for mint while it is closed explains why, and never enters the
+  // mint flow.
+  assert.match(
+    thoughtMain,
+    /const noticeThoughtMintUnavailable = \(\) => \{[\s\S]*?kind: "thought_launch_mint_closed"[\s\S]*?tone: "warning"/,
+  );
+  assert.match(
+    thoughtMain,
+    /if \(!canOpenMint\) \{\s*noticeThoughtMintUnavailable\(\);\s*syncThoughtDock\(\);\s*return;\s*\}/,
+    "a closed mint CTA reports and returns before revealing the mint dock",
+  );
+
+  // Saved work built on an older release stays a message, but it reuses the
+  // existing work_blocked entry rather than adding a second channel for the
+  // same fact.
+  assert.doesNotMatch(thoughtMain, /thought_launch_stale_work/);
+  assert.match(thoughtMain, /kind: "work_blocked"/);
+
+  assert.match(
+    thoughtMain,
+    /frontpageStage\.dataset\.thoughtLaunchPhase = thoughtLaunchState\.phase/,
+  );
+  assert.match(
+    thoughtMain,
+    /fetch\(THOUGHT_LAUNCH_READ_MODEL_URL,[\s\S]*?credentials:\s*"same-origin"[\s\S]*?cache:\s*"no-store"/,
+  );
+  assert.match(
+    thoughtMain,
+    /if \(isThoughtMintEnabled\(\)\) \{\s*await refreshWalletState\(\);/,
+  );
+  assert.doesNotMatch(thoughtDevSnapshot, /CURRENT_THOUGHT_LAUNCH_STATUS|Studio \/ Onchain launch status/);
+  assert.match(
+    thoughtDevSnapshot,
+    /applyCurrentThoughtLaunchMainDeltas\([\s\S]*?"restore"[\s\S]*?applyCurrentThoughtLaunchMainDeltas\([\s\S]*?"layer"/,
+  );
+});
+
 test("dock and compatibility sheet share the PICK SIGN MINT spine", () => {
   const expectedSteps = /<ol[^>]+aria-label="THOUGHT mint progress"[^>]*>\s*<li data-step="select">PICK<\/li>\s*<li data-step="authorize">SIGN<\/li>\s*<li data-step="confirm">MINT<\/li>\s*<\/ol>/g;
   assert.equal([...indexHtml.matchAll(expectedSteps)].length, 2);
@@ -656,13 +1228,13 @@ test("dock and compatibility sheet share the PICK SIGN MINT spine", () => {
 
   assert.ok(dockFlowIndex < inventoryIndex, "dock progress precedes its active PATH stage");
   assert.ok(sheetFlowIndex < sheetFieldIndex, "sheet progress precedes its active PATH stage");
-  assert.match(thoughtMintPresentation, /title: inventory\.available === 1 \? "one \$PATH is ready" : "pick a \$PATH"/);
+  assert.match(thoughtMintPresentation, /title: inventory\.available === 1 \? "One \$PATH is ready" : "Pick a \$PATH"/);
   assert.match(
     thoughtMintPresentation,
     /stageCopy: "Select “Pick another \$PATH”, or open the wallet menu and select “refresh”\."/,
   );
-  assert.match(thoughtMain, /placeholder\.textContent = "pick a \$PATH"/);
-  assert.match(thoughtMain, /return "pick another \$PATH or select refresh in the wallet menu"/);
+  assert.match(thoughtMain, /placeholder\.textContent = "Pick a \$PATH"/);
+  assert.match(thoughtMain, /return "Pick another \$PATH or select refresh in the wallet menu"/);
   assert.doesNotMatch(thoughtConsole, /\$PATH selection cleared/);
   assert.doesNotMatch(thoughtMintPresentation, /(?<!\$)\bPATHs?\b/);
   assert.doesNotMatch(thoughtMain, /(?:select|choose) \$PATH \/ authorize \/ confirm\./i);
@@ -674,7 +1246,10 @@ test("shell-bar refresh is the only manual wallet and $PATH inventory refresh co
   assert.doesNotMatch(thoughtMintPresentation, /Recheck/i);
   assert.match(inshellShell, /await refreshWallet\(\);\s*await onRefresh\?\.\(\);/);
   assert.match(thoughtShell, /onWalletRefresh=\{onWalletRefresh\}/);
-  assert.match(thoughtMain, /mountThoughtShell\(thoughtShellRoot, THOUGHT_CHAIN_ID, \(\) => refreshThoughtWalletFromShell\(\)\)/);
+  assert.match(
+    thoughtMain,
+    /mountThoughtShell\([\s\S]*?THOUGHT_CHAIN_ID,[\s\S]*?\(\) => refreshThoughtWalletFromShell\(\)/,
+  );
   assert.match(
     thoughtMain,
     /async function refreshThoughtWalletFromShell\(\)[\s\S]*?refreshPathInventoryForCurrentWallet\(\{ force: true \}\)/,
@@ -688,11 +1263,11 @@ test("Console preserves shell-refresh notices after mint-panel Recheck removal",
   );
   assert.match(
     thoughtMintPresentation,
-    /title: "\$PATH list unavailable"[\s\S]*?consoleNextStep: "open the wallet menu and select refresh"/,
+    /title: "\$PATH list unavailable"[\s\S]*?consoleNextStep: "Open the wallet menu and select refresh"/,
   );
   assert.match(
     thoughtMintPresentation,
-    /title: "\$PATH mint confirming"[\s\S]*?consoleNextStep: "wait for confirmation, then open the wallet menu and select refresh"/,
+    /title: "\$PATH mint confirming"[\s\S]*?consoleNextStep: "Wait for confirmation, then open the wallet menu and select refresh"/,
   );
   assert.match(
     thoughtMain,
@@ -703,7 +1278,7 @@ test("Console preserves shell-refresh notices after mint-panel Recheck removal",
 test("Console retains its timestamped first-visit guidance as normal history", () => {
   assert.match(
     thoughtConsole,
-    /THOUGHT_CONSOLE_EMPTY_TITLE = "start with a prompt"/,
+    /THOUGHT_CONSOLE_EMPTY_TITLE = "Start with a prompt"/,
   );
   assert.match(
     thoughtConsole,
@@ -723,7 +1298,7 @@ test("Console retains its timestamped first-visit guidance as normal history", (
 test("local deployment failures never prescribe wallet refresh", () => {
   assert.match(
     thoughtMintPresentation,
-    /kind === "local_deployment"[\s\S]*?title: "local mint unavailable"[\s\S]*?Local Anvil is not serving the THOUGHT contracts configured for this App\.[\s\S]*?start or restore the local dev chain, then select “Try again”[\s\S]*?action\("continue", "Try again"\)/,
+    /kind === "local_deployment"[\s\S]*?title: "Local mint unavailable"[\s\S]*?Local Anvil is not serving the THOUGHT contracts configured for this App\.[\s\S]*?Start or restore the local dev chain, then select “Try again”[\s\S]*?action\("continue", "Try again"\)/,
   );
   assert.match(
     thoughtMain,
@@ -781,7 +1356,7 @@ test("THOUGHT mint guidance follows the resolved wallet and $PATH state", () => 
     thoughtConsole,
     /THOUGHT_PATH_REQUIRED_DETAIL\s*=\s*\n?\s*"No available \$PATH can mint this THOUGHT; mint a new \$PATH"/,
   );
-  assert.match(thoughtConsole, /THOUGHT_PATH_LINK_LABEL = "mint a new \$PATH ↗"/);
+  assert.match(thoughtConsole, /THOUGHT_PATH_LINK_LABEL = "Mint a new \$PATH ↗"/);
   assert.match(
     thoughtMain,
     /if \(mintFlowState === "wallet_required"\) \{[\s\S]*?kind: "wallet_required"[\s\S]*?presentation\.title/,
@@ -899,7 +1474,7 @@ test("$PATH inventory select has no default and advances on selection", () => {
     indexHtml,
     /id="thought-dock-path-inventory"[\s\S]*?class="thought-dock-select-wrap"[\s\S]*?id="thought-dock-path-inventory-select"[\s\S]*?class="thought-dock-select"[\s\S]*?class="thought-dock-select-arrow"/,
   );
-  assert.match(thoughtMain, /placeholder\.textContent = "pick a \$PATH"/);
+  assert.match(thoughtMain, /placeholder\.textContent = "Pick a \$PATH"/);
   assert.match(thoughtMain, /placeholder\.disabled = true/);
   assert.match(thoughtMain, /select\.value = available\.some\([\s\S]*?\? selectedValue\s*:\s*""/);
   assert.match(
@@ -993,6 +1568,10 @@ test("Work uses monochrome interactive and disabled CTAs", () => {
   assert.doesNotMatch(buttonBody, /thought-work-cta--secondary/);
   assert.doesNotMatch(thoughtMain, /variant:\s*"secondary"/);
   assert.match(
+    thoughtCss,
+    /\.thought-dock-actions a\.thought-dock-button\s*\{\s*text-decoration:\s*none;/,
+  );
+  assert.match(
     ruleBody(".thought-panel"),
     /--accent:\s*var\(--thought-panel-interactive\)/,
   );
@@ -1052,11 +1631,11 @@ test("Work lifecycle messages move into Console history", () => {
   assert.match(recordBody, /emitThoughtConsoleEvent\(/);
   assert.match(
     recordBody,
-    /kind: "work_agent_selection_ready",[\s\S]*?title: "choose an Agent",[\s\S]*?detail: "Choose an Agent available on this machine to receive the prompt\."/
+    /kind: "work_agent_selection_ready",[\s\S]*?title: "Choose an Agent",[\s\S]*?detail: 'Choose an installed Agent\. For Claude Code, use a fresh chat with "No folder": this artwork task needs no repository access\.'/
   );
   assert.match(
     recordBody,
-    /kind: "work_claim_authorization_needed",[\s\S]*?title: `allow \$\{product\}`,[\s\S]*?Match code \$\{state\.authorization\.verificationCode \|\| "------"\} with \$\{product\}, then select “allow \$\{product\.toLowerCase\(\)\}” above\./
+    /kind: "work_claim_authorization_needed",[\s\S]*?title: `Allow \$\{product\}`,[\s\S]*?Match code \$\{state\.authorization\.verificationCode \|\| "------"\} with \$\{product\}\./
   );
   assert.match(
     thoughtMain,
@@ -1073,6 +1652,49 @@ test("Work lifecycle messages move into Console history", () => {
   assert.match(
     thoughtMain,
     /The App asked Claude Code to open this THOUGHT task\./,
+  );
+});
+
+test("Claude Code launch guidance recommends No folder without changing other surfaces", () => {
+  const start = thoughtMain.indexOf("const thoughtAgentLaunchRequestedDetail =");
+  const end = thoughtMain.indexOf("const normalizeThoughtAgentProtocolError", start);
+  assert.ok(start >= 0 && end > start);
+  const source = thoughtMain.slice(start, end);
+  const js = ts.transpile(source + "\nglobalThis.describeLaunch = thoughtAgentLaunchRequestedDetail;");
+  const context = {};
+  runInNewContext(js, context);
+  assert.equal(context.describeLaunch("codex", "codex"),
+    "The App asked the ChatGPT desktop app to open this THOUGHT task in Codex.");
+  assert.equal(context.describeLaunch("claude", "claude-cowork"),
+    "The App asked Claude Cowork to open this THOUGHT task on your computer.");
+  assert.equal(context.describeLaunch("claude", "claude-code"),
+    'The App asked Claude Code to open this THOUGHT task. Use a fresh chat with "No folder": this artwork task needs no repository access.');
+});
+
+test("launch context guidance reuses the shared amber warning style", () => {
+  assert.match(thoughtMain, /eventId: `work-agent-selection/);
+  assert.match(thoughtMain, /kind: "work_agent_selection_ready",[\s\S]*?tone: "warning",/);
+  assert.match(thoughtMain, /tone: state\.adapterId === "claude" && state\.run\.surface === "claude-code" && state\.run\.remoteState === "created"\s*\? "warning"\s*: "neutral"/);
+  assert.match(thoughtCss, /--status-warning-text: #b57a00;/);
+  assert.match(thoughtCss, /\.frontpage-warning\.is-warn,\s*\.thought-dock-status-screen__line--warning\s*\{\s*color: var\(--status-warning-text\);/);
+  assert.match(thoughtCss, /\.frontpage-action-status\.is-warn\s*\{\s*color: var\(--status-warning-text\);/);
+  assert.doesNotMatch(thoughtCss, /claude.*warning|folder.*warning/i);
+  const lockedStyle = loadThoughtDevSnapshotFile(repoRoot, "style");
+  assert.match(lockedStyle, /\.thought-dock-status-screen__line--warning\s*\{\s*color: var\(--status-warning-text\);/);
+});
+
+test("a returned Agent line remains visible when canonical artwork preview is unavailable", () => {
+  assert.match(
+    thoughtMain,
+    /state\.kind === "preview_unavailable"[\s\S]*?title: "Agent line received"[\s\S]*?detail: state\.rawCandidate[\s\S]*?nextStep: "Canonical artwork preview is unavailable in this environment"/,
+  );
+  assert.match(
+    thoughtMain,
+    /case "preview_unavailable":[\s\S]*?status: "Agent line received"/,
+  );
+  assert.doesNotMatch(
+    thoughtMain,
+    /state\.kind === "preview_unavailable"[\s\S]{0,300}?The App could not prepare the artwork preview/,
   );
 });
 
@@ -1139,7 +1761,7 @@ test("wallet return without a transaction hash becomes a bounded recoverable sta
   assert.match(thoughtMain, /Promise\.race\(\[txPromise, walletReturnGuard\.promise\]\)/);
   assert.match(thoughtMain, /walletReturnGuard\.dispose\(\)/);
   assert.match(thoughtMain, /const restoredDanglingMintRequest = thoughtConsoleHistory\.entries\.at\(-1\)\?\.kind === "transaction_requested"/);
-  assert.match(thoughtMain, /kind: "mint_request_interrupted",\s*title: "mint status needs checking"/);
+  assert.match(thoughtMain, /kind: "mint_request_interrupted",\s*title: "Mint status needs checking"/);
   assert.match(thoughtMain, /The page reloaded before the wallet returned a transaction hash\./);
 });
 
@@ -1220,15 +1842,73 @@ test("Console key guidance uses full-opacity theme-aware text", () => {
   assert.match(
     thoughtMain,
     /kind: readiness\.ready \? "work_ready" : "work_blocked"[\s\S]*?tone: readiness\.ready \? "success" : "warning"/,
-    "work ready remains semantically successful while its visual role supplies guidance emphasis",
+    "Work ready remains semantically successful while its visual role supplies guidance emphasis",
   );
   assert.doesNotMatch(thoughtCss, /thought-console-warning-flash|is-warning-flash/);
   assert.doesNotMatch(thoughtMain, /activeThoughtConsoleWarningFlashes|is-warning-flash/);
   assert.doesNotMatch(thoughtMain, /review this warning, then retry/);
   assert.match(
     thoughtMain,
-    /if \(title\.includes\("path"\)\) \{[\s\S]*?return "pick another \$PATH or select refresh in the wallet menu";[\s\S]*?return undefined;/,
+    /if \(title\.includes\("path"\)\) \{[\s\S]*?return "Pick another \$PATH or select refresh in the wallet menu";[\s\S]*?return undefined;/,
     "warnings without a concrete recovery action must not invent a next step",
+  );
+});
+
+test("no Console detail repeats its own title", () => {
+  // A detail that restates its title makes the reader cover the same words
+  // twice. Every detail must earn its line by adding something new.
+  const STOP = new Set([
+    "a", "an", "the", "to", "of", "is", "are", "in", "on", "this", "that",
+    "your", "you", "it", "and", "or", "for", "with", "no", "not", "be", "can",
+    "will",
+  ]);
+  const words = (value) =>
+    (value.toLowerCase().match(/[a-z$#]+/g) ?? []).filter(
+      (word) => word.length > 2 && !STOP.has(word),
+    );
+
+  // Pair each title with the detail from the SAME event. A lazy regex spanning
+  // the file pairs a title with a later event's detail and silently under-reports.
+  const blocks = thoughtMain.split("emitThoughtConsoleEvent({").slice(1);
+  const field = (block, name) => {
+    const match = block.match(
+      new RegExp(`${name}:\\s*("(?:[^"\\\\]|\\\\.)*"|\`(?:[^\`\\\\]|\\\\.)*\`)`),
+    );
+    return match ? match[1].slice(1, -1) : null;
+  };
+  const offenders = [];
+  const detailOwners = new Map();
+  for (const raw of blocks) {
+    const block = raw.slice(0, raw.indexOf("\n  })") + 1 || undefined);
+    const title = field(block, "title");
+    const detail = field(block, "detail");
+    if (!title || !detail) continue;
+    const titleWords = [...new Set(words(title))];
+    const detailWords = words(detail);
+    if (titleWords.length === 0) continue;
+
+    const opensWithTitle = titleWords.every((word) =>
+      detailWords.slice(0, titleWords.length + 1).includes(word),
+    );
+    const shared = titleWords.filter((word) => detailWords.includes(word));
+    if (opensWithTitle || shared.length / titleWords.length >= 0.6) {
+      offenders.push(`${title} -> ${detail}`);
+    }
+
+    const owners = detailOwners.get(detail) ?? new Set();
+    owners.add(title);
+    detailOwners.set(detail, owners);
+  }
+
+  assert.deepEqual(offenders, [], `Console detail repeats its title:\n${offenders.join("\n")}`);
+
+  const shared = [...detailOwners.entries()].filter(([, owners]) => owners.size > 1);
+  assert.equal(
+    shared.length,
+    0,
+    `one detail is shared by several titles:\n${shared
+      .map(([detail, owners]) => `${[...owners].join(" / ")} -> ${detail}`)
+      .join("\n")}`,
   );
 });
 
@@ -1238,7 +1918,7 @@ test("Console guidance states the next visible action without protocol jargon", 
   const recordBody = thoughtMain.slice(recordStart, recordEnd);
   assert.ok(recordStart >= 0 && recordEnd > recordStart);
 
-  assert.match(recordBody, /title: readiness\.ready \? "ready to mint" : "run this work again"/);
+  assert.match(recordBody, /title: readiness\.ready \? "Ready to mint" : "Run this work again"/);
   assert.match(recordBody, /Select “mint” above to start minting this THOUGHT work\./);
   assert.match(
     recordBody,
@@ -1249,7 +1929,7 @@ test("Console guidance states the next visible action without protocol jargon", 
     recordBody,
     /detail: `Select “\$\{signAction\}” above to authorize minting this THOUGHT work\.`/,
   );
-  assert.match(recordBody, /Approve the signature request\. No transaction or gas\./);
+  assert.match(recordBody, /A signature request for \$\{path\} is open in your wallet\. Approve it to continue\. No transaction or gas\./);
   assert.match(
     recordBody,
     /const mintAction = thoughtMintActionLabel\(presentation, "confirm_mint", "Mint THOUGHT"\)/,
@@ -1260,7 +1940,7 @@ test("Console guidance states the next visible action without protocol jargon", 
   );
   assert.doesNotMatch(recordBody, /submit this THOUGHT work to the network/);
   assert.doesNotMatch(recordBody, /above to continue/);
-  assert.match(recordBody, /Open your wallet and confirm the transaction\. Gas applies\./);
+  assert.match(recordBody, /A THOUGHT mint transaction is open in your wallet\. Confirm it to continue\. Gas applies\./);
   assert.match(
     recordBody,
     /const viewAction = thoughtMintActionLabel\([\s\S]*?"view_thought",[\s\S]*?"View THOUGHT"/,
@@ -1274,15 +1954,20 @@ test("Console guidance states the next visible action without protocol jargon", 
 
   assert.match(
     thoughtMain,
-    /kind: "wallet_connection_requested",[\s\S]*?title: "approve wallet connection",[\s\S]*?Open your wallet and approve the connection\. No signature or transaction\./,
+    /kind: "wallet_connection_requested",[\s\S]*?title: "Waiting for your wallet",[\s\S]*?A connection request is open in your wallet\. Approve it to continue\. No signature or transaction\./,
   );
   assert.match(
     thoughtMain,
-    /kind: "path_acquisition_wallet",[\s\S]*?title: "confirm \$PATH mint in wallet",[\s\S]*?Open your wallet and confirm the transaction\. Gas applies\./,
+    /kind: "path_acquisition_wallet",[\s\S]*?title: "Waiting for your confirmation",[\s\S]*?A \$PATH mint transaction is open in your wallet\. Confirm it to continue\. Gas applies\./,
+  );
+  assert.doesNotMatch(
+    thoughtMain,
+    /title: (?:`|")(?:sign|confirm|approve|close) [^`"]*(?:in wallet|wallet request)(?:`|")/,
+    "Console titles name the state the visitor is in, not an instruction",
   );
   assert.match(
     thoughtMain,
-    /kind: "path_acquisition_inventory_pending",[\s\S]*?title: "new \$PATH not visible yet",[\s\S]*?open the wallet menu and select refresh/,
+    /kind: "path_acquisition_inventory_pending",[\s\S]*?title: "New \$PATH not visible yet",[\s\S]*?Open the wallet menu and select refresh/,
   );
 });
 
@@ -1293,7 +1978,7 @@ test("retained authorization copy resolves the configured network name without d
   );
   assert.match(
     thoughtMain,
-    /newestFirstThoughtConsoleEntries\(thoughtConsoleHistory\.entries\)\s*\.map\(withCurrentThoughtNetworkName\)\s*\.map\(\(entry\) =>/,
+    /newestFirstThoughtConsoleEntries\(visibleHistoryEntries\)\s*\.map\(withCurrentThoughtNetworkName\)\s*\.map\(\(entry\) =>/,
   );
 });
 
@@ -1339,23 +2024,23 @@ test("every canceled THOUGHT wallet request records its terminal outcome", () =>
   assert.match(errorBody, /kind: "authorization_canceled"/);
   assert.match(errorBody, /title: `\$\{path\} signature canceled`/);
   assert.match(errorBody, /No signature was created\. No transaction or gas\./);
-  assert.match(errorBody, /nextStep: "select “Try again”, or pick another \$PATH"/);
+  assert.match(errorBody, /nextStep: "Select “Try again”, or pick another \$PATH"/);
   assert.match(errorBody, /kind === "mint"[\s\S]*?walletRequestCanceled/);
   assert.match(errorBody, /Boolean\(walletState\.txHash \|\| mintFlowData\.txHash\)/);
   assert.match(errorBody, /kind: "transaction_canceled"/);
   assert.match(errorBody, /title: "THOUGHT mint canceled"/);
   assert.match(errorBody, /No transaction was submitted, and \$\{path\} was not used\./);
   assert.match(errorBody, /The submitted mint was canceled\. No THOUGHT was created, and \$\{path\} was not used\./);
-  assert.match(errorBody, /nextStep: "select “Try again”, or pick another \$PATH"/);
+  assert.match(errorBody, /nextStep: "Select “Try again”, or pick another \$PATH"/);
   assert.match(errorBody, /tone: "warning"/);
 
   const connectStart = thoughtMain.indexOf("const walletConnectionConsoleFailure =");
   const connectEnd = thoughtMain.indexOf("const requestWalletConnect =", connectStart);
   const connectBody = thoughtMain.slice(connectStart, connectEnd);
   assert.match(connectBody, /kind: "wallet_connection_canceled"/);
-  assert.match(connectBody, /title: "wallet connection canceled"/);
+  assert.match(connectBody, /title: "Wallet connection canceled"/);
   assert.match(connectBody, /detail: "No account access was granted\."/);
-  assert.match(connectBody, /nextStep: "select “Connect wallet” when ready"/);
+  assert.match(connectBody, /nextStep: "Select “Connect wallet” when ready"/);
 
   const switchStart = thoughtMain.indexOf("const recordWalletNetworkSwitchFailure =");
   const switchEnd = thoughtMain.indexOf("const disconnectThoughtDockWallet =", switchStart);
@@ -1363,7 +2048,7 @@ test("every canceled THOUGHT wallet request records its terminal outcome", () =>
   assert.match(switchBody, /kind: canceled \? "network_switch_canceled" : "network_switch_failed"/);
   assert.match(switchBody, /title: canceled \? "network switch canceled" : "network switch failed"/);
   assert.match(switchBody, /The wallet network did not change\./);
-  assert.match(switchBody, /nextStep: "select “Switch network” when ready"/);
+  assert.match(switchBody, /nextStep: "Select “Switch network” when ready"/);
   assert.match(
     switchBody,
     /const shouldRegisterOrRepair =[\s\S]*?errorCode === 4902[\s\S]*?IS_LOCAL_CONTRACT_INTEGRATION[\s\S]*?errorCategory !== "wallet_rejected"[\s\S]*?errorCategory !== "wallet_busy"/,
@@ -1376,7 +2061,7 @@ test("every canceled THOUGHT wallet request records its terminal outcome", () =>
   );
   assert.match(
     switchBody,
-    /await refreshWalletState\(\);[\s\S]*?walletState\.chainId !== THOUGHT_CHAIN_ID[\s\S]*?recordWalletNetworkSwitchFailure/,
+    /await refreshWalletState\(\{ queryInjectedProvider: true, refreshPreflight: true \}\);[\s\S]*?walletState\.chainId !== THOUGHT_CHAIN_ID[\s\S]*?recordWalletNetworkSwitchFailure/,
     "switch success must be verified from the wallet's live chain",
   );
 
@@ -1388,7 +2073,7 @@ test("every canceled THOUGHT wallet request records its terminal outcome", () =>
 });
 
 test("text-too-long rejection is a byte-usage warning", () => {
-  assert.match(thoughtMain, /title:\s*state\.issue\?\.title \?\? \(textTooLong \? "text too long" : "work rejected"\)/);
+  assert.match(thoughtMain, /title:\s*state\.issue\?\.title \?\? \(textTooLong \? "Text too long" : "Work rejected"\)/);
   assert.match(thoughtMain, /tone:\s*state\.issue \|\| textTooLong \? "warning" : "error"/);
   assert.match(thoughtMain, /error\.previewReasonCode === 3 && error\.byteLimit/);
   assert.match(thoughtMain, /formatThoughtByteLimitUsage\(error\.byteLimit\)/);
@@ -1406,11 +2091,11 @@ test("text-too-long rejection is a byte-usage warning", () => {
     /const rejectInvalidThoughtDockPrompt = \(prompt: string\)[\s\S]*?measureThoughtV2TerminalLine\(prompt, "prompt"\)/,
   );
   assert.match(thoughtMain, /describeThoughtTextPolicyIssue\(\{[\s\S]*?value: prompt,[\s\S]*?line: "prompt"/);
-  assert.match(thoughtTextPolicy, /\? "leading space"[\s\S]*?: "trailing space"/);
+  assert.match(thoughtTextPolicy, /\? "Leading space"[\s\S]*?: "Trailing space"/);
   assert.match(thoughtTextPolicy, /ends with a space/);
   assert.match(
     thoughtTextPolicy,
-    /title: "extra spaces",[\s\S]*?has more than one space together[\s\S]*?delete the extra space/,
+    /title: "Extra spaces",[\s\S]*?has more than one space together[\s\S]*?delete the extra space/,
   );
   assert.doesNotMatch(thoughtTextPolicy, /title: "text invalid"/);
   assert.match(thoughtTextPolicy, /output is never auto-corrected/);
@@ -1455,7 +2140,7 @@ test("Console keeps the newest time group at the top and promotes guidance withi
   );
   assert.match(
     thoughtMain,
-    /const entries = newestFirstThoughtConsoleEntries\(thoughtConsoleHistory\.entries\)\s*\.map\(withCurrentThoughtNetworkName\)\s*\.map\(\(entry\) => \{/,
+    /const entries = newestFirstThoughtConsoleEntries\(visibleHistoryEntries\)\s*\.map\(withCurrentThoughtNetworkName\)\s*\.map\(\(entry\) => \{/,
   );
   assert.match(thoughtMain, /element\.dataset\.consoleEntryId = entry\.id/);
   assert.match(
@@ -1500,58 +2185,67 @@ test("console rendering is read-only and mint attempts survive navigation", () =
 });
 
 test("Agent launch errors keep their actionable message in Console", () => {
-  const prepareStart = thoughtMain.indexOf("const prepareThoughtDockRun = async");
-  const prepareEnd = thoughtMain.indexOf("const launchPreparedThoughtDockAdapter =", prepareStart);
+  const prepareStart = thoughtMain.indexOf("const prepareThoughtDockAgentSelection = async");
+  const prepareEnd = thoughtMain.indexOf("const updateThoughtDockRunState =", prepareStart);
   const prepareBody = thoughtMain.slice(prepareStart, prepareEnd);
 
   assert.match(prepareBody, /setThoughtDockState\(\{ kind: "failed", message \}\)/);
   assert.doesNotMatch(prepareBody, /details:\s*"Try again\."/);
 });
 
-test("Agent selection seals and launches one run without a second Open Agent action", () => {
+test("Agent selection prepares one neutral run and gives the selected Agent a trusted link", () => {
+  const renderedThoughtMain = loadThoughtDevSnapshotFile(repoRoot, "main");
   const selectStart = thoughtMain.indexOf("const openThoughtDockAgentSelect = () =>");
-  const prepareStart = thoughtMain.indexOf("const prepareThoughtDockRun = async", selectStart);
-  const prepareEnd = thoughtMain.indexOf("const launchPreparedThoughtDockAdapter =", prepareStart);
+  const prepareStart = thoughtMain.indexOf("const prepareThoughtDockAgentSelection = async", selectStart);
+  const prepareEnd = thoughtMain.indexOf("const prepareThoughtDockRun = (", prepareStart);
   const selectBody = thoughtMain.slice(selectStart, prepareStart);
   const prepareBody = thoughtMain.slice(prepareStart, prepareEnd);
-  const runStart = prepareEnd;
-  const runEnd = thoughtMain.indexOf("const updateThoughtDockRunState =", runStart);
-  const runBody = thoughtMain.slice(runStart, runEnd);
+  const runStart = renderedThoughtMain.indexOf("const prepareThoughtDockRun = (");
+  const runEnd = renderedThoughtMain.indexOf("const updateThoughtDockRunState =", runStart);
+  const runBody = renderedThoughtMain.slice(runStart, runEnd);
 
-  assert.match(selectBody, /setThoughtDockState\(\{ kind: "agent_select", prompt \}\)/);
+  assert.match(selectBody, /void prepareThoughtDockAgentSelection\(prompt\)/);
   assert.match(prepareBody, /const payload = await buildThoughtDockRunPayload\(prompt\)/);
   assert.match(
     prepareBody,
-    /const payload = await buildThoughtDockRunPayload\(prompt\);[\s\S]*?const run = await createThoughtDockRun\(prompt, payload, adapterId, surface\)/,
+    /const run = await createThoughtDockRun\(prompt, payload\)[\s\S]*?preparedThoughtDockAgentSelection = \{ prompt, payload, run, runSessionId \};[\s\S]*?setThoughtDockState\(\{ kind: "agent_select", prompt \}\)/,
   );
-  assert.match(
-    prepareBody,
-    /launchPreparedThoughtDockAdapter\(\{[\s\S]*?run,[\s\S]*?adapterId,[\s\S]*?payload,[\s\S]*?runSessionId/,
-    "the selected Agent must launch automatically after the run is sealed",
+  assert.equal(
+    [...prepareBody.matchAll(/createThoughtDockRun\(prompt, payload\)/g)].length,
+    1,
+    "opening the chooser must create exactly one neutral run",
   );
-  assert.doesNotMatch(prepareBody, /kind: "agent_task_ready"/);
   assert.match(
     thoughtMain,
-    /requestedAgent:\s*\{\s*adapterId,\s*model: null,/,
-    "the backend run is bound to the selected adapter before launch",
+    /requestedAgent:\s*\{\s*adapterId: THOUGHT_AGENT_UNBOUND_ADAPTER_ID,\s*model: null,[\s\S]*?surface: "thought-dock:chooser"/,
+    "the prepared backend run remains neutral until the selected Agent claims it",
   );
-  assert.doesNotMatch(
-    runBody,
-    /\bawait\b/,
-    "the direct Agent-button handler must not lose browser activation to asynchronous work",
-  );
-  assert.match(
-    runBody,
-    /launchThoughtDockAgentLink\(thoughtDockLaunchUrl\(run\)\)/,
-  );
+  assert.doesNotMatch(runBody, /\bawait\b|createThoughtDockRun|Promise\.allSettled/);
+  assert.match(runBody, /const run = bindPreparedThoughtDockRun\(preparedRun, adapterId\)/);
   assert.match(runBody, /launchedThoughtDockRunIds\.has\(run\.runId\)/);
   assert.match(runBody, /launchedThoughtDockRunIds\.add\(run\.runId\)/);
-  assert.ok(
-    runBody.indexOf("launchThoughtDockAgentLink") < runBody.indexOf("storeThoughtDockRun"),
-    "the custom-protocol navigation must be the first launch side effect",
-  );
+  assert.doesNotMatch(runBody, /unused\.run|preparedThoughtDockAgentChoices|Promise\.allSettled/);
   assert.match(runBody, /storeThoughtDockRun\(run, adapterId\)/);
   assert.match(runBody, /startThoughtDockPolling\(run, payload, adapterId, runSessionId\)/);
+  const adapterStart = renderedThoughtMain.indexOf("const prepareThoughtDockAdapter =");
+  const adapterEnd = renderedThoughtMain.indexOf("const prepareThoughtDockAgentSelection = async", adapterStart);
+  const adapterBody = renderedThoughtMain.slice(adapterStart, adapterEnd);
+  assert.doesNotMatch(adapterBody, /reserveThoughtDockAgentLaunch|about:blank/);
+  assert.doesNotMatch(
+    renderedThoughtMain,
+    /closeThoughtDockAgentLaunchReservation/,
+    "the browser-safe layer must not retain cleanup calls for the removed popup reservation",
+  );
+  assert.match(
+    adapterBody,
+    /const selection = preparedThoughtDockAgentSelection;[\s\S]*?preparedThoughtDockAgentSelection = null;[\s\S]*?window\.setTimeout\(\(\) => prepareThoughtDockRun\(selection, adapterId\), 0\)/,
+  );
+  assert.doesNotMatch(adapterBody, /\bawait\b|\bvoid prepareThoughtDockRun|Promise\.allSettled|createThoughtDockRun|anchor\.click/);
+  assert.match(
+    prepareBody,
+    /error\.name === "ThoughtAgentHttpError"[\s\S]*?status === 429[\s\S]*?setThoughtDockState\(\{ kind: "ready", prompt \}\)[\s\S]*?title: "Agent run limit reached"/,
+    "a rate-limited neutral create must return to the send action instead of exposing a dead chooser",
+  );
   const railStart = thoughtMain.indexOf("const getThoughtDockRailView =");
   const waitingRailStart = thoughtMain.indexOf('case "waiting_for_agent":', railStart);
   const waitingRailEnd = thoughtMain.indexOf('case "agent_returned":', waitingRailStart);
@@ -1559,11 +2253,11 @@ test("Agent selection seals and launches one run without a second Open Agent act
   assert.match(waitingRailBody, /actions: \[resetAction\(state\.run\)\]/);
   assert.doesNotMatch(
     waitingRailBody,
-    /thoughtDockLaunchUrl|launchThoughtDockAgentLink|open-\$\{state\.adapterId\}/,
+    /thoughtDockLaunchUrl|preparedThoughtDockLaunchUrl|open-\$\{state\.adapterId\}/,
     "an active run must not expose a speculative Agent relaunch control",
   );
   assert.doesNotMatch(thoughtMain, /case "agent_task_ready":/);
-  assert.doesNotMatch(thoughtMain, /`open \$\{state\.adapterId\}`/);
+  assert.doesNotMatch(thoughtMain, /open \$\{thoughtAgentCtaLabel\(state\.adapterId\)\}/);
   assert.match(thoughtMain, /const THOUGHT_DOCK_PENDING_LAUNCH_KEY = "thought:dock:pending-agent-launch:v1"/);
   assert.match(thoughtMain, /const writeStoredThoughtDockLaunch = \(run: AgentDemoRun\)[\s\S]*?sealedTask: run\.sealedTask/);
   assert.match(
@@ -1576,8 +2270,34 @@ test("Agent selection seals and launches one run without a second Open Agent act
     /const sealedTask = response\.request\?\.agentInput\?\.text/,
     "the raw prompt returned as Agent input must never be mistaken for the sealed Agent task",
   );
-  assert.doesNotMatch(thoughtMain, /reserveThoughtDockAgentLaunch/);
-  assert.doesNotMatch(`${prepareBody}\n${runBody}`, /about:blank/);
+  assert.match(
+    renderedThoughtMain,
+    /const thoughtDockLink = \([\s\S]*?document\.createElement\("a"\)[\s\S]*?link\.href = "#"[\s\S]*?link\.href = href\(\)[\s\S]*?onClick\(\)/,
+    "the current THOUGHT surface uses a trusted selected-Agent link without a transient popup",
+  );
+  assert.match(
+    renderedThoughtMain,
+    /const THOUGHT_DOCK_AGENT_PUBLIC_API_BASE = resolveBrowserRpcUrl\([\s\S]*?VITE_THOUGHT_AGENT_PUBLIC_API_BASE[\s\S]*?THOUGHT_DOCK_AGENT_API_BASE,[\s\S]*?\)\.replace/,
+    "a relative staging public API base must become an absolute same-origin URL before run links are built",
+  );
+  assert.doesNotMatch(
+    renderedThoughtMain,
+    /const THOUGHT_DOCK_AGENT_PUBLIC_API_BASE = \(\s*readConfiguredUrl/,
+    "the locked artifact must not restore the relative-base URL constructor crash",
+  );
+  assert.doesNotMatch(renderedThoughtMain, /const launchThoughtDockAgentLink|anchor\.click\(\)/);
+  assert.match(thoughtMain, /class ThoughtAgentHttpError extends Error/);
+  assert.match(
+    thoughtMain,
+    /throw new ThoughtAgentHttpError\([\s\S]*?response\.status[\s\S]*?readErrorMessage/,
+    "the production source must retain the HTTP status needed to recover from a 429",
+  );
+  assert.match(renderedThoughtMain, /class ThoughtAgentHttpError extends Error/);
+  assert.match(
+    renderedThoughtMain,
+    /error\.name === "ThoughtAgentHttpError"[\s\S]*?status === 429[\s\S]*?Agent run limit reached/,
+    "rate-limited Agent creation must be visible in the console",
+  );
   assert.doesNotMatch(thoughtMain, /THOUGHT_AGENT_FIXTURE_MODE|runThoughtDockFixtureAdapter|local dev Agent bypass/);
   assert.match(
     thoughtMain,
@@ -1588,6 +2308,69 @@ test("Agent selection seals and launches one run without a second Open Agent act
     thoughtMain,
     /\bsha256Hex\b/,
     "the browser run path must not depend on WebCrypto subtle, which is unavailable on LAN HTTP",
+  );
+});
+
+test("local V2 Agent API accepts and binds the neutral chooser run", () => {
+  assert.match(
+    thoughtViteConfig,
+    /const unboundV2Chooser =\s*apiPrefix\.endsWith\("\/v2"\)\s*&&\s*requestedAgent\?\.adapterId === THOUGHT_AGENT_UNBOUND_ADAPTER_ID;/,
+    "local run creation must accept the same neutral V2 chooser request as Pages",
+  );
+  assert.match(
+    thoughtViteConfig,
+    /const adapterCanBindRun =\s*apiPrefix\.endsWith\("\/v2"\)\s*&&\s*run\.requestedAdapterId === THOUGHT_AGENT_UNBOUND_ADAPTER_ID\s*&&\s*\(adapter\.adapterId === "codex" \|\| adapter\.adapterId === "claude"\);/,
+    "the selected local Agent must be allowed to claim the neutral run",
+  );
+  assert.match(
+    thoughtViteConfig,
+    /run\.adapter = adapter;\s*run\.requestedAdapterId = adapter\.adapterId;/,
+    "the bound adapter must become authoritative for result validation",
+  );
+});
+
+test("mobile moves Agent creation to desktop and keeps Studio Preview offchain", () => {
+  assert.match(
+    thoughtMain,
+    /const THOUGHT_MOBILE_AGENT_QUERY =[\s\S]*\(max-width: 760px\)[\s\S]*\(max-height: 500px\)[\s\S]*\(orientation: landscape\)[\s\S]*\(pointer: coarse\)/,
+  );
+  assert.match(
+    thoughtMain,
+    /status: "Agent creation requires desktop",[\s\S]*?actions: \[loadAction\(\)\]/,
+  );
+  for (const state of ["empty", "ready", "agent_select"]) {
+    assert.match(
+      thoughtMain,
+      new RegExp(`case "${state}":[\\s\\S]*?isThoughtMobileAgentSurface\\(\\)[\\s\\S]*?mobileAgentGuidance\\(\\)`),
+    );
+  }
+  assert.match(
+    thoughtMain,
+    /const blockMobileThoughtAgentLaunch = \(prompt: string\)[\s\S]*?Continue on desktop[\s\S]*?thoughtLaunchState\.phase === "studio-preview"[\s\S]*?Open this page on desktop to create and save a THOUGHT\.[\s\S]*?Mobile wallet connection and PATH minting remain available here\./,
+  );
+  assert.match(
+    thoughtMain,
+    /const ensureThoughtConsoleWelcomeMessage = \(\) => \{[\s\S]*?isThoughtMobileAgentSurface\(\)[\s\S]*?title: "Continue on desktop"[\s\S]*?thoughtLaunchState\.phase === "studio-preview"[\s\S]*?Open this page on desktop to create and save a THOUGHT\.[\s\S]*?Mobile wallet connection and PATH minting remain available here\./,
+  );
+  assert.match(
+    thoughtMain,
+    /const openThoughtDockAgentSelect = \(\) => \{[\s\S]*?blockMobileThoughtAgentLaunch\(prompt\)[\s\S]*?setThoughtDockState\(\{ kind: "agent_select", prompt \}\)/,
+  );
+  assert.match(
+    thoughtMain,
+    /const prepareThoughtDockAdapter = \(adapterId: ThoughtDockAgentAdapterId\) => \{[\s\S]*?blockMobileThoughtAgentLaunch\(thoughtDockPrompt\.value\)/,
+  );
+  assert.match(
+    thoughtMain,
+    /thoughtMobileAgentMedia\.addEventListener\("change", \(\) => \{\s*syncThoughtDock\(\)/,
+  );
+  assert.match(
+    thoughtCss,
+    /@media \(max-width: 760px\)[\s\S]*?\.thought-dock-input,[\s\S]*?font-size:\s*var\(--font-size-16\)/,
+  );
+  assert.match(
+    thoughtCss,
+    /\.mint-sheet\s*\{[\s\S]*?max-height:\s*calc\([\s\S]*?100dvh[\s\S]*?overflow-y:\s*auto;[\s\S]*?overscroll-behavior:\s*contain/,
   );
 });
 
@@ -1602,7 +2385,7 @@ test("Agent retry is a Console-only control gated by terminal evidence", () => {
   assert.doesNotMatch(waitingBody, /canReopen|open \$\{product\}|thoughtDockLaunchUrl/);
   assert.match(
     waitingBody,
-    /state\.run\.remoteState === "created"[\s\S]*?keep this page open while \$\{product\} connects/,
+    /state\.run\.remoteState === "created"[\s\S]*?Keep this page open while \$\{product\} connects/,
   );
   assert.match(
     recordBody,
@@ -1629,7 +2412,7 @@ test("Agent retry is a Console-only control gated by terminal evidence", () => {
   );
   assert.match(
     thoughtMain,
-    /action\.className =[\s\S]*?thought-dock-status-screen__action[\s\S]*?action\.textContent = "\[ try again \]";[\s\S]*?action\.setAttribute\("aria-label", "start a new Agent run"\)/,
+    /action\.className =[\s\S]*?thought-dock-status-screen__action[\s\S]*?action\.textContent = "\[ Try again \]";[\s\S]*?action\.setAttribute\("aria-label", "Start a new Agent run"\)/,
   );
   assert.match(ruleBody(".thought-dock-status-screen__action"), /background:\s*transparent/);
   assert.match(ruleBody(".thought-dock-status-screen__action"), /font:\s*inherit/);
@@ -1651,16 +2434,32 @@ test("Agent launch uses direct data-only protocol calls without a client binding
 });
 
 test("Agent CTAs use product names and Claude launches Code while retaining Cowork only for legacy runs", () => {
+  const claudeLaunchStart = thoughtMain.indexOf("const buildClaudeAgentUrl");
+  const claudeLaunchEnd = thoughtMain.indexOf("const buildAgentDemoRun", claudeLaunchStart);
+  const claudeLaunchSource = thoughtMain.slice(claudeLaunchStart, claudeLaunchEnd);
   assert.match(thoughtMain, /const CLAUDE_COWORK_AGENT_ROUTE = "claude:\/\/cowork\/new"/);
   assert.match(thoughtMain, /const CLAUDE_CODE_AGENT_ROUTE = "claude:\/\/code\/new"/);
   assert.match(
-    thoughtMain,
-    /id: "codex",[\s\S]*?label: "Codex",[\s\S]*?ctaLabel: "chatgpt",[\s\S]*?defaultSurface: "codex"/,
+    claudeLaunchSource,
+    /new URLSearchParams\(\{\s*q: sealedTask,\s*\}\)/,
+    "the active App must put only the exact bootstrap task in Claude's supported q parameter",
+  );
+  assert.doesNotMatch(
+    claudeLaunchSource,
+    /\b(?:folder|repo|branch|permissionMode)\b/,
+    "the active App must not invent Claude deep-link context or permission parameters",
   );
   assert.match(
     thoughtMain,
-    /id: "claude",[\s\S]*?label: "Claude",[\s\S]*?ctaLabel: "claude",[\s\S]*?defaultSurface: "claude-code"/,
+    /id: "codex",[\s\S]*?label: "Codex",[\s\S]*?ctaLabel: "ChatGPT",[\s\S]*?defaultSurface: "codex"/,
   );
+  assert.match(
+    thoughtMain,
+    /id: "claude",[\s\S]*?label: "Claude",[\s\S]*?ctaLabel: "Claude",[\s\S]*?defaultSurface: "claude-code"/,
+  );
+  assert.doesNotMatch(thoughtMain, /ctaLabel: "(?:chatgpt|claude)"/);
+  assert.match(thoughtMain, /"Send to your Agent"/);
+  assert.doesNotMatch(thoughtMain, /"send to your agent"/);
   assert.match(
     thoughtMain,
     /const normalizeThoughtDockAgentSurface = [\s\S]*?value === "claude-cowork" \|\| value === "claude-cowork-direct-http"[\s\S]*?\? "claude-cowork"[\s\S]*?: "claude-code"/,
@@ -1681,11 +2480,15 @@ test("Agent CTAs use product names and Claude launches Code while retaining Cowo
   assert.doesNotMatch(indexHtml, /Run this task.+On your computer/);
   assert.match(
     thoughtMain,
-    /const createThoughtDockRun = async[\s\S]*?surface: ThoughtDockAgentSurface[\s\S]*?requestedAgent: \{\s*adapterId,[\s\S]*?client: \{\s*surface: surface === "codex" \? "thought-dock" : `thought-dock:\$\{surface\}`/,
+    /const createThoughtDockRun = async[\s\S]*?Promise<PreparedThoughtDockRun>[\s\S]*?requestedAgent: \{\s*adapterId: THOUGHT_AGENT_UNBOUND_ADAPTER_ID,[\s\S]*?client: \{\s*surface: "thought-dock:chooser"/,
+  );
+  assert.match(
+    thoughtMain,
+    /const bindPreparedThoughtDockRun =[\s\S]*?const surface = defaultThoughtDockAgentSurface\(adapterId\)[\s\S]*?buildAgentDemoSealedTask\(run, adapterId\)/,
   );
 });
 
-test("saved Agent handoffs carry and verify an integrity digest without becoming a trust root", () => {
+test("Saved Agent handoffs carry and verify an integrity digest without becoming a trust root", () => {
   assert.match(
     thoughtMain,
     /const thoughtAgentHandoffSha256 = \(sealedTask: string\): ThoughtSha256 =>[\s\S]*?sha256\(toUtf8Bytes\(sealedTask\)\)/,
@@ -1705,25 +2508,63 @@ test("saved Agent handoffs carry and verify an integrity digest without becoming
   );
 });
 
-test("Agent readiness is an internal checkpoint that continues automatically", () => {
-  assert.match(
-    thoughtMain,
-    /case "ready":\s*return `\$\{product\} creating\.\.\.`/,
-  );
-  assert.match(
-    thoughtMain,
-    /const controlVerified = state\.run\.remoteState === "ready";[\s\S]*?detail: controlVerified[\s\S]*?"Control checks passed\. Creation is continuing automatically\."[\s\S]*?nextStep: `keep this page open while \$\{product\} creates`/,
-  );
-  assert.match(
-    thoughtMain,
-    /message: remoteState === "ready"[\s\S]*?`\$\{thoughtAgentProductLabel\(adapterId\)\} passed preflight and is continuing automatically\.`/,
-  );
-  assert.doesNotMatch(thoughtMain, /Reply CREATE/);
-  assert.match(
-    thoughtMain,
-    /const submitAgentDemoProtocolResult = async[\s\S]*?fetchThoughtAgentJson<Record<string, unknown>>\(run\.readyUrl,[\s\S]*?control: agentDemoControlEvidence\(\)[\s\S]*?fetchThoughtAgentJson<Record<string, unknown>>\(run\.startUrl/,
-    "the manual demo callback must pass readiness before opening the creative request",
-  );
+test("Agent lifecycle reports observed control and creative-phase state without claiming prompt delivery", () => {
+  for (const [label, source] of [
+    ["source", thoughtMain],
+    ["locked runtime", loadThoughtDevSnapshotFile(repoRoot, "main")],
+  ]) {
+    assert.match(
+      source,
+      /case "claimed":\s*return `\$\{product\} connected\.\.\.`/,
+      `${label} must report the observed claim without saying creation started`,
+    );
+    assert.match(
+      source,
+      /case "ready":\s*return `\$\{product\} ready\.\.\.`/,
+      `${label} must report readiness without saying the Agent is starting`,
+    );
+    assert.match(
+      source,
+      /case "running":\s*return "Creative phase opened\.\.\."/,
+      `${label} must reserve creative-phase wording for running`,
+    );
+    assert.match(
+      source,
+      /case "claimed":\s*return "Control checks are running\. The prompt is still sealed\."/,
+    );
+    assert.match(
+      source,
+      /case "ready":\s*return "Control checks passed\. Waiting for start\."/,
+    );
+    assert.match(
+      source,
+      /case "running":\s*return "Waiting for the returned work\."/,
+      `${label} must not infer that a running Agent received the start response`,
+    );
+    assert.match(
+      source,
+      /const controlVerified = state\.run\.remoteState === "ready";[\s\S]*?detail: controlVerified[\s\S]*?"Control checks passed\. Waiting for start\."[\s\S]*?nextStep: "Keep this page open; start is still pending"/,
+    );
+    assert.match(
+      source,
+      /message: remoteState === "created"[\s\S]*?remoteState === "claimed"[\s\S]*?`\$\{thoughtAgentProductLabel\(adapterId\)\} connected\. Control checks are running; the prompt remains sealed\.`[\s\S]*?remoteState === "ready"[\s\S]*?`\$\{thoughtAgentProductLabel\(adapterId\)\} ready\. Waiting for start\.`[\s\S]*?remoteState === "running"[\s\S]*?"Creative phase opened\. Waiting for the returned work\."/,
+    );
+    assert.match(
+      source,
+      /state === "claimed"[\s\S]*?`Codex connected to \$\{input\.runId\}\. Control checks are running\.`[\s\S]*?state === "ready"[\s\S]*?`Codex ready for \$\{input\.runId\}\. Waiting for start\.`[\s\S]*?state === "running"[\s\S]*?`Creative phase opened for \$\{input\.runId\}\. Waiting for return\.`/,
+    );
+    assert.match(
+      source,
+      /createPayload\.devAutoRun[\s\S]*?`Agent run \$\{createPayload\.runId\} created\. Waiting for connection\.\.\.`/,
+    );
+    assert.doesNotMatch(source, /It has the prompt|Creation is continuing automatically|passed preflight and is starting automatically/);
+    assert.doesNotMatch(source, /Reply CREATE/);
+    assert.match(
+      source,
+      /const submitAgentDemoProtocolResult = async[\s\S]*?fetchThoughtAgentJson<Record<string, unknown>>\(run\.readyUrl,[\s\S]*?control: agentDemoControlEvidence\(\)[\s\S]*?fetchThoughtAgentJson<Record<string, unknown>>\(run\.startUrl/,
+      `${label} demo callback must pass readiness before opening the creative request`,
+    );
+  }
 });
 
 test("Work prompt exposes persistent terminal-style history navigation", () => {
@@ -1731,8 +2572,8 @@ test("Work prompt exposes persistent terminal-style history navigation", () => {
   assert.match(thoughtMain, /THOUGHT_DOCK_PROMPT_HISTORY_LIMIT = 50/);
   assert.match(
     thoughtMain,
-    /const prepareThoughtDockRun = async[\s\S]*?const run = await createThoughtDockRun\(prompt, payload, adapterId, surface\)[\s\S]*?recordThoughtDockPromptHistory\(prompt\)/,
-    "only an accepted real Agent run should record its exact prompt",
+    /const prepareThoughtDockRun = \([\s\S]*?const run = bindPreparedThoughtDockRun\(preparedRun, adapterId\)[\s\S]*?recordThoughtDockPromptHistory\(prompt\)/,
+    "only a synchronously launched selected Agent should record its exact prompt",
   );
   assert.match(
     thoughtMain,
@@ -1750,12 +2591,343 @@ test("Work prompt exposes persistent terminal-style history navigation", () => {
   );
 });
 
+test("Studio Preview is controlled by the approved deployment, not localhost", () => {
+  assert.doesNotMatch(
+    thoughtShell,
+    /restoreSession/,
+    "wallet discovery must not opt into passive session restoration",
+  );
+  assert.match(
+    thoughtMain,
+    /let thoughtLaunchState: ThoughtLaunchState =\s*simulatedThoughtLaunchState\(\) \?\?\s*deriveThoughtLaunchState\(\{\s*deployment: THOUGHT_LAUNCH_DEPLOYMENT,\s*activationApproved: THOUGHT_MINT_ACTIVATION_APPROVED,\s*readModel: null,\s*\}\)/,
+  );
+  assert.doesNotMatch(
+    thoughtMain,
+    /IS_LOCAL_THOUGHT_V2\s*\?\s*localThoughtLaunchState/,
+  );
+  assert.match(
+    thoughtMain,
+    /const IS_THOUGHT_GALLERY_ACTIVE =\s*THOUGHT_V2_PRODUCTION_DEPLOYMENT !== null/,
+  );
+  assert.match(
+    thoughtMain,
+    /mountThoughtShell\([\s\S]*?thoughtLaunchState\.phase === "studio-preview"/,
+  );
+  assert.match(thoughtShell, /!studioPreview \? <ThoughtWalletBridge \/> : null/);
+  assert.doesNotMatch(inshellShell, /studioPreview \? null : <div/);
+  assert.match(inshellShell, /className=\{`inshell-topbar__wallet-surface/);
+  assert.match(thoughtShell, /expectedChainId=\{studioPreview \? undefined : expectedChainId\}/);
+  assert.match(
+    thoughtShell,
+    /studioPreview \? undefined : disconnectedWalletNote\(expectedChainId\)/,
+  );
+  assert.doesNotMatch(inshellShell, />\s*Studio Preview\s*</);
+  assert.match(
+    thoughtMain,
+    /const preflightCurrentThoughtExistence = async \(\) => \{[\s\S]*?thoughtLaunchState\.phase === "studio-preview"[\s\S]*?return;/,
+    "restored browser work must not probe contracts in Studio Preview",
+  );
+  assert.match(
+    thoughtMain,
+    /const syncEmptyFrameStyleFromContract = async \(\) => \{[\s\S]*?thoughtLaunchState\.phase === "studio-preview"[\s\S]*?return;/,
+    "the empty canvas must not probe the renderer contract in Studio Preview",
+  );
+  assert.match(
+    thoughtMain,
+    /const currentOutputSessionIsMinted = async \(\) => \{[\s\S]*?thoughtLaunchState\.phase === "studio-preview"[\s\S]*?return false;/,
+    "fresh creation must not probe mint state in Studio Preview",
+  );
+  const promotionStart = thoughtMain.indexOf("const promotePreviewedCandidateToWork =");
+  const promotionEnd = thoughtMain.indexOf(
+    "const completeThoughtRunFromModelReturn =",
+    promotionStart,
+  );
+  const promotionBody = thoughtMain.slice(promotionStart, promotionEnd);
+  assert.ok(promotionStart >= 0 && promotionEnd > promotionStart);
+  assert.match(promotionBody, /void preflightCurrentThoughtExistence\(\)/);
+  assert.doesNotMatch(
+    promotionBody,
+    /refreshWalletState/,
+    "a returned work must not probe wallet state without an explicit wallet action",
+  );
+  assert.match(
+    thoughtMain,
+    /const getReadProvider = \(\) => \{[\s\S]*?thoughtLaunchState\.phase === "studio-preview"[\s\S]*?return null;/,
+    "Studio Preview must deny all THOUGHT contract providers at their boundary",
+  );
+  assert.match(
+    thoughtMain,
+    /const getPathReadProvider = \(\) => \{[\s\S]*?thoughtLaunchState\.phase === "studio-preview"[\s\S]*?return null;/,
+    "Studio Preview must deny all PATH contract providers at their boundary",
+  );
+  assert.match(
+    thoughtMain,
+    /const selectThoughtPreviewProvider = async \(\) => \{[\s\S]*?thoughtLaunchState\.phase === "studio-preview"[\s\S]*?const provider = createPinnedBrowserPreviewProvider\(\);[\s\S]*?if \(IS_LOCAL_THOUGHT_V2\)/,
+    "Studio Preview must render with the pinned browser artifact before any local-contract branch",
+  );
+});
+
+test("standalone THOUGHT reads wallet state only after an explicit visitor action", () => {
+  const walletRefreshStart = thoughtMain.indexOf("type RefreshWalletStateOptions");
+  const walletRefreshEnd = thoughtMain.indexOf(
+    "async function refreshThoughtWalletFromShell",
+    walletRefreshStart,
+  );
+  const walletRefreshBody = thoughtMain.slice(walletRefreshStart, walletRefreshEnd);
+  assert.ok(walletRefreshStart >= 0 && walletRefreshEnd > walletRefreshStart);
+  assert.match(
+    walletRefreshBody,
+    /else if \(options\.queryInjectedProvider\) \{[\s\S]*?method: "eth_accounts"[\s\S]*?method: "eth_chainId"/,
+    "the injected-provider account and chain reads require an explicit opt-in",
+  );
+  assert.match(
+    walletRefreshBody,
+    /if \(options\.refreshPreflight\) \{\s*await refreshMintPreflight\(\)/,
+    "balance and mint preflight reads require an explicit opt-in",
+  );
+
+  const shellSubscriptionStart = thoughtMain.indexOf("const bindThoughtShellWallet =");
+  const shellSubscriptionEnd = thoughtMain.indexOf(
+    "const bindWalletProviderEvents =",
+    shellSubscriptionStart,
+  );
+  const shellSubscriptionBody = thoughtMain.slice(shellSubscriptionStart, shellSubscriptionEnd);
+  assert.match(shellSubscriptionBody, /void refreshWalletState\(\)\.then/);
+  assert.doesNotMatch(
+    shellSubscriptionBody,
+    /queryInjectedProvider|refreshPreflight|\.request\(/,
+    "shell snapshots hydrate cached state without probing a provider or contract",
+  );
+
+  const providerEventsStart = thoughtMain.indexOf("const bindWalletProviderEvents =");
+  const providerEventsEnd = thoughtMain.indexOf(
+    "const pendingMintIdentityMatches =",
+    providerEventsStart,
+  );
+  const providerEventsBody = thoughtMain.slice(providerEventsStart, providerEventsEnd);
+  assert.match(
+    providerEventsBody,
+    /"accountsChanged", \(accounts\) => \{\s*if \(provider !== getEthereumProvider\(\) \|\| !walletState\.address\) return;[\s\S]*?refreshWalletState\(\{ injectedAccounts: accounts \}\)/,
+    "account events require an already-authorized THOUGHT wallet session while still accepting an empty disconnect payload",
+  );
+  assert.match(
+    providerEventsBody,
+    /"chainChanged", \(chainId\) => \{\s*if \(provider !== getEthereumProvider\(\) \|\| !walletState\.address\) return;[\s\S]*?refreshWalletState\(\{ injectedChainId: chainId \}\)/,
+    "chain events require an already-authorized THOUGHT wallet session",
+  );
+  assert.doesNotMatch(
+    providerEventsBody,
+    /queryInjectedProvider|refreshPreflight|\.request\(/,
+    "provider events consume their payloads instead of re-querying the provider",
+  );
+
+  const focusStart = thoughtMain.indexOf('window.addEventListener("focus", () => {');
+  const focusEnd = thoughtMain.indexOf(
+    'document.addEventListener("visibilitychange"',
+    focusStart,
+  );
+  const focusBody = thoughtMain.slice(focusStart, focusEnd);
+  assert.ok(focusStart >= 0 && focusEnd > focusStart);
+  assert.doesNotMatch(
+    focusBody,
+    /refreshWalletState|refreshPathInventoryForCurrentWallet|checkPathEligibility|lastMintSheetFocusRefreshAt/,
+    "window focus must not probe wallet or chain state",
+  );
+
+  const bootStart = thoughtMain.indexOf("bindThoughtShellWallet();");
+  const bootEnd = thoughtMain.indexOf("const resumedPendingMint", bootStart);
+  const bootBody = thoughtMain.slice(bootStart, bootEnd);
+  assert.match(bootBody, /await refreshWalletState\(\);/);
+  assert.doesNotMatch(
+    bootBody,
+    /queryInjectedProvider|refreshPreflight/,
+    "boot hydrates cached state without provider or preflight reads",
+  );
+
+  const explicitRefreshes = thoughtMain.match(
+    /refreshWalletState\(\{ queryInjectedProvider: true, refreshPreflight: true \}\)/g,
+  ) ?? [];
+  assert.equal(explicitRefreshes.length, 8);
+});
+
+test("prelaunch THOUGHT detail displays its route id without gallery reads", async (t) => {
+  for (const [name, main] of [
+    ["current source", thoughtMain],
+    ["locked runtime", loadThoughtDevSnapshotFile(repoRoot, "main")],
+  ]) {
+    const ast = ts.createSourceFile("main.ts", main, ts.ScriptTarget.ES2022, true);
+    const declaration = ast.statements.find((statement) =>
+      ts.isVariableStatement(statement) && statement.declarationList.declarations.some((entry) =>
+        ts.isIdentifier(entry.name) && entry.name.text === "loadThoughtDetail",
+      ),
+    );
+    assert.ok(declaration, "missing actual detail loader");
+    const source = ts.transpileModule(`${declaration.getText(ast)}\nloadThoughtDetail();`, {
+      compilerOptions: { target: ts.ScriptTarget.ES2022 },
+    }).outputText;
+    for (const routeId of [1, 999999999, null]) {
+      await t.test(`${name}: route ${routeId}`, async () => {
+        const title = { textContent: "-" };
+        const status = { textContent: "" };
+        let galleryReads = 0;
+        await runInNewContext(source, {
+          ROUTE_THOUGHT_NFT_ID: routeId,
+          IS_THOUGHT_GALLERY_ACTIVE: false,
+          thoughtDetailTitleToken: title,
+          thoughtDetailStatus: status,
+          clearThoughtGalleryCache() {},
+          async readGalleryThoughts() { galleryReads += 1; throw new Error("gallery reads prohibited"); },
+        });
+        assert.equal(title.textContent, routeId === null ? "-" : String(routeId));
+        assert.equal(status.textContent, routeId === null
+          ? "THOUGHT unavailable."
+          : "Onchain THOUGHT details will appear when minting opens.");
+        assert.equal(galleryReads, 0);
+      });
+    }
+  }
+});
+
+test("retained mint recovery stays dormant in Studio Preview and resumes after deployment", async (t) => {
+  // Run the application entry points and lifecycle listeners, replacing only
+  // downstream receipt polling with one fake-provider request per monitor.
+  const sources = [
+    ["current source", thoughtMain],
+    ["locked runtime", loadThoughtDevSnapshotFile(repoRoot, "main")],
+  ].map(([name, main]) => {
+    const section = (start, end) => {
+      const from = main.indexOf(start);
+      const to = main.indexOf(end, from);
+      assert.ok(from >= 0 && to > from, `missing receipt recovery source: ${start}`);
+      return main.slice(from, to);
+    };
+    return [name, ts.transpileModule([
+      section("const getWalletMintReceiptProvider =", "const getPathReadProvider ="),
+      section("const startConflictingMintReceiptMonitor =", "const startMintReceiptMonitor ="),
+      section("const resumePendingMintReceiptMonitoring =", "const resumePendingMintTransaction ="),
+      section('window.addEventListener("focus", () => {', 'document.addEventListener("keydown", (event) => {'),
+      "globalThis.receiptRecovery = { getWalletMintReceiptProvider };",
+    ].join("\n"), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText];
+  });
+
+  const scenarios = sources.flatMap(([name, source]) =>
+    ["studio-preview", "onchain-countdown", "onchain-open"].flatMap((phase) =>
+      ["pending", "conflicting"].map((kind) => ({ name, source, phase, kind })),
+    ),
+  );
+  for (const { name, source, phase, kind } of scenarios) {
+      await t.test(`${name}: ${phase}: retained ${kind} mint`, async () => {
+        const retained = {
+          hash: `0x${"a".repeat(64)}`,
+          account: `0x${"b".repeat(40)}`,
+          thoughtNft: `0x${"c".repeat(40)}`,
+          chainId: 11155111,
+          nonce: 1,
+        };
+        const storage = new Map([
+          ["pending", JSON.stringify(kind === "pending" ? retained : null)],
+          ["conflicting", JSON.stringify(kind === "conflicting" ? [retained] : [])],
+        ]);
+        const originalStorage = [...storage];
+        const calls = [];
+        const monitors = [];
+        const jobs = [];
+        const listeners = new Map();
+        let providerCreations = 0;
+        const injected = {
+          async request(request) {
+            calls.push(request);
+            return { status: 1, logs: [] };
+          },
+        };
+        const environment = {
+          thoughtLaunchState: { phase },
+          pendingMintTransaction: JSON.parse(storage.get("pending")),
+          conflictingMintTransactions: JSON.parse(storage.get("conflicting")),
+          conflictingMintReceiptMonitorHashes: new Set(),
+          mintReceiptBrowserProvider: null,
+          mintReceiptBrowserProviderSource: null,
+          getEthereumProvider: () => injected,
+          getReadProvider: () => null,
+          BrowserProvider: class {
+            constructor(provider) {
+              providerCreations += 1;
+              this.provider = provider;
+            }
+            waitForTransaction(hash) {
+              return this.provider.request({ method: "eth_getTransactionReceipt", params: [hash] });
+            }
+          },
+          isPendingMintDeploymentCompatible: (transaction) =>
+            transaction.chainId === retained.chainId && transaction.thoughtNft === retained.thoughtNft,
+          startMintReceiptMonitor(tx) {
+            monitors.push("pending");
+            jobs.push(tx.wait());
+          },
+          monitorConflictingMintReceipt(transaction) {
+            monitors.push("conflicting");
+            const job = environment.receiptRecovery.getWalletMintReceiptProvider()
+              .waitForTransaction(transaction.hash);
+            jobs.push(job);
+            return job;
+          },
+          withTimeout: (job) => job,
+          MINT_RECEIPT_WAIT_TIMEOUT_MS: 1000,
+          MINT_RECEIPT_MONITOR_TIMEOUT_MESSAGE: "fake timeout",
+          refreshThoughtLaunchState: async () => {},
+          syncInterface() {},
+          refreshThoughtDockPolling() {},
+          restoreThoughtStylesheetAfterHistory() {},
+          requestAnimationFrame(callback) { callback(); },
+          pageUnloading: false,
+          window: {
+            addEventListener(name, callback) { listeners.set(`window:${name}`, callback); },
+          },
+          document: {
+            visibilityState: "visible",
+            addEventListener(name, callback) { listeners.set(`document:${name}`, callback); },
+          },
+        };
+        runInNewContext(source, environment);
+        const originalState = JSON.stringify([
+          environment.pendingMintTransaction, environment.conflictingMintTransactions,
+        ]);
+        for (const name of ["window:focus", "window:pageshow", "document:visibilitychange", "document:resume", "window:online"]) {
+          listeners.get(name)();
+          await Promise.all(jobs);
+        }
+
+        if (phase === "studio-preview") {
+          assert.deepEqual(calls, [], "retained mint recovery must not query the injected wallet");
+          assert.deepEqual(monitors, [], "retained mint recovery must not start passive polling");
+          assert.equal(environment.receiptRecovery.getWalletMintReceiptProvider(), null);
+          assert.equal(providerCreations, 0, "Studio Preview must not initialize a receipt provider");
+        } else {
+          assert.equal(calls.length, 5, "every lifecycle event should still resume deployed mint recovery");
+          assert.ok(calls.every((call) => call.method === "eth_getTransactionReceipt" && call.params[0] === retained.hash));
+          assert.deepEqual(monitors, Array(5).fill(kind));
+          assert.equal(providerCreations, 1, "deployed recovery reuses its wallet receipt provider");
+        }
+        assert.deepEqual([...storage], originalStorage, "retained transaction records must survive");
+        assert.equal(JSON.stringify([
+          environment.pendingMintTransaction, environment.conflictingMintTransactions,
+        ]), originalState, "retained in-memory transactions must survive");
+      });
+  }
+});
+
 test("Work owns mutually exclusive Mint and Load disclosures", () => {
   assert.doesNotMatch(thoughtMain, /\{ kind: "minting"; work: ThoughtDockWorkView \}/);
   assert.doesNotMatch(thoughtMain, /setThoughtDockState\(\{ kind: "minting"/);
   assert.doesNotMatch(thoughtMain, /thoughtDock\.hidden\s*=/);
   assert.match(thoughtMain, /let mintDockRevealed = false/);
-  assert.match(thoughtMain, /const mintPanelOpen = mintDockRevealed/);
+  assert.match(thoughtMain, /const showMintSurface = shouldShowThoughtMintSurface\(\)/);
+  assert.match(thoughtMain, /const mintPanelOpen = showMintSurface && mintDockRevealed/);
+  assert.doesNotMatch(
+    thoughtMain,
+    /\.\.\.\(showMintSurface\s*\? \[dockRailAction\(/,
+    "the Mint guidance CTA is never omitted from a ready Work",
+  );
   assert.match(thoughtMain, /workReady\.canMint && workMintReadiness\.ready/);
   assert.match(
     thoughtMain,
@@ -1764,7 +2936,7 @@ test("Work owns mutually exclusive Mint and Load disclosures", () => {
   );
   assert.match(
     thoughtMain,
-    /mintPanelOpen \? "mint ↓" : "mint"[\s\S]*?mintPanelOpen \? "collapse Mint panel"[\s\S]*?mintDockRevealed = false;[\s\S]*?\{ expanded: mintPanelOpen \}/,
+    /mintPanelOpen \? "Mint ↓" : "Mint"[\s\S]*?mintPanelOpen \? "Collapse Mint panel"[\s\S]*?mintDockRevealed = false;[\s\S]*?\{ expanded: mintPanelOpen \}/,
     "the Work Mint CTA becomes a clickable expanded disclosure that can collapse Mint",
   );
   assert.match(
@@ -1774,17 +2946,17 @@ test("Work owns mutually exclusive Mint and Load disclosures", () => {
   );
   assert.match(
     thoughtMain,
-    /loadPanelOpen \? "load ↓" : "load"[\s\S]*?workLibraryRevealed = !loadPanelOpen;[\s\S]*?mintDockRevealed = false;[\s\S]*?\{ expanded: loadPanelOpen \}/,
+    /loadPanelOpen \? "Load ↓" : "Load"[\s\S]*?workLibraryRevealed = !loadPanelOpen;[\s\S]*?mintDockRevealed = false;[\s\S]*?\{ expanded: loadPanelOpen \}/,
     "Load is a clickable disclosure and opening it closes Mint",
   );
   assert.match(
     thoughtMain,
-    /currentWorkSaved \? "saved" : "save"[\s\S]*?currentWorkSaved \? "current work is saved" : "save current work"/,
-    "saved Work uses an explicit saved state label",
+    /currentWorkSaved \? "Saved" : "Save"[\s\S]*?currentWorkSaved \? "Current work is saved" : "Save current work"/,
+    "Saved Work uses an explicit Saved state label",
   );
   assert.match(
     thoughtMain,
-    /kind: "work_saved",\s*title: "work saved",\s*detail: "Stored in this browser\. You can load it later\."/,
+    /kind: "work_saved",\s*title: "Work saved",\s*detail: "Stored in this browser\. You can load it later\."/,
     "saving a Work tells the creator it can be loaded later",
   );
   const mintedCase = thoughtMain.slice(
@@ -1797,7 +2969,7 @@ test("Work owns mutually exclusive Mint and Load disclosures", () => {
   assert.match(mintedCase, /resetAction\(\)/);
   assert.match(mintedCase, /maxActions: 4/);
   assert.match(thoughtMain, /mintFlowState = "thought_checking";[\s\S]*?setThoughtDockState\(\{ kind: "work_ready", work \}\)/);
-  assert.match(thoughtMain, /const isVisible = mintDockRevealed/);
+  assert.match(thoughtMain, /const isVisible = shouldShowThoughtMintSurface\(\) && mintDockRevealed/);
   assert.match(
     thoughtMain,
     /mintDockRevealed: candidate\.mintDockRevealed === true/,
@@ -1810,8 +2982,8 @@ test("Work owns mutually exclusive Mint and Load disclosures", () => {
   );
   assert.match(
     thoughtMain,
-    /currentWorkId = stored\.workId;\s*mintDockRevealed = stored\.mintDockRevealed;\s*runState = "output_ready"/,
-    "the Mint disclosure state restores before the Work UI is rendered",
+    /currentWorkId = stored\.workId;\s*mintDockRevealed = shouldShowThoughtMintSurface\(\) && stored\.mintDockRevealed;\s*runState = "output_ready"/,
+    "the Mint disclosure restores only when the current launch phase exposes minting",
   );
   assert.match(
     thoughtMain,
@@ -1858,7 +3030,7 @@ test("Work owns mutually exclusive Mint and Load disclosures", () => {
   );
   assert.match(
     resetDockBody,
-    /kind: "work_reset",\s*title: "work reset",[\s\S]*?Prompt, current work, and open panels cleared\./,
+    /kind: "work_reset",\s*title: "Work reset",[\s\S]*?Prompt, current work, and open panels cleared\./,
     "a successful explicit Reset replaces stale panel guidance with a truthful event",
   );
   assert.match(
@@ -1893,7 +3065,7 @@ test("opening Mint gives one concise overview before state-specific guidance", (
   assert.ok(attemptOffset >= 0 && overviewOffset > attemptOffset);
   assert.match(
     openBody,
-    /kind: "mint_flow_opened",\s*title: "to mint this THOUGHT",\s*detail: "Pick a \$PATH, sign for this work, then mint\.",\s*tone: "neutral",\s*eventId: mintAttemptConsoleEventId\("mint-flow-opened"\)/,
+    /kind: "mint_flow_opened",\s*title: "To mint this THOUGHT",\s*detail: "Pick a \$PATH, sign for this work, then mint\.",\s*tone: "neutral",\s*eventId: mintAttemptConsoleEventId\("mint-flow-opened"\)/,
   );
   assert.match(
     thoughtConsole,
@@ -1904,7 +3076,7 @@ test("opening Mint gives one concise overview before state-specific guidance", (
 test("a verified preview explains temporary Work storage before mint readiness", () => {
   assert.match(
     thoughtMain,
-    /const recordTemporaryThoughtWork = \(work: ThoughtDockWorkView\) => \{[\s\S]*?kind: "work_created_temporarily",\s*title: "the work is created by you",\s*detail: "Stored temporarily\. A new work replaces it; select “save” above to keep it in this browser\.",\s*tone: "neutral"/,
+    /const recordTemporaryThoughtWork = \(work: ThoughtDockWorkView\) => \{[\s\S]*?kind: "work_created_temporarily",\s*title: "The work is created by you",\s*detail: "Stored temporarily\. A new work replaces it; select “save” above to keep it in this browser\.",\s*tone: "neutral"/,
   );
 
   for (const [startMarker, endMarker] of [
@@ -2073,7 +3245,7 @@ test("console outcomes require the action or async result they describe", () => 
   assert.doesNotMatch(
     pathReceiptBody,
     /setPathAcquisitionError\(\s*available\.length/,
-    "a confirmed $PATH must not be relabeled mint unavailable",
+    "a confirmed $PATH must not be relabeled Mint unavailable",
   );
 
   const revertRecoveryStart = thoughtMain.indexOf("const recoverMintStateAfterRevert =");
@@ -2134,7 +3306,7 @@ test("current work verifies THOUGHT uniqueness before PICK and before submission
   const mintedRailStart = railBody.indexOf('case "minted"');
   const mintedRailEnd = railBody.indexOf('case "run_access_needed"', mintedRailStart);
   const mintedRailBody = railBody.slice(mintedRailStart, mintedRailEnd);
-  assert.match(mintedRailBody, /dockRailAction\("view", "view"/);
+  assert.match(mintedRailBody, /dockRailAction\("view", "View"/);
   assert.match(mintedRailBody, /dockRailAction\(\s*"save"/);
   assert.match(mintedRailBody, /loadAction\(\)/);
   assert.match(mintedRailBody, /resetAction\(\)/);
@@ -2291,7 +3463,7 @@ test("unminted creation state stays in its originating tab session", () => {
   assert.match(
     thoughtMain,
     /const thoughtBrowserStorage: WorkStorage = \{\s*getItem: readSharedBrowserItem,\s*setItem: writeSharedBrowserItem,\s*removeItem: removeSharedBrowserItem,\s*\}/,
-    "explicitly saved works remain browser-persistent",
+    "explicitly Saved works remain browser-persistent",
   );
   assert.match(
     thoughtMain,
@@ -2371,7 +3543,7 @@ test("PICK can acquire the exact V2 $PATH without leaving THOUGHT", () => {
     thoughtMintPresentation,
     /state === "review"[\s\S]*?const mintLabel = `Mint \$PATH for[\s\S]*?Select “\$\{mintLabel\}” above to mint the \$PATH required for this THOUGHT work\.[\s\S]*?confirm_path_mint/,
   );
-  assert.match(thoughtMintPresentation, /consoleNextStep: "mint here, or explore \$PATH at \/path"/);
+  assert.match(thoughtMintPresentation, /consoleNextStep: "Mint here, or explore \$PATH at \/path"/);
   assert.doesNotMatch(thoughtMintPresentation, /action\("explore_path"/);
   assert.match(thoughtMain, /availableItems\.length === 0[\s\S]*?pathAcquisitionState === "idle"[\s\S]*?handleMintPath\(\)/);
   assert.match(thoughtMain, /action === "mint_path"[\s\S]*?handleMintPath\(\{ submit: true \}\)/);

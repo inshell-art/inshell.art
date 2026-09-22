@@ -31,7 +31,7 @@ export const runThoughtConsoleTests = () => {
   assert.deepEqual(
     [THOUGHT_CONSOLE_EMPTY_TITLE, THOUGHT_CONSOLE_EMPTY_DETAIL],
     [
-      "start with a prompt",
+      "Start with a prompt",
       "Write one line above, then send it to your Agent.",
     ],
     "an empty Console must give one concise first action",
@@ -43,7 +43,7 @@ export const runThoughtConsoleTests = () => {
       detail: THOUGHT_CONSOLE_EMPTY_DETAIL,
     }),
     [
-      "[08:15:30] start with a prompt",
+      "[08:15:30] Start with a prompt",
       "Write one line above, then send it to your Agent.",
     ],
     "first-visit help must use the normal timestamped Console message format",
@@ -611,7 +611,7 @@ export const runThoughtConsoleTests = () => {
   );
   assert.equal(
     restoredTerminalOutcome.entries[1]?.nextStep,
-    "view the existing THOUGHT, or reset and create a new one",
+    "View the existing THOUGHT, or reset and create a new one",
     "history restore updates the terminal guide to match the live View and reset actions",
   );
 

@@ -7,16 +7,24 @@ import {
   type ReactNode,
 } from "react";
 import {
+  isThoughtGalleryDeploymentActive,
   loadThoughtGallery,
   readCachedThoughtGallery,
   type ThoughtGalleryItem,
 } from "@/services/thoughtGallery";
+import {
+  resolveThoughtSpecHref,
+  resolveThoughtSpecName,
+} from "@/services/thoughtSpecLink";
 import { PUBLIC_NETWORK_CONFIG } from "@inshell/shared";
 
 type LoadState =
   | { status: "loading"; items: ThoughtGalleryItem[]; error: null }
+  | { status: "prelaunch"; items: ThoughtGalleryItem[]; error: null }
   | { status: "ready"; items: ThoughtGalleryItem[]; error: null }
   | { status: "error"; items: ThoughtGalleryItem[]; error: string };
+
+const thoughtDeploymentActive = isThoughtGalleryDeploymentActive();
 
 function getEnvValue(name: string): unknown {
   const runtimeEnv: Record<string, unknown> | undefined =
@@ -50,26 +58,6 @@ function configuredUrl(name: string) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return /^https?:\/\//i.test(trimmed) || trimmed.startsWith("/") ? trimmed : null;
-}
-
-function isLocalBrowserHost(): boolean {
-  if (typeof window === "undefined") return false;
-  const hostname = window.location.hostname.toLowerCase();
-  return hostname === "localhost" || hostname === "127.0.0.1";
-}
-
-function defaultGalleryUrl(): string {
-  if (isPreviewDeployment()) return "https://preview.inshell.art/gallery";
-  if (isLocalBrowserHost()) return "/gallery";
-  return "https://inshell.art/gallery";
-}
-
-function galleryUrl(): string {
-  return (
-    configuredUrl("VITE_GALLERY_URL") ??
-    configuredUrl("VITE_THOUGHT_GALLERY_URL") ??
-    defaultGalleryUrl()
-  );
 }
 
 function thoughtAppUrl(): string {
@@ -152,6 +140,21 @@ function ThoughtSection({ title, children }: { title: string; children: ReactNod
   );
 }
 
+function ThoughtField({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd>{children}</dd>
+    </div>
+  );
+}
+
 function ThoughtTextBlock({
   children,
   id,
@@ -201,10 +204,11 @@ function thoughtTitle(item: ThoughtGalleryItem): string {
   return thoughtRawText(item) || `THOUGHT #${item.tokenId}`;
 }
 
-function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
+export function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
   const txUrl = explorerTxUrl(item.txHash);
   const title = thoughtTitle(item);
   const provenanceBytes = item.provenanceJson ? byteLength(item.provenanceJson) : 0;
+  const thoughtSpecName = resolveThoughtSpecName();
 
   return (
     <div className="thought-detail__body">
@@ -222,138 +226,134 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
       </div>
 
       <aside className="thought-detail__rail" aria-label={`THOUGHT #${item.tokenId} record`}>
-        <ThoughtSection title="prompt">
-          <ThoughtTextBlock id="thought-detail-prompt">
-            {item.prompt || "prompt unavailable."}
-          </ThoughtTextBlock>
+        <ThoughtSection title="work">
+          <div className="thought-detail__dialogue">
+            <div>
+              <p className="thought-detail__dialogue-role">prompt</p>
+              <ThoughtTextBlock id="thought-detail-prompt">
+                {item.prompt || "prompt unavailable."}
+              </ThoughtTextBlock>
+            </div>
+            <div>
+              <p className="thought-detail__dialogue-role">model return</p>
+              <ThoughtTextBlock id="thought-detail-model-return">
+                {item.returnedText || "model return unavailable."}
+              </ThoughtTextBlock>
+            </div>
+            <div>
+              <p className="thought-detail__dialogue-role">text</p>
+              <ThoughtTextBlock id="thought-detail-canonical-title">
+                {thoughtRawText(item)}
+              </ThoughtTextBlock>
+            </div>
+          </div>
         </ThoughtSection>
 
-        <ThoughtSection title="spec">
-          <a
-            id="thought-detail-spec-ref"
-            className="thought-detail__value thought-detail__value-link"
-            href={thoughtDetailApiUrl(item.tokenId, "spec")}
-            title="Open cached spec JSON"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            THOUGHT.v1.md ↗
-          </a>
-        </ThoughtSection>
-
-        <ThoughtSection title="model">
-          <p className="thought-detail__value">{item.model || "model unavailable."}</p>
-        </ThoughtSection>
-
-        <ThoughtSection title="model return">
-          <ThoughtTextBlock id="thought-detail-model-return">
-            {item.returnedText || "model return unavailable."}
-          </ThoughtTextBlock>
-        </ThoughtSection>
-
-        <ThoughtSection title="text">
-          <ThoughtTextBlock id="thought-detail-canonical-title">
-            {thoughtRawText(item)}
-          </ThoughtTextBlock>
-        </ThoughtSection>
-
-        <ThoughtSection title="$PATH">
-          <a
-            id="thought-detail-path"
-            className="thought-detail__value thought-detail__path-link"
-            href={`/path/${item.pathId}`}
-            title={`Open $PATH #${item.pathId} detail`}
-          >
-            $PATH #{item.pathId} ↗
-          </a>
-        </ThoughtSection>
-
-        <ThoughtSection title="mint">
+        <ThoughtSection title="creation record">
           <dl className="thought-detail__fields">
-            <div>
-              <dt>minter</dt>
-              <dd id="thought-detail-minter" title={item.minter}>
-                {shortDetailAddress(item.minter)}
-              </dd>
-            </div>
-            <div>
-              <dt>network</dt>
-              <dd>{PUBLIC_NETWORK_CONFIG.environmentLabel}</dd>
-            </div>
-            <div>
-              <dt>chain</dt>
-              <dd>{PUBLIC_NETWORK_CONFIG.chainLabel}</dd>
-            </div>
-            <div>
-              <dt>chain id</dt>
-              <dd>{PUBLIC_NETWORK_CONFIG.chainId}</dd>
-            </div>
-            <div>
-              <dt>currency</dt>
-              <dd>{PUBLIC_NETWORK_CONFIG.currencyLabel}</dd>
-            </div>
-            <div>
-              <dt>minted</dt>
-              <dd>{formatTimestamp(item.mintedAt)}</dd>
-            </div>
-            <div>
-              <dt>tx</dt>
-              <dd>
-                {txUrl ? (
-                  <a
-                    id="thought-detail-view-tx"
-                    className="thought-detail__value-link"
-                    href={txUrl}
-                    title={item.txHash}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {shortValue(item.txHash, 22, 14)} ↗
-                  </a>
-                ) : (
-                  shortValue(item.txHash)
-                )}
-              </dd>
-            </div>
-          </dl>
-        </ThoughtSection>
-
-        <ThoughtSection title="provenance">
-          {item.provenanceJson ? (
-            <>
+            <ThoughtField label="spec">
               <a
-                className="thought-detail__value thought-detail__value-link"
-                href={thoughtDetailApiUrl(item.tokenId, "provenance")}
+                id="thought-detail-spec-ref"
+                className="thought-detail__value-link"
+                href={resolveThoughtSpecHref(item)}
+                title={`Open ${thoughtSpecName} Markdown`}
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                {provenanceBytes} bytes ↗
+                {thoughtSpecName} ↗
               </a>
-              <div className="thought-detail__viewer is-hidden" aria-hidden="true">
-                <p className="thought-detail__viewer-title">
-                  source: ThoughtNFT.provenanceOf({item.tokenId})
-                </p>
-                <pre className="thought-detail__json">
-                  {formatProvenanceJson(item.provenanceJson)}
-                </pre>
-              </div>
-            </>
-          ) : (
-            <p className="thought-detail__value">unavailable.</p>
-          )}
+            </ThoughtField>
+            <ThoughtField label="model">
+              {item.model || "model unavailable."}
+            </ThoughtField>
+            <ThoughtField label="$PATH">
+              <a
+                id="thought-detail-path"
+                className="thought-detail__value-link thought-detail__path-link"
+                href={`/path/${item.pathId}`}
+                title={`Open $PATH #${item.pathId} detail`}
+              >
+                $PATH #{item.pathId} ↗
+              </a>
+            </ThoughtField>
+            <ThoughtField label="provenance">
+              {item.provenanceJson ? (
+                <>
+                  <a
+                    className="thought-detail__value-link"
+                    href={thoughtDetailApiUrl(item.tokenId, "provenance")}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {provenanceBytes} bytes ↗
+                  </a>
+                  <div className="thought-detail__viewer is-hidden" aria-hidden="true">
+                    <p className="thought-detail__viewer-title">
+                      source: ThoughtNFT.provenanceOf({item.tokenId})
+                    </p>
+                    <pre className="thought-detail__json">
+                      {formatProvenanceJson(item.provenanceJson)}
+                    </pre>
+                  </div>
+                </>
+              ) : (
+                <span>unavailable.</span>
+              )}
+            </ThoughtField>
+            <ThoughtField label="color font">
+              <a
+                id="thought-detail-color-font"
+                className="thought-detail__value-link"
+                href="/color-font"
+                title="Open color-font source of truth"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Color Font v1 ↗
+              </a>
+            </ThoughtField>
+          </dl>
         </ThoughtSection>
 
-        <ThoughtSection title="color font">
-          <a
-            id="thought-detail-color-font"
-            className="thought-detail__value thought-detail__value-link"
-            href="/color-font"
-            title="Open color-font source of truth"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Color Font v1 ↗
-          </a>
+        <ThoughtSection title="token details">
+          <dl className="thought-detail__fields">
+            <ThoughtField label="minter">
+              <span id="thought-detail-minter" title={item.minter}>
+                {shortDetailAddress(item.minter)}
+              </span>
+            </ThoughtField>
+            <ThoughtField label="network">
+              {PUBLIC_NETWORK_CONFIG.environmentLabel}
+            </ThoughtField>
+            <ThoughtField label="chain">
+              {PUBLIC_NETWORK_CONFIG.chainLabel}
+            </ThoughtField>
+            <ThoughtField label="chain id">
+              {PUBLIC_NETWORK_CONFIG.chainId}
+            </ThoughtField>
+            <ThoughtField label="currency">
+              {PUBLIC_NETWORK_CONFIG.currencyLabel}
+            </ThoughtField>
+            <ThoughtField label="minted">
+              {formatTimestamp(item.mintedAt)}
+            </ThoughtField>
+            <ThoughtField label="tx">
+              {txUrl ? (
+                <a
+                  id="thought-detail-view-tx"
+                  className="thought-detail__value-link"
+                  href={txUrl}
+                  title={item.txHash}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {shortValue(item.txHash, 22, 14)} ↗
+                </a>
+              ) : (
+                shortValue(item.txHash)
+              )}
+            </ThoughtField>
+          </dl>
         </ThoughtSection>
       </aside>
     </div>
@@ -363,6 +363,9 @@ function ThoughtDetail({ item }: { item: ThoughtGalleryItem }) {
 export default function ThoughtDetailPage({ tokenId }: { tokenId: string }) {
   const targetTokenId = useMemo(() => Number(tokenId), [tokenId]);
   const [state, setState] = useState<LoadState>(() => {
+    if (!thoughtDeploymentActive) {
+      return { status: "prelaunch", items: [], error: null };
+    }
     const cached = readCachedThoughtGallery();
     return cached
       ? { status: "ready", items: cached, error: null }
@@ -370,6 +373,7 @@ export default function ThoughtDetailPage({ tokenId }: { tokenId: string }) {
   });
 
   useEffect(() => {
+    if (!thoughtDeploymentActive) return undefined;
     let cancelled = false;
     const cached = readCachedThoughtGallery();
     if (cached) {
@@ -411,18 +415,25 @@ export default function ThoughtDetailPage({ tokenId }: { tokenId: string }) {
           THOUGHT #<span>{tokenId}</span>
         </h1>
         <nav className="thought-detail__links" aria-label="THOUGHT detail links">
-          <a className="thought-detail__link" href={galleryUrl()}>
-            [ gallery ]
+          <a
+            className="thought-detail__link"
+            href={`/#thought-${tokenId}`}
+          >
+            [ Home ]
           </a>
           <a className="thought-detail__link" href={thoughtAppUrl()}>
-            [ create yours ]
+            [ Create yours ]
           </a>
         </nav>
       </header>
 
-      {state.status === "error" && (
+      {state.status === "prelaunch" ? (
+        <p className="thought-detail__status">
+          Onchain THOUGHT details will appear when minting opens.
+        </p>
+      ) : state.status === "error" ? (
         <p className="thought-detail__status thought-detail__status--error">{state.error}</p>
-      )}
+      ) : null}
       {item ? (
         <ThoughtDetail item={item} />
       ) : state.status === "ready" ? (

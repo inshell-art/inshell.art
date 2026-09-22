@@ -1,0 +1,536 @@
+{
+  "schema": "inshell.thought.machine-handoff.v1",
+  "schemaUrl": "/protocol/thought-machine-handoff.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/protocol/thought-machine-handoff.schema.json",
+  "id": "thought-v2-machine-handoff-f895442aaabaded1",
+  "title": "THOUGHT App and Contract machine handoff",
+  "status": "current-local-integration-no-production-authorization",
+  "bindingSha256": "f895442aaabaded16fc2f0e92f4906e6a0a5b48b6af4691939a0991885c97717",
+  "canonicalUrl": "https://inshell.art/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/manifest.json",
+  "topics": [
+    "thought",
+    "contracts",
+    "source-release-boundaries"
+  ],
+  "ownerBoundary": {
+    "sourceOfTruth": {
+      "repository": "https://github.com/inshell-art/THOUGHT",
+      "path": "docs/agent/THOUGHT_CROSS_REPO_OWNERSHIP_AND_WALLET_BOUNDARY_HANDOFF_20260803.md",
+      "revision": "2026-08-04-owner-approved"
+    },
+    "thoughtContract": {
+      "owner": "THOUGHT feature owner in the THOUGHT repository",
+      "owns": [
+        "contracts",
+        "canonical Contract releases",
+        "Contract renderer and token metadata",
+        "Contract-side validation semantics"
+      ]
+    },
+    "thoughtApp": {
+      "owner": "THOUGHT feature owner in inshell.art",
+      "owns": [
+        "creation flow",
+        "Creative Work Specification selection",
+        "provenance assembly",
+        "Creation Attestation inputs",
+        "mint calldata assembly and readback"
+      ]
+    },
+    "sharedInfrastructure": {
+      "owner": "inshell.art shared App infrastructure",
+      "owns": [
+        "protocol-neutral wallet connection",
+        "$PATH inventory",
+        "site shell",
+        "build and routing"
+      ]
+    },
+    "humanWallet": {
+      "owner": "wallet holder",
+      "owns": [
+        "wallet account choice",
+        "signature consent",
+        "transaction consent"
+      ]
+    }
+  },
+  "components": {
+    "creativeSpec": {
+      "id": "thought-v2-selected-spec-20260801-r10",
+      "sha256": "90df786a3ffb5ec38bffd09ff356ec560d0b7dddcdf57170891149a92a399e9b"
+    },
+    "provenance": {
+      "id": "thought-provenance-v2-20260731-r1",
+      "schemaSha256": "210abc0735cf7fb480491ec94f04495deb153560838c514c8f2ef19541821ff8",
+      "specSha256": "55b7f699f85d340f8273c17c04bd6c2431fac50c1d6472ce2bc3e5f1323da2bb"
+    },
+    "metadataNamespace": {
+      "id": "thought-metadata-namespace-v2-20260731-r1",
+      "schemaSha256": "f901946d37298227f6d8888f66e66d9d93976d61c4f7ab7c46b53e3d8aa451a3",
+      "specSha256": "0f3a9a6a7225f8a18606cf504ab2d980c30035d7078bd1158258cdb991a2b523"
+    },
+    "contractRelease": {
+      "id": "thought-v2-canonical-portable-release-20260807-r2",
+      "manifestSha256": "7cf7965edb3de6421c79d9c08f0781cabb78ea675bad354847b56ec8f19306cc"
+    },
+    "appIntegration": {
+      "id": "thought-v2-canonical-portable-release-20260807-r2",
+      "sha256": "90836d15962c29f9198a6be0ba3196467e11f9415b4783a130e03e88163a3e00"
+    },
+    "agentTransport": {
+      "id": "inshell.thought.agent-result.v2",
+      "sha256": "d61d25057da226beb1dd689d13aacf8b25e4d77f0ef4448c9d0ce3413aea9bc4"
+    }
+  },
+  "constraints": {
+    "productionAuthorized": false,
+    "deploymentAuthorized": false,
+    "agentTransportReleaseIncluded": true,
+    "note": "This package includes the current read-only Agent transport consumer binding. It neither enables V2 minting nor authorizes a deployment, wallet action, or protocol-admin action."
+  },
+  "excluded": [],
+  "relations": [
+    {
+      "type": "selected-spec-identity",
+      "appArtifact": "creative-work-spec",
+      "contractReleaseArtifact": "contract-release-manifest",
+      "requirement": "The App lock, integration lock, and Contract release must pin identical spec bytes and identifiers."
+    },
+    {
+      "type": "provenance-schema-boundary",
+      "appArtifact": "app-provenance-schema",
+      "contractReleaseArtifact": "contract-provenance-schema",
+      "requirement": "These are separately owned artifacts and are never treated as byte-identical unless their recorded digests are equal."
+    },
+    {
+      "type": "agent-transport-release-binding",
+      "appArtifact": "agent-protocol-consumer-lock",
+      "contractReleaseArtifact": "contract-release-manifest",
+      "requirement": "The Agent protocol consumer lock, Creative Brief lock, selected specification, work profile, and Contract manifest must identify the same current R2 release while V2 minting remains disabled."
+    }
+  ],
+  "driftPolicy": {
+    "rule": "Generation fails if a locked App or Agent artifact changes, a Contract release file differs from its manifest, the App integration graph differs from the Contract manifest, or the selected spec, Creative Brief, Agent transport, and work-profile pins diverge.",
+    "update": "Publish or select new owning locks first, then run pnpm docs:generate. The derived handoff ID and Agent index entry change together.",
+    "check": "pnpm docs:check"
+  },
+  "artifacts": [
+    {
+      "id": "creative-work-spec",
+      "title": "THOUGHT V2 Creative Work Specification",
+      "role": "selected-creative-work-specification",
+      "owner": "THOUGHT App",
+      "authority": "app-documentation",
+      "source": {
+        "repository": "https://github.com/inshell-art/inshell.art",
+        "path": "apps/thought/spec/THOUGHT.v2.md"
+      },
+      "url": "/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/app/creative/THOUGHT.v2.md",
+      "canonicalUrl": "https://inshell.art/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/app/creative/THOUGHT.v2.md",
+      "mediaType": "text/markdown; charset=utf-8",
+      "byteLength": 4627,
+      "sha256": "90df786a3ffb5ec38bffd09ff356ec560d0b7dddcdf57170891149a92a399e9b"
+    },
+    {
+      "id": "app-provenance-spec",
+      "title": "THOUGHT provenance specification",
+      "role": "app-owned-provenance-specification",
+      "owner": "THOUGHT App",
+      "authority": "app-documentation",
+      "source": {
+        "repository": "https://github.com/inshell-art/inshell.art",
+        "path": "apps/thought/provenance/v2/thought.provenance.v2.md"
+      },
+      "url": "/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/app/provenance/thought.provenance.v2.md",
+      "canonicalUrl": "https://inshell.art/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/app/provenance/thought.provenance.v2.md",
+      "mediaType": "text/markdown; charset=utf-8",
+      "byteLength": 3372,
+      "sha256": "55b7f699f85d340f8273c17c04bd6c2431fac50c1d6472ce2bc3e5f1323da2bb"
+    },
+    {
+      "id": "app-provenance-schema",
+      "title": "THOUGHT provenance schema",
+      "role": "app-owned-provenance-schema",
+      "owner": "THOUGHT App",
+      "authority": "app-record",
+      "source": {
+        "repository": "https://github.com/inshell-art/inshell.art",
+        "path": "apps/thought/provenance/v2/thought.provenance.v2.schema.json"
+      },
+      "url": "/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/app/provenance/thought.provenance.v2.schema.json",
+      "canonicalUrl": "https://inshell.art/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/app/provenance/thought.provenance.v2.schema.json",
+      "mediaType": "application/schema+json",
+      "byteLength": 5606,
+      "sha256": "210abc0735cf7fb480491ec94f04495deb153560838c514c8f2ef19541821ff8"
+    },
+    {
+      "id": "app-metadata-namespace-spec",
+      "title": "THOUGHT metadata namespace specification",
+      "role": "app-documentation-for-contract-owned-token-metadata",
+      "owner": "THOUGHT App and THOUGHT Contract",
+      "authority": "app-documentation",
+      "source": {
+        "repository": "https://github.com/inshell-art/inshell.art",
+        "path": "apps/thought/metadata/v2/thought.metadata-namespace.v2.md"
+      },
+      "url": "/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/app/metadata/thought.metadata-namespace.v2.md",
+      "canonicalUrl": "https://inshell.art/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/app/metadata/thought.metadata-namespace.v2.md",
+      "mediaType": "text/markdown; charset=utf-8",
+      "byteLength": 8875,
+      "sha256": "0f3a9a6a7225f8a18606cf504ab2d980c30035d7078bd1158258cdb991a2b523"
+    },
+    {
+      "id": "app-metadata-namespace-schema",
+      "title": "THOUGHT metadata namespace schema",
+      "role": "app-documentation-for-contract-owned-token-metadata",
+      "owner": "THOUGHT App and THOUGHT Contract",
+      "authority": "app-documentation",
+      "source": {
+        "repository": "https://github.com/inshell-art/inshell.art",
+        "path": "apps/thought/metadata/v2/thought.metadata-namespace.v2.schema.json"
+      },
+      "url": "/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/app/metadata/thought.metadata-namespace.v2.schema.json",
+      "canonicalUrl": "https://inshell.art/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/app/metadata/thought.metadata-namespace.v2.schema.json",
+      "mediaType": "application/schema+json",
+      "byteLength": 7260,
+      "sha256": "f901946d37298227f6d8888f66e66d9d93976d61c4f7ab7c46b53e3d8aa451a3"
+    },
+    {
+      "id": "app-contract-integration-lock",
+      "title": "THOUGHT App Contract integration lock",
+      "role": "app-consumer-binding-to-canonical-contract-release",
+      "owner": "THOUGHT App",
+      "authority": "app-documentation",
+      "source": {
+        "repository": "https://github.com/inshell-art/inshell.art",
+        "path": "apps/thought/contract-integration/current/integration-lock.json"
+      },
+      "url": "/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/app/integration/app-contract-integration-lock.json",
+      "canonicalUrl": "https://inshell.art/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/app/integration/app-contract-integration-lock.json",
+      "mediaType": "application/json",
+      "byteLength": 24114,
+      "sha256": "90836d15962c29f9198a6be0ba3196467e11f9415b4783a130e03e88163a3e00"
+    },
+    {
+      "id": "agent-protocol-consumer-lock",
+      "title": "THOUGHT Agent protocol consumer lock",
+      "role": "agent-transport-consumer-binding-to-current-v2-release",
+      "owner": "THOUGHT App",
+      "authority": "app-record",
+      "source": {
+        "repository": "https://github.com/inshell-art/inshell.art",
+        "path": "packages/thought-agent-protocol/thought-v2.consumer-lock.json"
+      },
+      "url": "/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/app/agent/thought-v2.consumer-lock.json",
+      "canonicalUrl": "https://inshell.art/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/app/agent/thought-v2.consumer-lock.json",
+      "mediaType": "application/json",
+      "byteLength": 2857,
+      "sha256": "d61d25057da226beb1dd689d13aacf8b25e4d77f0ef4448c9d0ce3413aea9bc4"
+    },
+    {
+      "id": "agent-creative-brief",
+      "title": "THOUGHT Agent Creative Brief v2",
+      "role": "agent-creative-response-brief",
+      "owner": "THOUGHT App",
+      "authority": "app-documentation",
+      "source": {
+        "repository": "https://github.com/inshell-art/inshell.art",
+        "path": "apps/thought/spec/THOUGHT.agent-creative.v2.md"
+      },
+      "url": "/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/app/agent/THOUGHT.agent-creative.v2.md",
+      "canonicalUrl": "https://inshell.art/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/app/agent/THOUGHT.agent-creative.v2.md",
+      "mediaType": "text/markdown; charset=utf-8",
+      "byteLength": 1088,
+      "sha256": "8f89266863caa47599c3f162e703fb2197f7b33343c3ea249151d471c706b244"
+    },
+    {
+      "id": "agent-creative-brief-lock",
+      "title": "THOUGHT Agent Creative Brief lock",
+      "role": "agent-creative-brief-exact-byte-lock",
+      "owner": "THOUGHT App",
+      "authority": "app-record",
+      "source": {
+        "repository": "https://github.com/inshell-art/inshell.art",
+        "path": "apps/thought/spec/THOUGHT.agent-creative.v2.lock.json"
+      },
+      "url": "/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/app/agent/THOUGHT.agent-creative.v2.lock.json",
+      "canonicalUrl": "https://inshell.art/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/app/agent/THOUGHT.agent-creative.v2.lock.json",
+      "mediaType": "application/json",
+      "byteLength": 1109,
+      "sha256": "c8bb1a9e5d9feb5a207348a54a13c76389526e016462b124f418515369df1995"
+    },
+    {
+      "id": "contract-release-manifest",
+      "title": "Canonical THOUGHT Contract release manifest",
+      "role": "canonical-contract-release-manifest",
+      "owner": "THOUGHT Contract",
+      "authority": "contract-release",
+      "source": {
+        "repository": "https://github.com/inshell-art/THOUGHT",
+        "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/manifest.json",
+        "releaseId": "thought-v2-canonical-portable-release-20260807-r2"
+      },
+      "url": "/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/release-manifest.json",
+      "canonicalUrl": "https://inshell.art/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/release-manifest.json",
+      "mediaType": "application/json",
+      "byteLength": 21962,
+      "sha256": "7cf7965edb3de6421c79d9c08f0781cabb78ea675bad354847b56ec8f19306cc"
+    },
+    {
+      "id": "contract-index",
+      "title": "THOUGHT Contract artifact index",
+      "role": "contract-artifact-index",
+      "owner": "THOUGHT Contract",
+      "authority": "contract-release",
+      "source": {
+        "repository": "https://github.com/inshell-art/THOUGHT",
+        "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/contract/index.json",
+        "releaseId": "thought-v2-canonical-portable-release-20260807-r2"
+      },
+      "url": "/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/contract-index.json",
+      "canonicalUrl": "https://inshell.art/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/contract-index.json",
+      "mediaType": "application/json",
+      "byteLength": 3723,
+      "sha256": "69c5f28cd276fcdd22974112cb437e7cbcd4563c581da392e3a71ad51535adca"
+    },
+    {
+      "id": "thought-nft-compiled-artifact",
+      "title": "ThoughtNFTV2 compiled artifact",
+      "role": "compiled-contract-abi-and-bytecode",
+      "owner": "THOUGHT Contract",
+      "authority": "contract-release",
+      "source": {
+        "repository": "https://github.com/inshell-art/THOUGHT",
+        "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/contract/compiled/ThoughtNFTV2.json",
+        "releaseId": "thought-v2-canonical-portable-release-20260807-r2"
+      },
+      "url": "/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/compiled/ThoughtNFTV2.json",
+      "canonicalUrl": "https://inshell.art/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/compiled/ThoughtNFTV2.json",
+      "mediaType": "application/json",
+      "byteLength": 116966,
+      "sha256": "7413b430cbdccee597768b7c6b75d88beeccd51b3d6b6ae853264e02ded1b0fc"
+    },
+    {
+      "id": "app-contract-boundary",
+      "title": "THOUGHT App and Contract executable boundary",
+      "role": "contract-release-boundary-description",
+      "owner": "THOUGHT Contract",
+      "authority": "contract-release",
+      "source": {
+        "repository": "https://github.com/inshell-art/THOUGHT",
+        "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/integration/thought.app-contract-boundary.v1.json",
+        "releaseId": "thought-v2-canonical-portable-release-20260807-r2"
+      },
+      "url": "/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/protocol/integration/thought.app-contract-boundary.v1.json",
+      "canonicalUrl": "https://inshell.art/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/protocol/integration/thought.app-contract-boundary.v1.json",
+      "mediaType": "application/json",
+      "byteLength": 6826,
+      "sha256": "fa96f72ae2a2c2e6b84cc373eacb9e5381a4a43efcb7148c0f0a8b7b639a2b36"
+    },
+    {
+      "id": "agent-declaration-schema",
+      "title": "THOUGHT Agent declaration schema",
+      "role": "agent-declaration-contract-release-schema",
+      "owner": "THOUGHT Contract",
+      "authority": "contract-release",
+      "source": {
+        "repository": "https://github.com/inshell-art/THOUGHT",
+        "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/agent/thought.agent-declaration.v1.schema.json",
+        "releaseId": "thought-v2-canonical-portable-release-20260807-r2"
+      },
+      "url": "/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/protocol/agent/thought.agent-declaration.v1.schema.json",
+      "canonicalUrl": "https://inshell.art/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/protocol/agent/thought.agent-declaration.v1.schema.json",
+      "mediaType": "application/schema+json",
+      "byteLength": 710,
+      "sha256": "d9564d994763e643c77d853d9200f39a31677f718c715dce3b4c3ec29f406afd"
+    },
+    {
+      "id": "specification-architecture",
+      "title": "THOUGHT V2 specification architecture",
+      "role": "contract-release-specification-ownership-and-dependency-map",
+      "owner": "THOUGHT Contract",
+      "authority": "contract-release",
+      "source": {
+        "repository": "https://github.com/inshell-art/THOUGHT",
+        "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/SPECIFICATION_ARCHITECTURE.md",
+        "releaseId": "thought-v2-canonical-portable-release-20260807-r2"
+      },
+      "url": "/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/protocol/SPECIFICATION_ARCHITECTURE.md",
+      "canonicalUrl": "https://inshell.art/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/protocol/SPECIFICATION_ARCHITECTURE.md",
+      "mediaType": "text/markdown; charset=utf-8",
+      "byteLength": 5532,
+      "sha256": "4bb2e1e3948042778317338a64b8fe6a83643665964e11e3a66f81646a563532"
+    },
+    {
+      "id": "path-nft-v0.5-integration",
+      "title": "PATH NFT v0.5 integration commitment",
+      "role": "path-v0.5-contract-integration-commitment",
+      "owner": "THOUGHT Contract and PATH Contract",
+      "authority": "contract-release",
+      "source": {
+        "repository": "https://github.com/inshell-art/THOUGHT",
+        "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/integration/path-nft.v0.5.0.json",
+        "releaseId": "thought-v2-canonical-portable-release-20260807-r2"
+      },
+      "url": "/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/protocol/integration/path-nft.v0.5.0.json",
+      "canonicalUrl": "https://inshell.art/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/protocol/integration/path-nft.v0.5.0.json",
+      "mediaType": "application/json",
+      "byteLength": 1233,
+      "sha256": "494b9c1c07b894be10a2e344128a2323ec193b7ccb011df234daf7e72d781c7b"
+    },
+    {
+      "id": "work-profile",
+      "title": "THOUGHT work profile",
+      "role": "accepted-work-profile",
+      "owner": "THOUGHT Contract",
+      "authority": "contract-release",
+      "source": {
+        "repository": "https://github.com/inshell-art/THOUGHT",
+        "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/work/thought.work.v2.profile.json",
+        "releaseId": "thought-v2-canonical-portable-release-20260807-r2"
+      },
+      "url": "/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/protocol/work/thought.work.v2.profile.json",
+      "canonicalUrl": "https://inshell.art/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/protocol/work/thought.work.v2.profile.json",
+      "mediaType": "application/json",
+      "byteLength": 2254,
+      "sha256": "f7b2981d1bdf15923a1b73cc91dea0bbf6483f469583a3f66cb71c414f4382bf"
+    },
+    {
+      "id": "work-schema",
+      "title": "THOUGHT work schema",
+      "role": "accepted-work-schema",
+      "owner": "THOUGHT Contract",
+      "authority": "contract-release",
+      "source": {
+        "repository": "https://github.com/inshell-art/THOUGHT",
+        "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/work/thought.work.v2.schema.json",
+        "releaseId": "thought-v2-canonical-portable-release-20260807-r2"
+      },
+      "url": "/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/protocol/work/thought.work.v2.schema.json",
+      "canonicalUrl": "https://inshell.art/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/protocol/work/thought.work.v2.schema.json",
+      "mediaType": "application/schema+json",
+      "byteLength": 815,
+      "sha256": "47571f007fc4325ceab960be2d41bc286fa0ca71d303d57c3487d7673823e066"
+    },
+    {
+      "id": "context-profile",
+      "title": "THOUGHT visible-context profile",
+      "role": "accepted-visible-context-profile",
+      "owner": "THOUGHT Contract",
+      "authority": "contract-release",
+      "source": {
+        "repository": "https://github.com/inshell-art/THOUGHT",
+        "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/context/thought.context.v2.profile.json",
+        "releaseId": "thought-v2-canonical-portable-release-20260807-r2"
+      },
+      "url": "/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/protocol/context/thought.context.v2.profile.json",
+      "canonicalUrl": "https://inshell.art/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/protocol/context/thought.context.v2.profile.json",
+      "mediaType": "application/json",
+      "byteLength": 1179,
+      "sha256": "2d81e42a3690869f86c2dc2b753a82af33ec7ecdbe079e5a41b9e0ce8482f63f"
+    },
+    {
+      "id": "metadata-profile",
+      "title": "THOUGHT Contract metadata profile",
+      "role": "contract-token-metadata-profile",
+      "owner": "THOUGHT Contract",
+      "authority": "contract-release",
+      "source": {
+        "repository": "https://github.com/inshell-art/THOUGHT",
+        "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/metadata/thought.metadata.v2.profile.json",
+        "releaseId": "thought-v2-canonical-portable-release-20260807-r2"
+      },
+      "url": "/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/protocol/metadata/thought.metadata.v2.profile.json",
+      "canonicalUrl": "https://inshell.art/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/protocol/metadata/thought.metadata.v2.profile.json",
+      "mediaType": "application/json",
+      "byteLength": 1662,
+      "sha256": "a08842ac2bf8432a054f182f0a93fe8e73c3d0bdf9c73239018c4c78e6363af7"
+    },
+    {
+      "id": "creation-attestation-spec",
+      "title": "THOUGHT Creation Attestation specification",
+      "role": "contract-accepted-creation-attestation-specification",
+      "owner": "THOUGHT Contract",
+      "authority": "contract-release",
+      "source": {
+        "repository": "https://github.com/inshell-art/THOUGHT",
+        "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/attestation/thought.creation-workflow-attestation.v2.md",
+        "releaseId": "thought-v2-canonical-portable-release-20260807-r2"
+      },
+      "url": "/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/protocol/attestation/thought.creation-workflow-attestation.v2.md",
+      "canonicalUrl": "https://inshell.art/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/protocol/attestation/thought.creation-workflow-attestation.v2.md",
+      "mediaType": "text/markdown; charset=utf-8",
+      "byteLength": 3753,
+      "sha256": "7bb817b84df2537b3e9cb7bc46c7cc729c6557911abf4f58579672d2cf3aff5c"
+    },
+    {
+      "id": "creation-attestation-vectors",
+      "title": "THOUGHT Creation Attestation conformance vectors",
+      "role": "creation-attestation-conformance-vectors",
+      "owner": "THOUGHT Contract",
+      "authority": "contract-release",
+      "source": {
+        "repository": "https://github.com/inshell-art/THOUGHT",
+        "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/attestation/fixtures/creation-attestation-v2-vectors.json",
+        "releaseId": "thought-v2-canonical-portable-release-20260807-r2"
+      },
+      "url": "/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/protocol/attestation/creation-attestation-v2-vectors.json",
+      "canonicalUrl": "https://inshell.art/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/protocol/attestation/creation-attestation-v2-vectors.json",
+      "mediaType": "application/json",
+      "byteLength": 2241,
+      "sha256": "864078414975468447cb754f665543787f2c90143de70af7f2dfb0283e05ae0d"
+    },
+    {
+      "id": "work-hash-vectors",
+      "title": "THOUGHT work-hash conformance vectors",
+      "role": "work-hash-conformance-vectors",
+      "owner": "THOUGHT Contract",
+      "authority": "contract-release",
+      "source": {
+        "repository": "https://github.com/inshell-art/THOUGHT",
+        "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/conformance/work-hash-vectors.json",
+        "releaseId": "thought-v2-canonical-portable-release-20260807-r2"
+      },
+      "url": "/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/protocol/conformance/work-hash-vectors.json",
+      "canonicalUrl": "https://inshell.art/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/protocol/conformance/work-hash-vectors.json",
+      "mediaType": "application/json",
+      "byteLength": 1090,
+      "sha256": "2fc13425cee5da853ac0f9b658857c5cf89c0bbdf6e6c55583ded6bf0e5ab6fb"
+    },
+    {
+      "id": "contract-provenance-schema",
+      "title": "Contract-release provenance schema copy",
+      "role": "contract-release-bundled-provenance-schema",
+      "owner": "THOUGHT Contract",
+      "authority": "contract-release",
+      "source": {
+        "repository": "https://github.com/inshell-art/THOUGHT",
+        "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/provenance/thought.provenance.v2.schema.json",
+        "releaseId": "thought-v2-canonical-portable-release-20260807-r2"
+      },
+      "url": "/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/protocol/provenance/thought.provenance.v2.schema.json",
+      "canonicalUrl": "https://inshell.art/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/protocol/provenance/thought.provenance.v2.schema.json",
+      "mediaType": "application/schema+json",
+      "byteLength": 6272,
+      "sha256": "0a353167ea460f7fb24c52d0cce106c9bedaa348e561bab1c683beb43fa59398"
+    },
+    {
+      "id": "renderer-profile",
+      "title": "THOUGHT renderer profile",
+      "role": "canonical-renderer-profile",
+      "owner": "THOUGHT Contract",
+      "authority": "contract-release",
+      "source": {
+        "repository": "https://github.com/inshell-art/THOUGHT",
+        "path": "apps/thought/contract-release/releases/thought-v2-canonical-portable-release-20260807-r2/protocol/current/v2/renderer/thought.renderer.v2.profile.json",
+        "releaseId": "thought-v2-canonical-portable-release-20260807-r2"
+      },
+      "url": "/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/protocol/renderer/thought.renderer.v2.profile.json",
+      "canonicalUrl": "https://inshell.art/protocol/releases/thought-v2-machine-handoff-f895442aaabaded1/files/contract/protocol/renderer/thought.renderer.v2.profile.json",
+      "mediaType": "application/json",
+      "byteLength": 3544,
+      "sha256": "3ce86a2db35a969aea2d3286688adddbf5fa2daf1fd71ccefd37171e91fad3c5"
+    }
+  ]
+}

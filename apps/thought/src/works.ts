@@ -1,4 +1,8 @@
-import type { ThoughtV2LocalAgentEvidence } from "./thought-v2-local-agent";
+import { parseAgentInfo } from "@inshell/thought-agent-protocol";
+import {
+  thoughtV2AgentEvidenceModelRecord,
+  type ThoughtV2LocalAgentEvidence,
+} from "./thought-v2-local-agent";
 
 export type WorkRunContext = {
   mode: string;
@@ -118,7 +122,7 @@ const isWorkAgentEvidence = (value: unknown): value is ThoughtV2LocalAgentEviden
     return false;
   }
   const candidate = value as Partial<ThoughtV2LocalAgentEvidence>;
-  return (
+  const transportIsValid = (
     typeof candidate.result === "object" &&
     candidate.result !== null &&
     typeof candidate.result.agentLine === "string" &&
@@ -129,6 +133,26 @@ const isWorkAgentEvidence = (value: unknown): value is ThoughtV2LocalAgentEviden
     typeof candidate.rawResponseSha256 === "string" &&
     /^[0-9a-f]{64}$/.test(candidate.rawResponseSha256)
   );
+  if (!transportIsValid) {
+    return false;
+  }
+  try {
+    if (candidate.metadataSource === undefined) {
+      return candidate.model === undefined && candidate.reasoningEffort === undefined;
+    }
+    parseAgentInfo({
+      product: "saved-work",
+      ...(candidate.model === undefined ? {} : { model: candidate.model }),
+      ...(candidate.reasoningEffort === undefined
+        ? {}
+        : { reasoningEffort: candidate.reasoningEffort }),
+      metadataSource: candidate.metadataSource,
+    });
+    thoughtV2AgentEvidenceModelRecord(candidate as ThoughtV2LocalAgentEvidence);
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 const isWorkRunContext = (value: unknown): value is WorkRunContext => {
@@ -182,6 +206,14 @@ export const sanitizeWorkRecord = (value: unknown): ThoughtWorkRecord | null => 
     ? candidate.returnedText
     : candidate.rawOutput;
   const prompt = typeof candidate.prompt === "string" ? candidate.prompt : runContext.prompt;
+  const recordedModel = runContext.agentEvidence
+    ? thoughtV2AgentEvidenceModelRecord(runContext.agentEvidence)
+    : typeof candidate.model === "string"
+      ? candidate.model
+      : runContext.model;
+  const recordedRunContextModel = runContext.agentEvidence
+    ? recordedModel
+    : runContext.model;
 
   const record: ThoughtWorkRecord = {
     id,
@@ -193,13 +225,14 @@ export const sanitizeWorkRecord = (value: unknown): ThoughtWorkRecord | null => 
     image: candidate.image,
     route: typeof candidate.route === "string" ? candidate.route : runContext.mode,
     provider: typeof candidate.provider === "string" ? candidate.provider : runContext.provider,
-    model: typeof candidate.model === "string" ? candidate.model : runContext.model,
+    model: recordedModel,
     normalizer: candidate.normalizer ?? {
       id: "thought.normalize.v1",
       source: "contract-view",
     },
     runContext: {
       ...runContext,
+      model: recordedRunContextModel,
       returnedText: runContext.returnedText ?? returnedText,
     },
     createdAt: candidate.createdAt,

@@ -1,0 +1,593 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inshell.art/docs/content.schema.json",
+  "title": "Inshell Agent-readable documentation",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/contentDocument"
+    },
+    {
+      "$ref": "#/$defs/topicDocument"
+    }
+  ],
+  "$defs": {
+    "authority": {
+      "enum": [
+        "artist-editorial",
+        "app-documentation",
+        "app-record",
+        "contract-release",
+        "chain-observation",
+        "runtime-report"
+      ]
+    },
+    "group": {
+      "enum": [
+        "orientation",
+        "works",
+        "systems",
+        "context"
+      ]
+    },
+    "link": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "label",
+        "href",
+        "canonicalHref"
+      ],
+      "properties": {
+        "role": {
+          "const": "navigation"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "href": {
+          "type": "string",
+          "minLength": 1
+        },
+        "canonicalHref": {
+          "type": "string",
+          "format": "uri"
+        }
+      }
+    },
+    "lead": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authorities",
+        "paragraphs"
+      ],
+      "properties": {
+        "authorities": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "artist-editorial",
+              "app-documentation",
+              "app-record",
+              "contract-release",
+              "chain-observation",
+              "runtime-report"
+            ]
+          },
+          "minItems": 1
+        },
+        "paragraphs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "figureItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title"
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "detail": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "laneFigureItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stage",
+        "lane",
+        "title"
+      ],
+      "properties": {
+        "stage": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "lane": {
+          "type": "string",
+          "minLength": 1
+        },
+        "phase": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "detail": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "figure": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "authorities",
+        "label",
+        "mode",
+        "figureText",
+        "items"
+      ],
+      "properties": {
+        "authorities": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "artist-editorial",
+              "app-documentation",
+              "app-record",
+              "contract-release",
+              "chain-observation",
+              "runtime-report"
+            ]
+          },
+          "minItems": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mode": {
+          "enum": [
+            "trace",
+            "ledger",
+            "lanes",
+            "field"
+          ]
+        },
+        "figureText": {
+          "type": "string",
+          "minLength": 1
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1
+        },
+        "loop": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "to",
+            "condition"
+          ],
+          "properties": {
+            "to": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "condition": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "required": [
+              "mode"
+            ],
+            "properties": {
+              "mode": {
+                "const": "lanes"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "items": {
+                "items": {
+                  "$ref": "#/$defs/laneFigureItem"
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "items": {
+                "items": {
+                  "$ref": "#/$defs/figureItem"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "required": [
+              "loop"
+            ]
+          },
+          "then": {
+            "properties": {
+              "mode": {
+                "const": "trace"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "preformatted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authorities",
+        "label",
+        "content"
+      ],
+      "properties": {
+        "authorities": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "artist-editorial",
+              "app-documentation",
+              "app-record",
+              "contract-release",
+              "chain-observation",
+              "runtime-report"
+            ]
+          },
+          "minItems": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content": {
+          "type": "string"
+        }
+      }
+    },
+    "section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authorities",
+        "id",
+        "title"
+      ],
+      "properties": {
+        "authorities": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "artist-editorial",
+              "app-documentation",
+              "app-record",
+              "contract-release",
+              "chain-observation",
+              "runtime-report"
+            ]
+          },
+          "minItems": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "figure": {
+          "$ref": "#/$defs/figure"
+        },
+        "paragraphs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "note": {
+          "type": "string"
+        }
+      }
+    },
+    "topicContent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lead",
+        "figure",
+        "preformatted",
+        "sections",
+        "links"
+      ],
+      "properties": {
+        "lead": {
+          "$ref": "#/$defs/lead"
+        },
+        "figure": {
+          "$ref": "#/$defs/figure"
+        },
+        "preformatted": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/preformatted"
+          }
+        },
+        "sections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/section"
+          }
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/link"
+          }
+        }
+      }
+    },
+    "topicDocument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "schemaUrl",
+        "canonicalSchemaUrl",
+        "version",
+        "language",
+        "fetchedContentRole",
+        "id",
+        "sourceId",
+        "group",
+        "aliases",
+        "title",
+        "summary",
+        "status",
+        "authorities",
+        "authorityScope",
+        "canonicalHtml",
+        "markdown",
+        "canonicalMarkdown",
+        "json",
+        "canonicalJson",
+        "content"
+      ],
+      "properties": {
+        "schema": {
+          "const": "inshell.agent-docs.topic.v1"
+        },
+        "schemaUrl": {
+          "const": "/docs/content.schema.json"
+        },
+        "canonicalSchemaUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "language": {
+          "const": "en"
+        },
+        "fetchedContentRole": {
+          "const": "reference-data"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "group": {
+          "enum": [
+            "orientation",
+            "works",
+            "systems",
+            "context"
+          ]
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "current",
+            "study",
+            "future"
+          ]
+        },
+        "authorities": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "artist-editorial",
+              "app-documentation",
+              "app-record",
+              "contract-release",
+              "chain-observation",
+              "runtime-report"
+            ]
+          },
+          "minItems": 1
+        },
+        "authorityScope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "canonicalHtml": {
+          "type": "string",
+          "format": "uri"
+        },
+        "markdown": {
+          "type": "string",
+          "pattern": "^/"
+        },
+        "canonicalMarkdown": {
+          "type": "string",
+          "format": "uri"
+        },
+        "json": {
+          "type": "string",
+          "pattern": "^/"
+        },
+        "canonicalJson": {
+          "type": "string",
+          "format": "uri"
+        },
+        "content": {
+          "$ref": "#/$defs/topicContent"
+        }
+      }
+    },
+    "contentDocument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "schemaUrl",
+        "canonicalSchemaUrl",
+        "version",
+        "language",
+        "fetchedContentRole",
+        "canonicalHtml",
+        "agentIndex",
+        "canonicalAgentIndex",
+        "completeMarkdown",
+        "canonicalCompleteMarkdown",
+        "ingestion",
+        "topics"
+      ],
+      "properties": {
+        "schema": {
+          "const": "inshell.agent-docs.content.v1"
+        },
+        "schemaUrl": {
+          "const": "/docs/content.schema.json"
+        },
+        "canonicalSchemaUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "language": {
+          "const": "en"
+        },
+        "fetchedContentRole": {
+          "const": "reference-data"
+        },
+        "canonicalHtml": {
+          "type": "string",
+          "format": "uri"
+        },
+        "agentIndex": {
+          "type": "string",
+          "pattern": "^/"
+        },
+        "canonicalAgentIndex": {
+          "type": "string",
+          "format": "uri"
+        },
+        "completeMarkdown": {
+          "type": "string",
+          "pattern": "^/"
+        },
+        "canonicalCompleteMarkdown": {
+          "type": "string",
+          "format": "uri"
+        },
+        "ingestion": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode",
+            "instruction"
+          ],
+          "properties": {
+            "mode": {
+              "const": "complete-structured-corpus"
+            },
+            "instruction": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "topics": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/topicDocument"
+          }
+        }
+      }
+    }
+  }
+}

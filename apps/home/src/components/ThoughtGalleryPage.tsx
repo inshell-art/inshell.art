@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  isThoughtGalleryDeploymentActive,
   loadThoughtGallery,
   readCachedThoughtGallery,
   type ThoughtGalleryItem,
@@ -8,8 +9,11 @@ import { PUBLIC_NETWORK_CONFIG } from "@inshell/shared";
 
 type LoadState =
   | { status: "loading"; items: ThoughtGalleryItem[]; error: null }
+  | { status: "prelaunch"; items: ThoughtGalleryItem[]; error: null }
   | { status: "ready"; items: ThoughtGalleryItem[]; error: null }
   | { status: "error"; items: ThoughtGalleryItem[]; error: string };
+
+const thoughtDeploymentActive = isThoughtGalleryDeploymentActive();
 
 const GALLERY_LOADING_DETAILS = [
   "checking latest block",
@@ -153,6 +157,9 @@ function ThoughtGalleryCard({ thought }: { thought: ThoughtGalleryItem }) {
 
 export default function ThoughtGalleryPage() {
   const [state, setState] = useState<LoadState>(() => {
+    if (!thoughtDeploymentActive) {
+      return { status: "prelaunch", items: [], error: null };
+    }
     const cached = readCachedThoughtGallery();
     return cached
       ? { status: "ready", items: cached, error: null }
@@ -173,6 +180,7 @@ export default function ThoughtGalleryPage() {
   }, [state.status]);
 
   useEffect(() => {
+    if (!thoughtDeploymentActive) return undefined;
     let cancelled = false;
 
     void loadThoughtGallery()
@@ -215,19 +223,21 @@ export default function ThoughtGalleryPage() {
         <p className="thought-gallery__status" aria-live="polite">
           {state.status === "loading" ? (
             <ChainLoadingStatus detail={GALLERY_LOADING_DETAILS[loadingIndex]} />
+          ) : state.status === "prelaunch" ? (
+            "Create and save a THOUGHT in this browser. Onchain minting is not open yet."
           ) : state.status === "error" ? (
             state.error
           ) : count === 0 ? (
-            "no minted THOUGHTs yet."
+            "Create and save the first THOUGHT in this browser."
           ) : (
             `${count} minted THOUGHT${count === 1 ? "" : "s"}.`
           )}
         </p>
         <a className="thought-gallery__create" href={createUrl}>
-          create your THOUGHT
+          Create the first THOUGHT
         </a>
         <a className="thought-gallery__link" href="/">
-          [ home ]
+          [ Home ]
         </a>
       </div>
 

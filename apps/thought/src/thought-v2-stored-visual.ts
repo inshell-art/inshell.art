@@ -1,3 +1,5 @@
+import { buildThoughtV2Svg } from "./thought-v2-renderer";
+
 export type ThoughtV2StoredVisual = {
   image: string;
   migrated: boolean;
@@ -31,6 +33,31 @@ const decodeSvgImage = (image: string) => {
 
 const svgImageUri = (svg: string) =>
   `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+
+// Display-only recovery of the exact pre-fix browser preview. Never rewrite
+// saved SVG/metadata, hashes, provenance or contract-rendered artwork. A renderer
+// label alone is insufficient: require byte equality with the known old output.
+export const thoughtV2DisplayImage = (image: string): string => {
+  const svg = decodeSvgImage(image);
+  if (!svg || svg.length > 20000) return image;
+  const line = (field: string) => {
+    const value = svg.match(new RegExp(`<g id="${field}-line"[^>]* data-source="([^"]*)"`))?.[1];
+    return value?.replace(/&quot;|&apos;|&lt;|&gt;|&amp;/g, (entity) =>
+      ({ "&quot;": '"', "&apos;": "'", "&lt;": "<", "&gt;": ">", "&amp;": "&" })[entity]!,
+    );
+  };
+  const promptLine = line("prompt");
+  const agentLine = line("agent");
+  const valid = (value: string | undefined): value is string =>
+    Boolean(value && value.length <= 64 && /^[A-Za-z0-9 .,?!:;'"\-()/&]+$/.test(value) && !/^ | $| {2}/.test(value));
+  if (!valid(promptLine) || !valid(agentLine)) return image;
+  const corrected = buildThoughtV2Svg({ promptLine, agentLine });
+  const legacy = corrected
+    .replaceAll(' stroke-linecap="round" stroke-linejoin="round"', "")
+    .replace(/(<use href="#g-[0-9a-f]+" x=")(\d+)("\/?>)/g,
+      (_match, before: string, x: string, after: string) => `${before}${Number(x) - 1}${after}`);
+  return svg === legacy ? svgImageUri(corrected) : image;
+};
 
 export const isCurrentThoughtV2ContractSvg = (
   svg: string,

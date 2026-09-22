@@ -1,0 +1,80 @@
+{
+  "schema": "inshell.agent-docs.topic.v2",
+  "schemaUrl": "/docs/content.v2.schema.json",
+  "canonicalSchemaUrl": "https://inshell.art/docs/content.v2.schema.json",
+  "version": "2026-08-21-r2",
+  "language": "en",
+  "fetchedContentRole": "reference-data",
+  "id": "will",
+  "sourceId": "docs-will",
+  "group": "works",
+  "aliases": [],
+  "title": "WILL",
+  "summary": "WILL is Inshell's crowd movement about delegated human will and Agent action.",
+  "status": "study",
+  "authorities": [
+    "artist-editorial",
+    "app-documentation"
+  ],
+  "authorityScope": "document union only; use each content block's authorities for a specific claim",
+  "canonicalHtml": "https://inshell.art/docs/will",
+  "markdown": "/docs/will.md",
+  "canonicalMarkdown": "https://inshell.art/docs/will.md",
+  "json": "/docs/will.json",
+  "canonicalJson": "https://inshell.art/docs/will.json",
+  "content": {
+    "lead": {
+      "authorities": [
+        "artist-editorial"
+      ],
+      "paragraphs": [
+        "WILL is the second movement on Inshell's [$PATH](https://inshell.art/docs/path). Where [THOUGHT](https://inshell.art/docs/thought) begins with one individual's thought, WILL moves from one person to a crowd.",
+        "WILL asks what happens when a human delegates will and authority to an Agent acting toward an aim, and what result may emerge as many human-Agent relations form a crowd.",
+        "Here, crowd names the move from one participant to many. It does not mean a society, consensus, or shared mind.",
+        "Many people. Many Agents. One will. The slogan names the movement's scope without prescribing its concrete form. WILL remains within [Agent Art](https://inshell.art/docs/agent-art) only through the requirement that Agent intent—not merely Agent execution—participate in the work."
+      ]
+    },
+    "figure": null,
+    "preformatted": [],
+    "sections": [
+      {
+        "authorities": [
+          "artist-editorial",
+          "app-documentation"
+        ],
+        "id": "docs-will-evidence",
+        "title": "Evidence boundary",
+        "paragraphs": [
+          "This description defines an artistic direction. It is not a creation surface, mint surface, or record of deployment."
+        ],
+        "note": "A movement description is not deployment evidence."
+      }
+    ],
+    "links": [
+      {
+        "role": "navigation",
+        "label": "open WILL",
+        "href": "/will",
+        "canonicalHref": "https://inshell.art/will"
+      },
+      {
+        "role": "navigation",
+        "label": "read all Movements",
+        "href": "/docs/movements",
+        "canonicalHref": "https://inshell.art/docs/movements"
+      },
+      {
+        "role": "navigation",
+        "label": "return to THOUGHT",
+        "href": "/docs/thought",
+        "canonicalHref": "https://inshell.art/docs/thought"
+      },
+      {
+        "role": "navigation",
+        "label": "continue to AWA",
+        "href": "/docs/awa",
+        "canonicalHref": "https://inshell.art/docs/awa"
+      }
+    ]
+  }
+}

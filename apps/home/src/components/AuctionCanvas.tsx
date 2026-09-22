@@ -27,6 +27,11 @@ import type { AuctionSnapshot } from "@/types/types";
 import type { NormalizedBid } from "@/services/auction/bidsService";
 import { requestPulseAuctionRefresh } from "@/services/chainIndexer";
 import { clearPathTokenInventoryCache } from "@/services/pathTokens";
+import { isPathDeploymentActive, isPathMintActivationApproved } from "@/services/pathDeployment";
+import {
+  readAuctionStatusOverride,
+  type AuctionStatus,
+} from "@/services/auctionStatusOverride";
 import { useAuctionCore } from "@/hooks/useAuctionCore";
 import {
   getProtocolRelease,
@@ -67,6 +72,7 @@ type Props = {
   refreshMs?: number;
   decimals?: number;
   maxBids?: number;
+  onPathMinted?: () => void;
 };
 
 type TxState = "idle" | "awaiting_signature" | "submitted" | "confirmed" | "failed";
@@ -320,17 +326,22 @@ type PathMintSubmissionContext = {
 };
 
 const PATH_MINT_RECEIPT_RETRY_MS = 3_000;
+const PATH_COMPACT_VIEWPORT_MAX_WIDTH_PX = 720;
 
-function useDesktopOnly(minWidth = 768) {
-  const [isDesktop, setIsDesktop] = useState(
-    typeof window === "undefined" ? true : window.innerWidth >= minWidth
+function useCompactPathViewport() {
+  const [isCompact, setIsCompact] = useState(
+    typeof window === "undefined"
+      ? false
+      : window.innerWidth <= PATH_COMPACT_VIEWPORT_MAX_WIDTH_PX,
   );
   useEffect(() => {
-    const onResize = () => setIsDesktop(window.innerWidth >= minWidth);
+    const onResize = () => {
+      setIsCompact(window.innerWidth <= PATH_COMPACT_VIEWPORT_MAX_WIDTH_PX);
+    };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [minWidth]);
-  return isDesktop;
+  }, []);
+  return isCompact;
 }
 
 function normalizeReturnTo(raw: string | null): string | null {
@@ -630,9 +641,9 @@ function normalizeComparableAddress(value: string): string {
   }
 }
 
-function resolveExplorerAddressUrl(address: string): string {
-  const base = resolveExplorerBase().replace(/\/$/, "");
-  return `${base}/address/${address}`;
+function resolveExplorerAddressUrl(address: string): string | null {
+  const base = resolveExplorerBase();
+  return base ? `${base.replace(/\/$/, "")}/address/${address}` : null;
 }
 
 function assertPulseBidIntent(intent: PulseBidIntentCheck): Hex {
@@ -879,15 +890,20 @@ function isTestRuntime(): boolean {
   return getEnvValue("NODE_ENV") === "test";
 }
 
-function resolveExplorerBase(): string {
+function resolveExplorerBase(): string | null {
+  const network = getEnvValue("VITE_NETWORK");
+  if (network === "devnet") {
+    const local = getEnvValue("VITE_LOCAL_EXPLORER_BASE_URL");
+    return typeof local === "string" && local.trim() ? local.trim() : null;
+  }
   const base = getEnvValue("VITE_EXPLORER_BASE_URL");
   if (typeof base === "string" && base.trim()) return base.trim();
   return "https://sepolia.etherscan.io";
 }
 
-function resolveExplorerTxUrl(hash: string): string {
-  const base = resolveExplorerBase().replace(/\/$/, "");
-  return `${base}/tx/${hash}`;
+function resolveExplorerTxUrl(hash: string): string | null {
+  const base = resolveExplorerBase();
+  return base ? `${base.replace(/\/$/, "")}/tx/${hash}` : null;
 }
 
 function resolvePublicFeedSourceBaseUrl(): string {
@@ -972,8 +988,7 @@ function resolveAddChainParams(chainIdHex: string) {
         decimals: 18,
       },
       rpcUrls,
-      blockExplorerUrls:
-        typeof explorer === "string" && explorer.trim() ? [explorer.trim()] : [],
+      blockExplorerUrls: explorer?.trim() ? [explorer.trim()] : [],
     };
   }
 
@@ -1072,6 +1087,10 @@ function useProtocolReleaseGuard(params: {
   const { address, provider, enabled } = params;
   const release = useMemo(() => getProtocolRelease(), []);
   const releaseChainId = release?.chain_id;
+  const configuredChainId = parseChainId(resolveTargetChainIdHex());
+  const expectedChainId =
+    configuredChainId ??
+    (typeof releaseChainId === "number" ? BigInt(releaseChainId) : null);
   const releaseId = release?.deploy_run_id;
   const releaseCodeHash = getProtocolReleaseCodeHash("pulse_auction");
   const [state, setState] = useState<{
@@ -1096,11 +1115,11 @@ function useProtocolReleaseGuard(params: {
 
     (async () => {
       try {
-        if (typeof releaseChainId === "number") {
+        if (expectedChainId != null) {
           const actualChainId = await getChainId(prov);
-          if (actualChainId !== BigInt(releaseChainId)) {
+          if (actualChainId !== expectedChainId) {
             throw new Error(
-              `PATH release chain mismatch: expected ${releaseChainId}, RPC returned ${actualChainId.toString()}. Check VITE_PATH_RPC_URL and VITE_NETWORK.`
+              `PATH release chain mismatch: expected ${expectedChainId.toString()}, RPC returned ${actualChainId.toString()}. Check VITE_EXPECTED_CHAIN_ID, VITE_PATH_RPC_URL, and VITE_NETWORK.`
             );
           }
         }
@@ -1139,7 +1158,14 @@ function useProtocolReleaseGuard(params: {
     return () => {
       cancelled = true;
     };
-  }, [address, enabled, provider, releaseChainId, releaseCodeHash, releaseId]);
+  }, [
+    address,
+    enabled,
+    expectedChainId,
+    provider,
+    releaseCodeHash,
+    releaseId,
+  ]);
 
   return {
     loading: state.loading,
@@ -2203,73 +2229,14 @@ function formatUtcTime(atMs: number): string {
   )}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
 }
 
-function formatAmount(
-  val: string | undefined,
-  _decimals: number,
-  symbol: string
-): string {
-  const raw = val ?? "";
-  const cleaned = String(raw).replace(/,/g, "");
-  const n = Number(cleaned);
-  if (Number.isFinite(n)) {
-    if (n !== 0 && Math.abs(n) < 0.01) {
-      const fixed = n.toFixed(18);
-      if (Number(fixed) !== 0) {
-        return `${formatTinyDecimalString(fixed)} ${symbol}`;
-      }
-      return `${n.toExponential(4)} ${symbol}`;
-    }
-    const withSep = new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(n);
-    return `${withSep} ${symbol}`;
-  }
-  return `${String(raw)} ${symbol}`;
-}
-
-function formatAmountTinyAware(
-  val: string | undefined,
-  _decimals: number,
-  symbol: string
-): string {
-  const raw = val ?? "";
-  const cleaned = String(raw).replace(/,/g, "");
-  const n = Number(cleaned);
-  if (!Number.isFinite(n)) return `${String(raw)} ${symbol}`;
-
-  const baseDigits = 2;
-  if (n === 0 || Number(n.toFixed(baseDigits)) !== 0) {
-    return formatAmount(val, _decimals, symbol);
-  }
-
-  const meaningfulFracDigits = (fixed: string): number => {
-    const parts = fixed.split(".");
-    if (parts.length < 2) return 0;
-    const frac = parts[1] ?? "";
-    const firstNonZero = frac.search(/[1-9]/);
-    if (firstNonZero < 0) return 0;
-    return frac.length - firstNonZero;
-  };
-
-  let digits = 3;
-  const maxDigits = 12;
-  while (digits < maxDigits) {
-    const fixed = n.toFixed(digits);
-    const nonZero = Number(fixed) !== 0;
-    const enoughMeaningful = meaningfulFracDigits(fixed) >= 2;
-    if (nonZero && enoughMeaningful) break;
-    digits += 1;
-  }
-  if (Number(n.toFixed(digits)) === 0) {
-    return `${n.toExponential(2)} ${symbol}`;
-  }
-
-  const withSep = new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  }).format(n);
-  return `${withSep} ${symbol}`;
+function formatLocalOpenTime(atMs: number): string {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(new Date(atMs));
 }
 
 function formatAmountDetailed(
@@ -2299,135 +2266,8 @@ function formatAmountDetailed(
   return `${withSep} ${symbol}`;
 }
 
-function formatAmountWithMinNonZeroFrac(
-  val: string | undefined,
-  _decimals: number,
-  symbol: string,
-  minNonZeroFracDigits = 2
-): string {
-  const raw = val ?? "";
-  const cleaned = String(raw).replace(/,/g, "");
-  const n = Number(cleaned);
-  if (!Number.isFinite(n)) return `${String(raw)} ${symbol}`;
-  if (n === 0) return formatAmount(val, _decimals, symbol);
 
-  const nonZeroFracCount = (fixed: string): number => {
-    const parts = fixed.split(".");
-    if (parts.length < 2) return 0;
-    const frac = parts[1] ?? "";
-    const matches = frac.match(/[1-9]/g);
-    return matches ? matches.length : 0;
-  };
 
-  const maxDigits = 12;
-  for (let digits = 2; digits <= maxDigits; digits += 1) {
-    const fixed = n.toFixed(digits);
-    if (Number(fixed) === 0) continue;
-    if (nonZeroFracCount(fixed) >= minNonZeroFracDigits) {
-      const withSep = new Intl.NumberFormat("en-US", {
-        minimumFractionDigits: digits,
-        maximumFractionDigits: digits,
-      }).format(n);
-      return `${withSep} ${symbol}`;
-    }
-  }
-
-  return `${n.toExponential(4)} ${symbol}`;
-}
-
-type AuctionStatus =
-  | "no_release"
-  | "loading"
-  | "history_loading"
-  | "before_open"
-  | "open_not_active"
-  | "active"
-  | "error";
-
-const CURVE_REASON_COPY: Record<string, string> = {
-  "invalid k/pts": "invalid curve constants",
-  "k/pts nan": "curve constants not finite",
-  "non-positive k/pts": "curve constants must be positive",
-  "invalid open time": "invalid open time",
-  "invalid opening curve": "invalid opening curve",
-  "invalid bid time": "invalid bid time",
-  "invalid premium": "invalid initial premium",
-  "invalid half-life": "invalid half-life",
-  "sale price nan": "sale price not finite",
-  "no bids": "no bids",
-};
-
-function formatCurveReason(reason: string): string {
-  return CURVE_REASON_COPY[reason] ?? reason;
-}
-
-function normalizeAuctionStatus(value: unknown): AuctionStatus | null {
-  if (typeof value !== "string") return null;
-  const raw = value.trim().toLowerCase();
-  if (!raw || raw === "0" || raw === "false" || raw === "auto") return null;
-  if (
-    raw === "no_release" ||
-    raw === "no-release" ||
-    raw === "norelease" ||
-    raw === "not_deployed" ||
-    raw === "not-deployed" ||
-    raw === "no_deployment" ||
-    raw === "no-deployment"
-  ) {
-    return "no_release";
-  }
-  if (
-    raw === "before_open" ||
-    raw === "before-open" ||
-    raw === "beforeopen" ||
-    raw === "pre_open" ||
-    raw === "pre-open" ||
-    raw === "preopen"
-  ) {
-    return "before_open";
-  }
-  if (
-    raw === "open_not_active" ||
-    raw === "open-not-active" ||
-    raw === "opennotactive" ||
-    raw === "open_not_actived" ||
-    raw === "open-not-actived" ||
-    raw === "inactive" ||
-    raw === "not_active" ||
-    raw === "not-active" ||
-    raw === "genesis_waiting" ||
-    raw === "genesis-waiting" ||
-    raw === "genesis" ||
-    raw === "waiting"
-  ) {
-    return "open_not_active";
-  }
-  if (raw === "active") return "active";
-  if (raw === "loading") return "loading";
-  if (raw === "error") return "error";
-  return null;
-}
-
-function readAuctionStatusOverride(): AuctionStatus | null {
-  if (typeof window === "undefined") return null;
-  const query = window.location.search ?? "";
-  const match = /(?:[?&])auction_status=([^&]+)/i.exec(query);
-  if (match) {
-    return normalizeAuctionStatus(decodeURIComponent(match[1]));
-  }
-  const env = getEnvValue("VITE_PULSE_STATUS");
-  const envOverride = normalizeAuctionStatus(typeof env === "string" ? env : "");
-  if (envOverride) return envOverride;
-  const fromGlobal = (window as any).__PULSE_STATUS__;
-  if (fromGlobal != null) return normalizeAuctionStatus(String(fromGlobal));
-  try {
-    const stored = window.localStorage.getItem("__PULSE_STATUS__");
-    if (stored) return normalizeAuctionStatus(JSON.parse(stored));
-  } catch {
-    /* ignore */
-  }
-  return null;
-}
 
 function truthyEnv(value: unknown): boolean {
   if (typeof value === "boolean") return value;
@@ -2474,6 +2314,12 @@ function useAuctionStatus(params: {
     }
     return formatUtcTime(openTimeSec * 1000);
   }, [openTimeSec]);
+  const openAtLocalLabel = useMemo(() => {
+    if (typeof openTimeSec !== "number" || !Number.isFinite(openTimeSec)) {
+      return null;
+    }
+    return formatLocalOpenTime(openTimeSec * 1000);
+  }, [openTimeSec]);
   const opensInLabel = useMemo(() => {
     if (typeof openTimeSec !== "number" || !Number.isFinite(openTimeSec)) {
       return null;
@@ -2482,6 +2328,13 @@ function useAuctionStatus(params: {
     if (remaining <= 0) return null;
     return formatDuration(remaining);
   }, [nowSec, openTimeSec]);
+  const opensWithinTheHour = useMemo(() => {
+    if (typeof openTimeSec !== "number" || !Number.isFinite(openTimeSec)) {
+      return false;
+    }
+    const remaining = openTimeSec - nowSec;
+    return remaining > 0 && remaining <= 3600;
+  }, [nowSec, openTimeSec]);
 
   useEffect(() => {
     if (statusOverride) {
@@ -2489,7 +2342,7 @@ function useAuctionStatus(params: {
       return;
     }
     if (releaseMissing) {
-      setStatus("no_release");
+      setStatus("before_deploy");
       return;
     }
     if (coreErrorVisible) {
@@ -2530,7 +2383,13 @@ function useAuctionStatus(params: {
     hasRenderableCurve,
   ]);
 
-  return { status, openAtUtcLabel, opensInLabel };
+  return {
+    status,
+    openAtUtcLabel,
+    openAtLocalLabel,
+    opensInLabel,
+    opensWithinTheHour,
+  };
 }
 
 function toSafeNumber(val: string | number | bigint | undefined): number {
@@ -2575,6 +2434,7 @@ export default function AuctionCanvas({
   refreshMs = 12000,
   decimals = 18,
   maxBids = 800,
+  onPathMinted,
 }: Props) {
   const useFixture = useMemo(() => fixtureEnabled(), []);
   const fixture = useMemo(() => readPulseFixture(useFixture), [useFixture]);
@@ -2582,10 +2442,22 @@ export default function AuctionCanvas({
     () => (fixture ? fixtureToState(fixture, decimals) : null),
     [fixture, decimals]
   );
-  const isDesktop = useDesktopOnly();
+  const isCompactPathViewport = useCompactPathViewport();
   const bidsFromBlock = useMemo(() => resolveBidsFromBlock(), []);
   const protocolRelease = useMemo(() => getProtocolRelease(), []);
   const allowDirectAuction = useMemo(() => directAuctionOverrideAllowed(), []);
+  const network = useMemo(() => {
+    const raw = getEnvValue("VITE_NETWORK");
+    return typeof raw === "string" ? raw : undefined;
+  }, []);
+  const localAnvil = network === "devnet";
+  const readDirectAuction = allowDirectAuction || localAnvil;
+  const environmentLabel = localAnvil
+    ? "Local Anvil"
+    : PUBLIC_NETWORK_CONFIG.environmentLabel;
+  const currencyLabel = localAnvil
+    ? "local ETH"
+    : PUBLIC_NETWORK_CONFIG.currencyLabel;
   const cachedAuctionConfig = useMemo(
     () => releaseConfigToAuctionConfig(protocolRelease, decimals),
     [protocolRelease, decimals]
@@ -2593,11 +2465,10 @@ export default function AuctionCanvas({
   const pathMintIntentRead = useMemo(() => readPathMintIntent(), []);
   const pathMintIntent =
     pathMintIntentRead.kind === "valid" ? pathMintIntentRead.intent : null;
-  const releaseMissing = !fixtureState && !allowDirectAuction && !protocolRelease;
-  const network = useMemo(() => {
-    const raw = getEnvValue("VITE_NETWORK");
-    return typeof raw === "string" ? raw : undefined;
-  }, []);
+  const releaseMissing =
+    !fixtureState &&
+    !readDirectAuction &&
+    (!protocolRelease || !isPathDeploymentActive());
   const missingDeployBlock = useMemo(() => {
     if (network === "devnet") return false;
     return bidsFromBlock == null;
@@ -2611,7 +2482,7 @@ export default function AuctionCanvas({
     address: auctionAddress,
     provider,
     enabled:
-      allowDirectAuction &&
+      readDirectAuction &&
       !fixtureState &&
       !releaseMissing &&
       Boolean(auctionAddress),
@@ -2619,7 +2490,7 @@ export default function AuctionCanvas({
   const liveAuctionEnabled =
     !fixtureState &&
     Boolean(auctionAddress) &&
-    (allowDirectAuction ? protocolGuard.ready : Boolean(cachedAuctionConfig));
+    (readDirectAuction ? protocolGuard.ready : Boolean(cachedAuctionConfig));
   const {
     data: coreData,
     loading: coreLoadingHook,
@@ -2629,11 +2500,11 @@ export default function AuctionCanvas({
     address: auctionAddress,
     provider,
     refreshMs,
-    enabled: allowDirectAuction && liveAuctionEnabled,
+    enabled: readDirectAuction && liveAuctionEnabled,
   });
   const bidHistoryEnabled =
     liveAuctionEnabled &&
-    (allowDirectAuction ? Boolean(coreData?.config) : Boolean(cachedAuctionConfig));
+    (readDirectAuction ? Boolean(coreData?.config) : Boolean(cachedAuctionConfig));
   const {
     bids: bidsHook,
     loading: bidsLoading,
@@ -2645,8 +2516,8 @@ export default function AuctionCanvas({
     refreshMs,
     enabled: bidHistoryEnabled,
     maxBids,
-    preferCacheApi: !allowDirectAuction,
-    allowDirectFallback: allowDirectAuction,
+    preferCacheApi: !readDirectAuction,
+    allowDirectFallback: readDirectAuction,
   });
   const bids = fixtureState?.bids ?? bidsHook;
   const paymentToken = useMemo(() => resolvePaymentToken(), []);
@@ -2659,25 +2530,25 @@ export default function AuctionCanvas({
     [paymentToken]
   );
   const cachedCoreData = useMemo<AuctionSnapshot | null>(() => {
-    if (fixtureState || allowDirectAuction || !cachedAuctionConfig) return null;
+    if (fixtureState || readDirectAuction || !cachedAuctionConfig) return null;
     return {
       active: true,
       price: cachedAuctionConfig.genesisPrice,
       config: cachedAuctionConfig,
       state: null,
     };
-  }, [allowDirectAuction, cachedAuctionConfig, fixtureState]);
+  }, [cachedAuctionConfig, fixtureState, readDirectAuction]);
   const core = useMemo(
     () =>
       fixtureState
         ? { config: fixtureState.config }
-        : allowDirectAuction
+        : readDirectAuction
         ? coreData
         : cachedCoreData,
-    [allowDirectAuction, cachedCoreData, fixtureState, coreData]
+    [cachedCoreData, fixtureState, coreData, readDirectAuction]
   );
   const coreImpliesActive = Boolean(
-    allowDirectAuction
+    readDirectAuction
       ? coreData?.active ||
           coreData?.state?.active ||
           ((coreData?.state?.epochIndex ?? 0) > 0)
@@ -2686,17 +2557,17 @@ export default function AuctionCanvas({
   const bidsLoadingVisible = fixtureState ? false : bidHistoryEnabled && bidsLoading;
   const coreLoading = fixtureState
     ? false
-    : allowDirectAuction
+    : readDirectAuction
     ? protocolGuard.loading || coreLoadingHook
     : false;
   const coreError = fixtureState
     ? null
-    : allowDirectAuction
+    : readDirectAuction
     ? protocolGuard.error ?? coreErrorHook
     : null;
   const refreshCore = useCallback(
-    () => (allowDirectAuction ? refreshCoreHook() : Promise.resolve(undefined)),
-    [allowDirectAuction, refreshCoreHook]
+    () => (readDirectAuction ? refreshCoreHook() : Promise.resolve(undefined)),
+    [readDirectAuction, refreshCoreHook]
   );
   const [coreErrorVisible, setCoreErrorVisible] = useState<unknown>(null);
   const [missingDeployBlockVisible, setMissingDeployBlockVisible] =
@@ -2869,6 +2740,7 @@ export default function AuctionCanvas({
   const [isPanning, setIsPanning] = useState(false);
   const initialAskTipCurveKeyRef = useRef<string | null>(null);
   const initialAskTipShownRef = useRef(false);
+  const initialAskTipActiveRef = useRef(false);
   const postMintNowTipPendingRef = useRef(false);
   const postMintNowTipBaseCurveKeyRef = useRef<string | null>(null);
   const panRef = useRef<{
@@ -3760,11 +3632,14 @@ export default function AuctionCanvas({
       priceLabel: price ? formatTokenAmount(price, decimals) : "—",
       txHash: pendingMint.txHash,
       blockNumber: proofBid?.blockNumber ?? null,
-      sourceUrl: buildPathMintSourceUrl(pendingMint.txHash, network ?? "sepolia"),
-      sourceStatus: "indexing",
+      sourceUrl: localAnvil
+        ? new URL(`/path/${tokenId}`, window.location.origin).toString()
+        : buildPathMintSourceUrl(pendingMint.txHash, network ?? "sepolia"),
+      sourceStatus: localAnvil ? "ready" : "indexing",
     });
     updatePathMintReturnTokenId(pendingMint.txHash, tokenId);
     queueToast({ kind: "info", text: `$PATH #${tokenId} minted.` });
+    onPathMinted?.();
     void pullBidsOnce();
     void refreshCore();
     setPendingMint(null);
@@ -3774,9 +3649,11 @@ export default function AuctionCanvas({
     maxTokenId,
     decimals,
     network,
+    localAnvil,
     queueToast,
     pullBidsOnce,
     refreshCore,
+    onPathMinted,
     updatePathMintReturnTokenId,
   ]);
 
@@ -3816,7 +3693,7 @@ export default function AuctionCanvas({
 
   const mimicLocalTime = network === "devnet" || protocolRelease?.network === "devnet";
   const useBrowserAuctionClock =
-    mimicLocalTime || (!allowDirectAuction && !fixtureState);
+    mimicLocalTime || (!readDirectAuction && !fixtureState);
 
   // Devnet uses browser time to make local Anvil rehearsals usable even when
   // idle blocks are not mined. Public networks keep following block time.
@@ -3920,7 +3797,7 @@ export default function AuctionCanvas({
 
   // Fallback: fetch config directly if the core hook never fills it.
   useEffect(() => {
-    if (!allowDirectAuction) return;
+    if (!readDirectAuction) return;
     if (fixtureState) return;
     if (core?.config) {
       if (fallbackConfig) setFallbackConfig(null);
@@ -3972,7 +3849,7 @@ export default function AuctionCanvas({
     provider,
     fallbackConfig,
     fixtureState,
-    allowDirectAuction,
+    readDirectAuction,
   ]);
 
   const activeConfig = core?.config ?? fallbackConfig ?? null;
@@ -4066,7 +3943,7 @@ export default function AuctionCanvas({
       return toNumberSafe(decStr);
     };
 
-    const directState = !fixtureState && allowDirectAuction ? coreData?.state : null;
+    const directState = !fixtureState && readDirectAuction ? coreData?.state : null;
     const directStateEpoch = Number(directState?.epochIndex);
     const directStateImpliesActive =
       Boolean(directState?.active) ||
@@ -4254,7 +4131,7 @@ export default function AuctionCanvas({
     };
   }, [
     activeConfig,
-    allowDirectAuction,
+    readDirectAuction,
     bids,
     coreData?.state,
     coreLoading,
@@ -4366,7 +4243,12 @@ export default function AuctionCanvas({
   useEffect(() => {
     currentAskEstimateRef.current = currentAskEstimate;
   }, [currentAskEstimate]);
-  const { status: auctionStatus, openAtUtcLabel, opensInLabel } = useAuctionStatus({
+  const {
+    status: auctionStatus,
+    openAtLocalLabel,
+    opensInLabel,
+    opensWithinTheHour,
+  } = useAuctionStatus({
     releaseMissing,
     nowSec,
     openTimeSec: activeConfig?.openTimeSec,
@@ -4377,7 +4259,7 @@ export default function AuctionCanvas({
     bidsLength: bids.length,
     hasRenderableCurve: linked.segments.length > 0 && linked.reason === null,
   });
-  const showNoReleaseNotice = auctionStatus === "no_release";
+  const showBeforeDeployNotice = auctionStatus === "before_deploy";
   const showBeforeOpenNotice = auctionStatus === "before_open";
   const showOpenNotActive = auctionStatus === "open_not_active";
   const showHistoryLoading = auctionStatus === "history_loading";
@@ -4390,12 +4272,18 @@ export default function AuctionCanvas({
   const auctionBlocksMint =
     !debugActive &&
     !walletActionRequired &&
-    (showNoReleaseNotice || showBeforeOpenNotice || showCurveLoading);
+    (showBeforeDeployNotice || showBeforeOpenNotice || showCurveLoading);
+  const auctionOpeningLabel =
+    opensWithinTheHour && opensInLabel
+      ? `in ${opensInLabel}`
+      : openAtLocalLabel;
   const auctionBlockedMintNotice = showBeforeOpenNotice
-    ? `Auction opens ${opensInLabel ? `in ${opensInLabel}` : "soon"}.`
-    : showNoReleaseNotice
-    ? "PATH auction not loaded."
-    : "Loading auction state.";
+    ? auctionOpeningLabel
+      ? `Minting opens ${auctionOpeningLabel}.`
+      : "Minting has not opened yet."
+    : showBeforeDeployNotice
+    ? "$PATH minting is not open yet."
+    : "Checking whether minting is open.";
   const showMissingDeployBlock =
     auctionStatus === "loading" &&
     missingDeployBlock &&
@@ -4439,7 +4327,7 @@ export default function AuctionCanvas({
   }, [auctionBlocksMint, txState]);
   const showCurvePlot =
     auctionStatus === "active" &&
-    !showNoReleaseNotice &&
+    !showBeforeDeployNotice &&
     !showBeforeOpenNotice &&
     !showOpenNotActive &&
     linked.segments.length > 0 &&
@@ -5065,6 +4953,7 @@ export default function AuctionCanvas({
   };
 
   const handleFixWalletRpc = async () => {
+    const chainLabel = resolveChainLabel(targetChainIdHex);
     if (isMetaMaskWallet) {
       const rpcUrl =
         resolveAddChainParams(targetChainIdHex)?.rpcUrls?.[0] ??
@@ -5079,8 +4968,8 @@ export default function AuctionCanvas({
       showToast({
         kind: "warn",
         text: copied
-          ? "Copied RPC. Select Sepolia, update RPC, retry."
-          : "Select Sepolia, update RPC, retry.",
+          ? `Copied RPC. Select ${chainLabel}, update RPC, retry.`
+          : `Select ${chainLabel}, update RPC, retry.`,
       });
       return;
     }
@@ -5088,8 +4977,8 @@ export default function AuctionCanvas({
     showToast({
       kind: ok ? "info" : "warn",
       text: ok
-        ? `${isMetaMaskWallet ? "MetaMask" : "Wallet"} Sepolia RPC refreshed. Retry.`
-        : `Open ${isMetaMaskWallet ? "MetaMask" : "wallet"} Sepolia RPC settings, then retry.`,
+        ? `${isMetaMaskWallet ? "MetaMask" : "Wallet"} ${chainLabel} RPC refreshed. Retry.`
+        : `Open ${isMetaMaskWallet ? "MetaMask" : "wallet"} ${chainLabel} RPC settings, then retry.`,
     });
   };
 
@@ -5100,7 +4989,7 @@ export default function AuctionCanvas({
         : effectiveTxHash ?? lastTxHash;
     if (!hash) return;
     const url = resolveExplorerTxUrl(hash);
-    if (typeof window !== "undefined") {
+    if (url && typeof window !== "undefined") {
       window.open(url, "_blank", "noopener,noreferrer");
     }
   };
@@ -5131,10 +5020,12 @@ export default function AuctionCanvas({
     setCurrentAskQuoteDec(null);
     postMintNowTipPendingRef.current = true;
     postMintNowTipBaseCurveKeyRef.current = initialAskTipCurveKeyRef.current;
-    void requestPulseAuctionRefresh(hash).then(() => {
-      void pullBidsOnce();
-      void refreshCore();
-    });
+    if (!localAnvil) {
+      void requestPulseAuctionRefresh(hash).then(() => {
+        void pullBidsOnce();
+        void refreshCore();
+      });
+    }
     void pullBidsOnce();
     void refreshCore();
     window.setTimeout(() => void pullBidsOnce(), 2_000);
@@ -5405,11 +5296,15 @@ export default function AuctionCanvas({
 
   const handleMint = async () => {
     if (debugActive) return;
+    if (!isPathMintActivationApproved()) {
+      showToast({ kind: "info", text: "Minting is not open yet." });
+      return;
+    }
     if (pathMintIntentBlock) {
       showToast({ kind: "warn", text: pathMintIntentBlock });
       return;
     }
-    if (auctionBlocksMint) {
+    if (showBeforeDeployNotice || auctionBlocksMint) {
       showToast({ kind: "info", text: auctionBlockedMintNotice });
       return;
     }
@@ -5634,7 +5529,7 @@ export default function AuctionCanvas({
         return {
           kind: "error",
           text: isMetaMaskWallet
-            ? "MetaMask RPC busy. Select Sepolia or update RPC."
+            ? `MetaMask RPC busy. Select ${targetChainLabel} or update RPC.`
             : "Wallet RPC busy.",
           reportState: "wallet_rpc_busy",
           reportError: msg,
@@ -5768,6 +5663,7 @@ export default function AuctionCanvas({
     pathMintReturnState,
     pendingMint,
     isMetaMaskWallet,
+    targetChainLabel,
   ]);
 
   useEffect(() => {
@@ -6020,11 +5916,13 @@ export default function AuctionCanvas({
     if (!initialAskTipCurveKey) {
       initialAskTipCurveKeyRef.current = null;
       initialAskTipShownRef.current = false;
+      initialAskTipActiveRef.current = false;
       return;
     }
     if (initialAskTipCurveKeyRef.current === initialAskTipCurveKey) return;
     initialAskTipCurveKeyRef.current = initialAskTipCurveKey;
     initialAskTipShownRef.current = false;
+    initialAskTipActiveRef.current = false;
   }, [initialAskTipCurveKey]);
 
   const tooltipOriginRect = useCallback(() => {
@@ -6232,13 +6130,24 @@ export default function AuctionCanvas({
   }, [liveNowSec, effectiveCurrentAskQuoteDec, mimicLocalTime]);
 
   useEffect(() => {
+    if (isCompactPathViewport) {
+      initialAskTipShownRef.current = true;
+      if (!initialAskTipActiveRef.current) return;
+      initialAskTipActiveRef.current = false;
+      setHover((previous) =>
+        previous?.key === "now" && !pinnedDotRef.current ? null : previous,
+      );
+      return;
+    }
     if (selectedBidKey || selectedAskKey || selectedNow) return;
     if (hover) return;
     if (isPanning || panRef.current.active) return;
     if (initialAskTipShownRef.current) return;
     if (!showNowCurveHover()) return;
     initialAskTipShownRef.current = true;
+    initialAskTipActiveRef.current = true;
   }, [
+    isCompactPathViewport,
     selectedBidKey,
     selectedAskKey,
     selectedNow,
@@ -6986,13 +6895,6 @@ export default function AuctionCanvas({
       style={dotfieldStyle}
       data-layout-zoomed={isPathStageLayoutZoomed ? "true" : "false"}
     >
-      {!isDesktop && !pathMintIntent && (
-        <div className="dotfield__overlay">
-          <div className="muted small">
-            This view needs more room. Please widen your window or use a larger screen.
-          </div>
-        </div>
-      )}
       <div className="dotfield__nav">
         <div className="dotfield__title-stack">
           <h1 className="headline dotfield__title thin">
@@ -7009,32 +6911,131 @@ export default function AuctionCanvas({
         </div>
         {!isWalletConnectCta ? (
           <div className="dotfield__cta-stack" ref={ctaStackRef}>
-            <HeaderWalletCTA
-              ctaLabel={displayedCta.label}
-              ctaDisabled={displayedCta.disabled}
-              onCtaClick={displayedCta.onClick}
-              showWalletDot={false}
-              dotState={dotState}
-              lastTxHash={effectiveLastTxHash}
-              onCopyNotice={() => showToast({ kind: "info", text: "Copied." })}
-              onDisconnectNotice={() => {
-                setWalletUnlockAttempted(false);
-                setTxState("idle");
-                setTxPhase(null);
-                setTxHash(null);
-                setTxError(null);
-                setLastTxHash(null);
-                setPreflight({
-                  ask: null,
-                  balance: null,
-                  allowance: null,
-                  loading: false,
-                  attempted: false,
-                  error: null,
-                });
-                showToast({ kind: "info", text: "wallet disconnected." });
-              }}
-            />
+            <div className="dotfield__cta-anchor">
+              <HeaderWalletCTA
+                ctaLabel={displayedCta.label}
+                ctaDisabled={displayedCta.disabled}
+                onCtaClick={displayedCta.onClick}
+                showWalletDot={false}
+                dotState={dotState}
+                lastTxHash={effectiveLastTxHash}
+                onCopyNotice={() => showToast({ kind: "info", text: "Copied." })}
+                onDisconnectNotice={() => {
+                  setWalletUnlockAttempted(false);
+                  setTxState("idle");
+                  setTxPhase(null);
+                  setTxHash(null);
+                  setTxError(null);
+                  setLastTxHash(null);
+                  setPreflight({
+                    ask: null,
+                    balance: null,
+                    allowance: null,
+                    loading: false,
+                    attempted: false,
+                    error: null,
+                  });
+                  showToast({ kind: "info", text: "wallet disconnected." });
+                }}
+              />
+              {mintReview && effectiveTxState === "idle" && (
+                <div
+                  className="dotfield__mint-review"
+                  ref={mintReviewRef}
+                  aria-live="polite"
+                >
+                  <div className="dotfield__mint-review-title">
+                    $PATH mint
+                  </div>
+                  <div className="dotfield__mint-review-subtitle">
+                    Review the $PATH mint before opening your wallet.
+                  </div>
+                  <div className="dotfield__mint-review-row">
+                    <span>network</span>
+                    <strong>{environmentLabel}</strong>
+                  </div>
+                  <div className="dotfield__mint-review-row">
+                    <span>chain</span>
+                    <strong>{targetChainLabel}</strong>
+                  </div>
+                  <div className="dotfield__mint-review-row">
+                    <span>chain id</span>
+                    <strong>{mintReviewChainIdLabel}</strong>
+                  </div>
+                  <div className="dotfield__mint-review-row">
+                    <span>currency</span>
+                    <strong>{currencyLabel}</strong>
+                  </div>
+                  <div className="dotfield__mint-review-row">
+                    <span>contract</span>
+                    <strong>
+                      {mintReviewContractHref ? (
+                        <a
+                          className="dotfield__mint-review-link"
+                          href={mintReviewContractHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {shortAddr(auctionAddress)} ↗
+                        </a>
+                      ) : (
+                        <>{shortAddr(auctionAddress)}</>
+                      )}
+                    </strong>
+                  </div>
+                  <div className="dotfield__mint-review-row">
+                    <span>function</span>
+                    <strong>bid(uint256 maxPrice)</strong>
+                  </div>
+                  <div className="dotfield__mint-review-row">
+                    <span>current ask</span>
+                    <strong>{mintReviewCurrentAskLabel ?? mintReview.priceLabel} {mintReview.symbol}</strong>
+                  </div>
+                  <div className="dotfield__mint-review-row">
+                    <span>ETH sent</span>
+                    <strong>{mintReviewTxValueLabel ?? mintReview.txValueLabel} {mintReview.nativePayment ? mintReview.symbol : "ETH"}</strong>
+                  </div>
+                  <div className="dotfield__mint-review-row">
+                    <span>max price</span>
+                    <strong>{mintReviewMaxPriceLabel ?? mintReview.maxPriceLabel} {mintReview.symbol}</strong>
+                  </div>
+                  <div className="dotfield__mint-review-row">
+                    <span>approval</span>
+                    <strong>{mintReview.requiresApproval ? `${mintReview.symbol} approval first` : "none"}</strong>
+                  </div>
+                  <div className="dotfield__mint-review-row">
+                    <span>network gas</span>
+                    <strong>shown in wallet</strong>
+                  </div>
+                  <div className="dotfield__mint-review-note">
+                    {mintReview.requiresApproval
+                      ? (
+                        <>
+                          wallet opens next.
+                          <br />
+                          wallet step 1 approves {mintReview.symbol}.
+                          <br />
+                          wallet step 2 mints $PATH.
+                        </>
+                      )
+                      : (
+                        <>
+                          wallet opens next.
+                        </>
+                      )}
+                    <br />
+                    <a
+                      className="dotfield__mint-review-link"
+                      href="/verify"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      verify contracts ↗
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
             {walletPickerOpen ? (
               <InshellWalletPicker
                 connectors={availableConnectors}
@@ -7072,8 +7073,8 @@ export default function AuctionCanvas({
               }}
               aria-label={
                 isMetaMaskWallet
-                  ? "Fix MetaMask Sepolia RPC"
-                  : "Fix wallet Sepolia RPC"
+                  ? `Fix MetaMask ${targetChainLabel} RPC`
+                  : `Fix wallet ${targetChainLabel} RPC`
               }
             >
               {isMetaMaskWallet ? "copy rpc" : "fix rpc ↗"}
@@ -7084,7 +7085,7 @@ export default function AuctionCanvas({
           <>
             {" "}
             <a
-              href={displayNoticeReportLink.href}
+                    href="https://github.com/inshell-art/inshell.art/issues/new"
               target={displayNoticeReportLink.target}
               rel={displayNoticeReportLink.rel}
               aria-label={displayNoticeReportLink.ariaLabel}
@@ -7095,103 +7096,6 @@ export default function AuctionCanvas({
           </>
         )}
       </div>
-      {mintReview && effectiveTxState === "idle" && (
-        <div
-          className="dotfield__mint-review"
-          ref={mintReviewRef}
-          aria-live="polite"
-        >
-          <div className="dotfield__mint-review-title">
-            $PATH mint
-          </div>
-          <div className="dotfield__mint-review-subtitle">
-            Review the $PATH mint before opening your wallet.
-          </div>
-          <div className="dotfield__mint-review-row">
-            <span>network</span>
-            <strong>{PUBLIC_NETWORK_CONFIG.environmentLabel}</strong>
-          </div>
-          <div className="dotfield__mint-review-row">
-            <span>chain</span>
-            <strong>{targetChainLabel}</strong>
-          </div>
-          <div className="dotfield__mint-review-row">
-            <span>chain id</span>
-            <strong>{mintReviewChainIdLabel}</strong>
-          </div>
-          <div className="dotfield__mint-review-row">
-            <span>currency</span>
-            <strong>{PUBLIC_NETWORK_CONFIG.currencyLabel}</strong>
-          </div>
-          <div className="dotfield__mint-review-row">
-            <span>contract</span>
-            <strong>
-              {mintReviewContractHref ? (
-                <a
-                  className="dotfield__mint-review-link"
-                  href={mintReviewContractHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {shortAddr(auctionAddress)} ↗
-                </a>
-              ) : (
-                <>{shortAddr(auctionAddress)}</>
-              )}
-            </strong>
-          </div>
-          <div className="dotfield__mint-review-row">
-            <span>function</span>
-            <strong>bid(uint256 maxPrice)</strong>
-          </div>
-          <div className="dotfield__mint-review-row">
-            <span>current ask</span>
-            <strong>{mintReviewCurrentAskLabel ?? mintReview.priceLabel} {mintReview.symbol}</strong>
-          </div>
-          <div className="dotfield__mint-review-row">
-            <span>ETH sent</span>
-            <strong>{mintReviewTxValueLabel ?? mintReview.txValueLabel} {mintReview.nativePayment ? mintReview.symbol : "ETH"}</strong>
-          </div>
-          <div className="dotfield__mint-review-row">
-            <span>max price</span>
-            <strong>{mintReviewMaxPriceLabel ?? mintReview.maxPriceLabel} {mintReview.symbol}</strong>
-          </div>
-          <div className="dotfield__mint-review-row">
-            <span>approval</span>
-            <strong>{mintReview.requiresApproval ? `${mintReview.symbol} approval first` : "none"}</strong>
-          </div>
-          <div className="dotfield__mint-review-row">
-            <span>network gas</span>
-            <strong>shown in wallet</strong>
-          </div>
-          <div className="dotfield__mint-review-note">
-            {mintReview.requiresApproval
-              ? (
-                <>
-                  wallet opens next.
-                  <br />
-                  wallet step 1 approves {mintReview.symbol}.
-                  <br />
-                  wallet step 2 mints $PATH.
-                </>
-              )
-              : (
-                <>
-                  wallet opens next.
-                </>
-              )}
-            <br />
-            <a
-              className="dotfield__mint-review-link"
-              href="/verify"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              verify contracts ↗
-            </a>
-          </div>
-        </div>
-      )}
       {mintProof && !mintReview && (
         <div className="dotfield__mint-proof" aria-live="polite">
           <button
@@ -7223,14 +7127,18 @@ export default function AuctionCanvas({
           <div className="dotfield__mint-review-row">
             <span>tx</span>
             <strong>
-              <a
-                className="dotfield__mint-review-link"
-                href={resolveExplorerTxUrl(mintProof.txHash)}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {shortHash(mintProof.txHash)} ↗
-              </a>
+              {resolveExplorerTxUrl(mintProof.txHash) ? (
+                <a
+                  className="dotfield__mint-review-link"
+                  href={resolveExplorerTxUrl(mintProof.txHash) ?? undefined}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {shortHash(mintProof.txHash)} ↗
+                </a>
+              ) : (
+                shortHash(mintProof.txHash)
+              )}
             </strong>
           </div>
           <div className="dotfield__mint-review-row">
@@ -7239,7 +7147,7 @@ export default function AuctionCanvas({
           </div>
           <div className="dotfield__mint-proof-status">
             <span>confirmed</span>
-            <strong>explorer ready</strong>
+            <strong>{resolveExplorerTxUrl(mintProof.txHash) ? "explorer ready" : "local receipt ready"}</strong>
           </div>
           <div className="dotfield__mint-proof-status">
             <span>indexed</span>
@@ -7279,13 +7187,15 @@ export default function AuctionCanvas({
                   : "source indexing"}
               </button>
             )}
-            <a
-              href={resolveExplorerTxUrl(mintProof.txHash)}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              explorer ↗
-            </a>
+            {resolveExplorerTxUrl(mintProof.txHash) ? (
+              <a
+                href={resolveExplorerTxUrl(mintProof.txHash) ?? undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                explorer ↗
+              </a>
+            ) : null}
           </div>
           <details className="dotfield__mint-proof-details">
             <summary>proof details</summary>
@@ -7293,10 +7203,10 @@ export default function AuctionCanvas({
             <div className="dotfield__mint-review-row">
               <span>PulseAuction</span>
               <strong>
-                {proofContracts.PulseAuction ? (
+                {proofContracts.PulseAuction && resolveExplorerAddressUrl(proofContracts.PulseAuction) ? (
                   <a
                     className="dotfield__mint-review-link"
-                    href={resolveExplorerAddressUrl(proofContracts.PulseAuction)}
+                    href={resolveExplorerAddressUrl(proofContracts.PulseAuction) ?? undefined}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -7310,10 +7220,10 @@ export default function AuctionCanvas({
             <div className="dotfield__mint-review-row">
               <span>PathPulseAdapter</span>
               <strong>
-                {proofContracts.PathPulseAdapter ? (
+                {proofContracts.PathPulseAdapter && resolveExplorerAddressUrl(proofContracts.PathPulseAdapter) ? (
                   <a
                     className="dotfield__mint-review-link"
-                    href={resolveExplorerAddressUrl(proofContracts.PathPulseAdapter)}
+                    href={resolveExplorerAddressUrl(proofContracts.PathPulseAdapter) ?? undefined}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -7327,10 +7237,10 @@ export default function AuctionCanvas({
             <div className="dotfield__mint-review-row">
               <span>PathNFT</span>
               <strong>
-                {proofContracts.PathNFT ? (
+                {proofContracts.PathNFT && resolveExplorerAddressUrl(proofContracts.PathNFT) ? (
                   <a
                     className="dotfield__mint-review-link"
-                    href={resolveExplorerAddressUrl(proofContracts.PathNFT)}
+                    href={resolveExplorerAddressUrl(proofContracts.PathNFT) ?? undefined}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -7519,15 +7429,13 @@ export default function AuctionCanvas({
         </div>
       )}
       {(() => {
-        if (showNoReleaseNotice) {
+        if (showBeforeDeployNotice) {
           return (
             <div className="dotfield__canvas dotfield__look">
               <div className="muted dotfield__status-copy">
-                No PATH deployment loaded.
+                $PATH minting is not open yet.
                 <br />
-                PATH auction not loaded.
-                <br />
-                Deploy PATH, export the FE release, then sync inshell.art.
+                The onchain release is being prepared.
               </div>
             </div>
           );
@@ -7536,11 +7444,11 @@ export default function AuctionCanvas({
           return (
             <div className="dotfield__canvas dotfield__look">
               <div className="muted dotfield__status-copy">
-                Auction opens at {openAtUtcLabel ?? "—"} UTC.
+                Minting is not open yet.
                 <br />
-                {opensInLabel ? `Opens in ${opensInLabel}.` : "Waiting for first eligible block."}
-                <br />
-                First bid can land at or after open time.
+                {auctionOpeningLabel
+                  ? `The auction opens ${auctionOpeningLabel}. Come back then to mint a $PATH.`
+                  : "The opening time is being confirmed. Check back shortly."}
               </div>
             </div>
           );
@@ -7577,9 +7485,7 @@ export default function AuctionCanvas({
           return (
             <div className="dotfield__canvas dotfield__look">
               <div className="muted dotfield__status-copy">
-                No bids loaded.
-                <br />
-                Set VITE_PULSE_AUCTION_DEPLOY_BLOCK to backfill history.
+                Sale history is not available right now.
               </div>
             </div>
           );
@@ -7588,9 +7494,7 @@ export default function AuctionCanvas({
           return (
             <div className="dotfield__canvas dotfield__look">
               <div className="muted dotfield__status-copy">
-                No bids loaded.
-                <br />
-                Check deploy block and RPC.
+                Sale history is not available right now.
               </div>
             </div>
           );
@@ -7598,25 +7502,21 @@ export default function AuctionCanvas({
         if (showCurveLoading && !missingDeployBlockVisible && !noBidsVisible) {
           return (
             <div className="dotfield__canvas dotfield__look">
-              <div className="muted">loading pricing...</div>
+              <div className="muted">Loading pricing.</div>
             </div>
           );
         }
         if (coreErrorVisible && !showCurvePlot) {
           return (
             <div className="dotfield__canvas dotfield__look">
-              <div className="muted">curve error: {String(coreErrorVisible)}</div>
+              <div className="muted">Pricing is not available right now.</div>
             </div>
           );
         }
         if (!showCurvePlot || !effectiveViewport) {
           return (
             <div className="dotfield__canvas dotfield__look">
-              <div className="muted">
-                {linked.reason
-                  ? `curve unavailable: ${formatCurveReason(linked.reason)}`
-                  : "curve not ready"}
-              </div>
+              <div className="muted">Pricing is not available right now.</div>
             </div>
           );
         }
@@ -8018,6 +7918,7 @@ export default function AuctionCanvas({
               {showNow && nowPt && (
                 <button
                   type="button"
+                  aria-label="current ask"
                   className={`dotfield__point dotfield__point--now${
                     selectedNow ? " is-selected" : ""
                   }`}
@@ -8032,21 +7933,25 @@ export default function AuctionCanvas({
                   onMouseMove={(e) => {
                     e.stopPropagation();
                     if (pinnedDotRef.current) return;
+                    initialAskTipActiveRef.current = false;
                     showNowCurveHover(e.clientX, e.clientY);
                   }}
                   onMouseEnter={(e) => {
                     e.stopPropagation();
                     if (pinnedDotRef.current) return;
+                    initialAskTipActiveRef.current = false;
                     showNowCurveHover(e.clientX, e.clientY);
                   }}
                   onMouseLeave={(e) => {
                     e.stopPropagation();
                     if (!pinnedDotRef.current) {
+                      initialAskTipActiveRef.current = false;
                       setHover(null);
                     }
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
+                    initialAskTipActiveRef.current = false;
                     showNowCurveHover(e.clientX, e.clientY);
                     pinNowDot(e.clientX, e.clientY);
                   }}
@@ -8056,7 +7961,7 @@ export default function AuctionCanvas({
               )}
             </div>
 
-            {hover && (() => {
+            {hover && !mintReview && (() => {
               const popRows: Array<{ label: string; value: string }> = [];
               const popNotes: string[] = [];
               const isOpeningAsk =
@@ -8274,22 +8179,30 @@ export default function AuctionCanvas({
                       : hover.key === "premium"
                         ? "initial premium"
                         : "ask";
+              const hoverScreenY = hover.screenY;
               const popoverOpensAbove =
-                typeof window !== "undefined" && hover.screenY > window.innerHeight / 2;
+                typeof window !== "undefined" &&
+                typeof hoverScreenY === "number" &&
+                hoverScreenY > window.innerHeight / 2;
+              const popoverStyle: CSSProperties & {
+                "--popover-anchor-x": string;
+                "--popover-anchor-bottom"?: string;
+              } = {
+                "--popover-anchor-x": `${hover.screenX}px`,
+              };
+              if (popoverOpensAbove) {
+                popoverStyle["--popover-anchor-bottom"] =
+                  `calc(100vh - ${hoverScreenY}px + var(--curve-tooltip-cursor-offset))`;
+              } else {
+                popoverStyle.top = hoverScreenY;
+              }
 
               return (
                 <div
                   className={`dotfield__popover${
                     popoverOpensAbove ? " dotfield__popover--above" : ""
                   }`}
-                  style={{
-                    "--popover-anchor-x": `${hover.screenX}px`,
-                    ...(popoverOpensAbove
-                      ? {
-                          "--popover-anchor-bottom": `calc(100vh - ${hover.screenY}px + var(--curve-tooltip-cursor-offset))`,
-                        }
-                      : { top: hover.screenY }),
-                  } as CSSProperties}
+                  style={popoverStyle}
                 >
                   <div className="muted small">{popTitle}</div>
                   <div className="dotfield__popover-meta" style={{ marginTop: 6 }}>

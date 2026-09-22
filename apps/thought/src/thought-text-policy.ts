@@ -42,10 +42,17 @@ const displayLine = (line: ThoughtTextPolicyLine) => isAgentOutput(line) ? "Agen
 const sentenceLine = (line: ThoughtTextPolicyLine) =>
   line === "prompt" ? "The prompt" : "The Agent output";
 
+const capitalize = (value: string) => {
+  const index = [...value].findIndex((char) => /[a-z]/i.test(char));
+  return index < 0 ? value : value.slice(0, index) + value[index].toUpperCase() + value.slice(index + 1);
+};
+
 const editNextStep = (line: ThoughtTextPolicyLine, promptStep: string) =>
-  isAgentOutput(line)
-    ? "reset and run the Agent again; output is never auto-corrected"
-    : promptStep;
+  capitalize(
+    isAgentOutput(line)
+      ? "reset and run the Agent again; output is never auto-corrected"
+      : promptStep,
+  );
 
 const repeatedSpacePosition = (value: string) => {
   const match = / {2,}/.exec(value);
@@ -115,7 +122,7 @@ const issueForCodePoint = (
 
   if (codePoint === 0x0009) {
     return {
-      title: "tab not allowed",
+      title: "Tab not allowed",
       detail: `${subject} contains a tab${location}.`,
       nextStep: editNextStep(line, `replace the tab${location} with one regular space`),
     };
@@ -127,14 +134,14 @@ const issueForCodePoint = (
     codePoint === 0x2029
   ) {
     return {
-      title: "line break not allowed",
+      title: "Line break not allowed",
       detail: `${subject} contains a line break${location}.`,
       nextStep: editNextStep(line, `delete the line break${location}`),
     };
   }
   if (isWhitespaceCodePoint(codePoint)) {
     return {
-      title: "unsupported space",
+      title: "Unsupported space",
       detail: `${subject} contains ${described === "character" ? "an unsupported space" : `a ${described}`}${location}.`,
       nextStep: editNextStep(
         line,
@@ -144,14 +151,14 @@ const issueForCodePoint = (
   }
   if (isInvisibleCodePoint(codePoint)) {
     return {
-      title: "invisible character",
+      title: "Invisible character",
       detail: `${subject} contains an invisible character${location}.`,
       nextStep: editNextStep(line, `delete the invisible character${location}`),
     };
   }
   if (/control character/i.test(error)) {
     return {
-      title: "control character",
+      title: "Control character",
       detail: `${subject} contains a control character${location}.`,
       nextStep: editNextStep(line, `delete the control character${location}`),
     };
@@ -173,7 +180,7 @@ const issueForCodePoint = (
     };
   }
   return {
-    title: "unsupported character",
+    title: "Unsupported character",
     detail: `${subject} contains an unsupported character${location}.`,
     nextStep: editNextStep(line, `delete or replace the character${location}`),
   };
@@ -196,7 +203,7 @@ export const describeThoughtTextPolicyIssue = ({
   if (measure.byteLength > maxBytes) {
     const percentage = Math.round((measure.byteLength / maxBytes) * 100);
     return {
-      title: "text too long",
+      title: "Text too long",
       detail: `${label}: ${percentage}% used · ${measure.byteLength} / ${maxBytes} UTF-8 bytes`,
       nextStep: editNextStep(line, `reduce ${line} to ${maxBytes} UTF-8 bytes or less`),
     };
@@ -214,10 +221,10 @@ export const describeThoughtTextPolicyIssue = ({
   const endsWithSpace = value.endsWith(" ");
   if (startsWithSpace || endsWithSpace) {
     const title = startsWithSpace && endsWithSpace
-      ? "outer spaces"
+      ? "Outer spaces"
       : startsWithSpace
-        ? "leading space"
-        : "trailing space";
+        ? "Leading space"
+        : "Trailing space";
     const detail = startsWithSpace && endsWithSpace
       ? `${sentenceLine(line)} starts and ends with a space.`
       : startsWithSpace
@@ -239,7 +246,7 @@ export const describeThoughtTextPolicyIssue = ({
     const position = repeatedSpacePosition(value);
     const location = position ? ` at character ${position}` : "";
     return {
-      title: "extra spaces",
+      title: "Extra spaces",
       detail: `${sentenceLine(line)} has more than one space together${location}.`,
       nextStep: editNextStep(line, `delete the extra space${location}`),
     };
@@ -249,7 +256,7 @@ export const describeThoughtTextPolicyIssue = ({
     const position = invalidSurrogatePosition(value);
     const location = position ? ` at character ${position}` : "";
     return {
-      title: "broken character",
+      title: "Broken character",
       detail: `${sentenceLine(line)} contains a broken character${location}.`,
       nextStep: editNextStep(line, `delete or replace the broken character${location}`),
     };

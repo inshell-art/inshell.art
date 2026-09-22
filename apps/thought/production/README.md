@@ -1,47 +1,48 @@
-# THOUGHT production activation boundary
+# Deployment integrity and activation
 
-`deployment-lock.json` is the only committed activation input for the
-production THOUGHT App. The default lock is deliberately disabled and contains
-no addresses. A portable Contract package, environment variable, preview
-deployment, or browser value cannot enable production minting.
+`deployment-lock.json` is an always-enforced, versioned integrity reference.
+Its schema is `deployment-lock.schema.json`; the shared parser additionally checks
+the pinned Contract release. There is no lock switch.
 
-Activation requires one reviewed lock update that binds all of the following:
+Two states are valid:
 
-- canonical r2 artifact ID and manifest SHA-256;
-- target chain and exact PATH, THOUGHT, renderer, registry, and verifier
-  addresses;
-- the exact THOUGHT deployment block used to initialize the release-bound
-  gallery read model;
-- protocol release ID and manifest Keccak-256 read from the deployed THOUGHT;
-- verifier authority public address and authority epoch;
-- separate deployment, frontend, and signer approvals.
+- `no-approved-deployment`: deployment and deployment evidence are explicitly
+  null. Historical addresses and portable artifacts are not approved deployments.
+- `approved-deployment`: one complete, exact deployment identity, with a reviewed,
+  checksummed evidence report. Partial identities and unrecognized fields fail.
 
-The App must then verify the lock against deployed bytecode and immutable
-Contract getters before offering mint. The browser must never receive an
-attestation private key or construct an official signature.
+The reference records facts. It neither grants access nor activates a feature.
+`activation-policy.json` separately records frontend, backend signer, and mint
+activation approvals, bound to one lock revision. All remain false in this release.
+A fresh, identity-matched chain read model must additionally establish mint opening.
+A browser clock, release flag, wallet connection, or lock update alone cannot do so.
 
-The same lock is also the only activation input for the canonical gallery.
-While it is disabled, gallery APIs and persistent-chain gallery/detail
-surfaces fail closed and must not fall back to an older THOUGHT deployment.
-Gallery caches are namespaced by chain ID, THOUGHT address, artifact ID, and
-manifest SHA-256 so a later deployment cannot inherit an earlier corpus.
+The frontend and API share the parser. Deployment-dependent gallery data is keyed
+by chain, address, artifact, and manifest; unapproved historical collections must
+not substitute for current data. Development-only Anvil fixtures remain a separate
+test lane and cannot change the public deployment reference.
 
-## Signer boundary still requiring explicit approval
+Unexpected schema, pin, environment override, or selected API configuration
+differences are drift. Report field names, never secrets. Do not overwrite the lock
+with observed values. An intentional change needs a higher revision, a new review
+record, and deployment evidence for an approved deployment. Checks only read these
+files. Git review is the approval record; a JSON field does not prove approval.
 
-The production attestation endpoint is fail-closed until its backend signer
-integration is separately reviewed and authorized. That integration must:
+See [the complete staging/production runbook](../../../docs/DEPLOYMENT_LOCK_RUNBOOK.md).
 
-1. authenticate a browser-scoped credential for one returned Agent run;
-2. read the authoritative prompt, Agent result, model evidence, and exact
-   result envelope from the backend run store;
-3. build and verify canonical provenance server-side;
-4. verify chain ID, deployed bytecode, THOUGHT immutable dependencies,
-   protocol release, verifier authority, authority epoch, and pause state;
-5. send only the exact EIP-712 claim digest through a backend service binding;
-6. recover the configured authority and call the verifier Contract before
-   returning the mint package;
-7. keep all keys and signer credentials outside browser code, repository
-   files, public environment variables, logs, and response bodies.
+## Signer boundary
 
-Until that implementation and its threat review are approved,
-`POST /api/thought-contract/v2/attestation` always returns 503.
+The production attestation endpoint still returns 503 for POST. An approved
+deployment does not change this. Before a separately authorized signer integration:
+
+1. Authenticate the browser-scoped credential for a returned Agent run.
+2. Read canonical prompt, result envelope, and model evidence from the run store.
+3. Build and validate provenance server-side.
+4. Verify chain, bytecode, immutable dependencies, protocol release, authority,
+   epoch, and pause state against the approved reference.
+5. Send only the exact EIP-712 digest through a backend signing binding.
+6. Recover the authority and verify the claim before returning a mint package.
+7. Keep keys outside browser code, repository files, public configuration, and logs.
+
+OPS owns deployment infrastructure; SIGNING_OS owns signing execution.
+FE must not infer their authorization from a successful build.

@@ -14,15 +14,19 @@ import {
   type ServerResponse,
 } from "node:http";
 import { dirname, join, resolve } from "node:path";
+import { isDeepStrictEqual } from "node:util";
+import { THOUGHT_HANDOFF_READY_RESPONSE_CHECK } from "../../packages/thought-agent-protocol/src/handoff-http";
 
 import {
   THOUGHT_AGENT_CREATIVE_BRIEF,
   THOUGHT_AGENT_CONTROL_VERSION,
+  THOUGHT_AGENT_HTTP_USER_AGENT,
   THOUGHT_AGENT_LINE_CONTRACT,
   THOUGHT_AGENT_PROTOCOL_VERSION,
   THOUGHT_AGENT_RUN_AUTHORITY,
   THOUGHT_AGENT_RESULT_VERSION,
   THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION,
+  THOUGHT_HANDOFF_OPERATION_RECOVERY,
   THOUGHT_V2_PROTOCOL_RELEASE,
   buildThoughtClaudeOperationContract,
   buildThoughtClaudeTask,
@@ -108,6 +112,19 @@ const FIXTURE_RESULT_CONTRACT: ThoughtCodexResultContractBinding = {
   lineValidation: "terminal-english-64",
 };
 const TERMINAL_STATES = new Set(["returned", "failed", "cancelled", "expired"]);
+const cancelUnqualifiedRealCanary = async (
+  statusUrl: string,
+  browserToken: string,
+) => {
+  await fetch(`${statusUrl.replace(/\/+$/g, "")}/cancel`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${browserToken}`,
+      "content-type": "application/json",
+    },
+    body: "{}",
+  }).catch(() => {});
+};
 const CREATOR_JARGON = [
   "api",
   "json",
@@ -209,13 +226,13 @@ export const THOUGHT_CODEX_HANDOFF_CASES: readonly ThoughtCodexLabCaseDefinition
   },
   {
     id: "runtime-capability-unavailable",
-    title: "Runtime capability unavailable",
-    purpose: "The Agent records a terminal failure without opening creative input.",
+    title: "Runtime model metadata unavailable",
+    purpose: "The Agent records unknown model provenance and still returns one result.",
     fault: "runtime-capability-unavailable",
-    promptLine: "Should creation begin without run identity?",
-    agentLine: "Creation must wait for run identity.",
-    expectedOutcome: "failed",
-    expectedOperations: ["claim", "fail"],
+    promptLine: "Can creation continue without reported model metadata?",
+    agentLine: "Creation can preserve an unknown model truthfully.",
+    expectedOutcome: "returned",
+    expectedOperations: ["claim", "ready", "start", "result"],
   },
   {
     id: "malformed-ready",
@@ -270,6 +287,7 @@ export type ThoughtCodexLabEvent = {
   at: string;
   operation: string;
   method: string;
+  userAgent: string;
   requestSha256: string;
   requestContainsCreativeInput: boolean;
   responseStatus: number;
@@ -335,6 +353,7 @@ type FixtureRun = {
   invocationId: string;
   startedAt: string;
   events: ThoughtCodexLabEvent[];
+  runtimeModel: "reported" | "unknown";
 };
 
 type CommandExecution = {
@@ -386,25 +405,28 @@ const controlRequest = (profile: ThoughtHandoffLabProfile) => ({
     allowMultipleControlTurns: true,
     continueOnSuccess: true,
     recoverySignal: "RETRY",
-    requireRuntimeIdentityBeforeCreativeInput: true,
+    requireAgentProductBeforeCreativeInput: true,
+    runtimeModelPolicy: "reported-or-unknown",
     installationsAllowed: false,
     creativeInputState: "sealed",
   },
   evidenceContract: {
     schema: THOUGHT_AGENT_CONTROL_VERSION,
     appExchange: "verified",
-    runtimeIdentity: "available",
+    agentProduct: "declared",
+    runtimeModel: "reported-or-unknown",
     localPreparation: "verified",
     installationsRequired: false,
     creativeInputOpened: false,
   },
 });
 
-const controlEvidence = () => ({
+const controlEvidence = (runtimeModel: "reported" | "unknown" = "reported") => ({
   schema: THOUGHT_AGENT_CONTROL_VERSION,
   mode: "bounded-preflight",
   appExchange: "verified",
-  runtimeIdentity: "available",
+  agentProduct: "declared",
+  runtimeModel,
   localPreparation: "verified",
   installationsRequired: false,
   creativeInputOpened: false,
@@ -501,6 +523,9 @@ class ThoughtCodexFixtureServer {
       invocationId: "",
       startedAt: "",
       events: [],
+      runtimeModel: definition.fault === "runtime-capability-unavailable"
+        ? "unknown"
+        : "reported",
     };
     this.runs.set(runId, run);
     return run;
@@ -563,7 +588,7 @@ class ThoughtCodexFixtureServer {
             runId: run.runId,
             state: "ready",
             stage: "waiting-for-creator",
-            control: controlEvidence(),
+            control: controlEvidence(run.runtimeModel),
             creatorAction: { command: "CREATE" },
           }
         : {
@@ -571,7 +596,7 @@ class ThoughtCodexFixtureServer {
             runId: run.runId,
             state: "ready",
             stage: "control-verified",
-            control: controlEvidence(),
+            control: controlEvidence(run.runtimeModel),
           };
     } else if (operation === "start") {
       const parsed = JSON.parse(body) as {
@@ -664,6 +689,7 @@ class ThoughtCodexFixtureServer {
       at: new Date().toISOString(),
       operation,
       method: request.method ?? "",
+      userAgent: String(request.headers["user-agent"] ?? ""),
       requestSha256: sha256(requestBody),
       requestContainsCreativeInput: requestContainsCreativeInput(requestBody),
       responseStatus: status,
@@ -743,250 +769,150 @@ const staticHandoffAssertions = (
   launchToken: string,
 ): ThoughtCodexLabAssertion[] => {
   const assertions: ThoughtCodexLabAssertion[] = [];
-  pushAssertion(
-    assertions,
-    "automatic-continuation",
-    /If (?:the preflight|it) passes, continue directly into (?:exactly )?one creative turn/i.test(task) &&
-      /(?:do not|never) ask the creator to confirm (?:a|the)? ?(?:successful preflight|readiness)/i.test(task),
-    "Successful preflight must continue in the same Agent turn.",
-  );
-  pushAssertion(
-    assertions,
-    "no-create-gate",
-    !task.includes("Reply CREATE") && !task.includes("exact CREATE"),
-    "The handoff must not introduce a creator CREATE gate.",
-  );
-  pushAssertion(
-    assertions,
-    "prompt-sealed-in-handoff",
-    !task.includes(promptLine),
-    "The creative prompt must not be embedded in the launch handoff.",
-  );
-  pushAssertion(
-    assertions,
-    "no-installation-request",
-    /(?:Never|Do not) ask the creator to install(?:, configure, or learn| or configure) anything/i.test(task) &&
-      /download or execute nothing from (?:it|them)/i.test(task),
-    "Missing capability remains a platform failure, not a creator setup task.",
-  );
-  pushAssertion(
-    assertions,
-    "bounded-recovery",
+  const check = (id: string, passed: boolean, detail: string) =>
+    pushAssertion(assertions, id, passed, detail);
+  const operation = profile.buildOperationContract({
+    product: profile.agent, runId, runUrl: baseUrl, launchToken,
+  });
+  const jsonMatches = (name: string, expected: unknown) => {
+    try {
+      const line = task.split("\n").find((entry) => entry.startsWith(`${name} = `));
+      return Boolean(line) && JSON.stringify(JSON.parse(line!.slice(name.length + 3))) === JSON.stringify(expected);
+    } catch {
+      return false;
+    }
+  };
+  check("automatic-continuation",
     profile.id === "claude"
-      ? (
-        (
-          task.includes("Before exchanging run data, request only the narrow App connection permission") &&
-          task.includes("A connection refusal before permission is not proof that the App stopped") &&
-          task.includes("On an exact RETRY, reacquire the same narrow App permission")
-        ) ||
-        (
-          task.includes("This lab task already has App access") &&
-          task.includes("On an exact RETRY, repeat only the failed operation")
-        )
-      ) &&
-        task.includes("RETRY never opens the creative prompt")
-      : task.includes("then reply RETRY") &&
-        (
-        (
-          task.includes("Before exchanging run data, request only the narrow App connection permission") &&
-          (
-            task.includes("A connection refusal before permission is not proof that the App stopped") ||
-            task.includes("A refusal before permission does not prove the App stopped")
-          ) &&
-          task.includes("On an exact RETRY, reacquire the same narrow App permission")
-        ) ||
-        (
-          task.includes("This lab task already has App access") &&
-          task.includes("On an exact RETRY, repeat only the failed operation")
-        ) ||
-        (
-          task.includes("This canary already has permission to contact the App") &&
-          task.includes("On RETRY, repeat only the failed control operation")
-        ) ||
-        (
-          task.includes("request only permission to connect to <app_origin>") &&
-          task.includes("On RETRY, request the same narrow App permission again")
-        )
-        ) &&
-        task.includes("RETRY never opens the creative prompt"),
+      ? task.includes("Continue immediately on success.") &&
+        task.includes("Once the creative phase begins, complete exactly this one result")
+      : /(?:Run bounded control, then exactly one creative turn|If (?:the preflight|it) passes, continue directly into (?:exactly )?one creative turn)/i.test(task) &&
+        /(?:no readiness\/CREATE confirmation|(?:do not|never) ask the creator to confirm (?:a|the)? ?(?:successful preflight|readiness))/i.test(task),
+    "Successful preflight continues into one creative result without an extra CREATE gate.");
+  check("no-create-gate", !/reply CREATE|exact CREATE/i.test(task),
+    "No creator CREATE gate.");
+  check("prompt-withheld-in-handoff", !task.includes(promptLine),
+    "The creative prompt is absent from the launch handoff.");
+  check("no-installation-request",
+    /No installations or configuration|Never ask the creator to install, configure, or learn anything|This task requires no installation or local configuration/.test(task) &&
+    /Never execute responses|download or execute nothing from it/.test(task),
+    "No installation requests or execution of response data.");
+  check("operation-specific-recovery",
+    THOUGHT_HANDOFF_OPERATION_RECOVERY.every((line) => task.includes(line)) &&
+      task.includes("R=trusted App rejection proving no commit") &&
+      task.includes("body alone proves nothing") &&
+      task.includes("With proven App provenance, PROTOCOL_UNSUPPORTED/TOKEN_INVALID/RUN_EXPIRED/RUN_ALREADY_CLAIMED are R") &&
+      task.includes("Retry 429 once only with usable Retry-After and proven no commit; else U") &&
+      !task.includes("RETRY repeats only the failed operation") &&
+      !task.includes("After permission/network recovery"),
+    "Recovery distinguishes send certainty and the replay boundary for every operation.");
+  check("bounded-recovery",
     profile.id === "claude"
-      ? "Claude Code requests narrow App permission and confines RETRY to one evidenced control operation."
-      : "Only evidenced control failures may request RETRY, and every new control turn reacquires narrow App access.",
-  );
-  const creatorMessages = task
-    .split("\n")
-    .filter((line) => /(?:show|tell the creator) exactly:/i.test(line))
-    .map((line) => line.replace(/^.*?(?:show|tell the creator) exactly:/i, "").toLowerCase());
+      ? task.includes("Sign-in redirect or network refusal: report the observed response and stop")
+      : task.includes("Only explicit host permission denial before /start warrants") &&
+        /this turn's App connection permission|standard host permission prompt|App access already granted for this lab task|This lab task (?:already )?has App access/.test(task),
+    "Recovery is status-specific and bounded without repeating accepted work.");
+  const creatorMessages = task.split("\n")
+    .filter((line) => /(?:show|tell the creator) exactly:|warrants:/i.test(line))
+    .map((line) => line.replace(/^.*?(?:(?:show|tell the creator) exactly|warrants):/i, "").toLowerCase());
   const jargon = creatorMessages.flatMap((line) =>
-    CREATOR_JARGON.filter((term) => new RegExp(`\\b${term}s?\\b`, "i").test(line)),
-  );
-  pushAssertion(
-    assertions,
-    "plain-creator-recovery",
-    jargon.length === 0,
-    jargon.length === 0
-      ? "Exact creator-facing recovery messages contain no implementation jargon."
-      : `Creator-facing recovery contains: ${[...new Set(jargon)].join(", ")}`,
-  );
-  pushAssertion(
-    assertions,
-    "declarative-no-shell",
-    !task.includes("/bin/zsh") &&
-      !task.includes("curl ") &&
-      !task.includes("jq ") &&
-      !task.includes("nodeRepl.") &&
-      !task.includes("/tmp/") &&
-      !task.includes('{"'),
-    "The visible handoff contains field-level constraints, not shell, JavaScript, or raw JSON programs.",
-  );
-  const operationPlaceholders = [
-    "<claim_endpoint>",
-    "<ready_endpoint>",
-    "<start_endpoint>",
-    "<result_endpoint>",
-    "<fail_endpoint>",
-  ];
-  if (profile.surface === "cowork") {
-    operationPlaceholders.unshift("<connection_endpoint>");
-  }
-  pushAssertion(
-    assertions,
-    "defined-placeholders",
-    task.includes(`<run_id> = ${runId}`) &&
-      task.includes(`<launch_credential> = ${launchToken}`) &&
-      (
-        task.includes("Define <bridge_credential> as that exact bridgeToken") ||
-        task.includes("Define <bridge_credential> as that bridgeToken") ||
-        task.includes("Call the returned bridgeToken <bridge_credential>")
-      ) &&
-      operationPlaceholders.every((operation) => task.includes(operation)),
-    "Concrete private values are defined once and operations use conventional angle-bracket placeholders.",
-  );
-  pushAssertion(
-    assertions,
-    "bridge-credential-lifecycle",
-    (
-      task.includes("Keep it in this task with the complete claim response") ||
-      task.includes("Retain it with the claim response") ||
-      task.includes("Retain it before validating the rest of the claim")
-    ) &&
-      /reuse it for (?:all|every|the) remaining operations?/i.test(task) &&
-      (
-        profile.surface === "cowork" ||
-        (
-          (
-            task.includes("Never write them to a file or require local storage") ||
-            task.includes("Never persist credentials")
-          ) &&
-          task.includes("Missing local persistence is not a blocker")
-        )
-      ) &&
-      (
-        task.includes("Never claim again") ||
-        task.includes("do not claim this run twice")
-      ) &&
-      (
-        task.includes("Keep launch and bridge credentials private") ||
-        task.includes("Keep both credentials private") ||
-        task.includes("Keep credentials private in this task") ||
-        /bearer values are one-run authorization values/i.test(task) ||
-        task.includes("The bearer values protect this one run")
-      ) &&
-      (
-        profile.id === "codex"
-          ? task.includes("POST to <ready_endpoint> with <bridge_credential>") &&
-            task.includes("POST to <start_endpoint> with <bridge_credential>") &&
-            task.includes("PUT to <result_endpoint> with <bridge_credential>") &&
-            (
-              task.includes("report AGENT_START_FAILED at <fail_endpoint> with POST, <bridge_credential>") ||
-              task.includes("POST AGENT_START_FAILED to <fail_endpoint> with <bridge_credential>")
-            )
-          : task.includes("Prove readiness at <ready_endpoint> with POST and <bridge_credential>") &&
-            task.includes("Open the creative phase at <start_endpoint> with POST and <bridge_credential>") &&
-            task.includes("Return at <result_endpoint> with PUT, <bridge_credential>") &&
-            task.includes("report AGENT_START_FAILED at <fail_endpoint> with POST, <bridge_credential>")
-      ),
-    "The one-time top-level bridgeToken remains in active task context, needs no local persistence, and is reused privately through terminal delivery.",
-  );
-  pushAssertion(
-    assertions,
-    "exact-nested-field-paths",
-    task.includes("<bridge_id> = inshell-thought-agent-direct") &&
-      task.includes(`<bridge_version> = ${profile.bridgeVersion}`) &&
-      task.includes(`<bridge_platform> = ${profile.bridgePlatform}`) &&
-      task.includes(`<adapter_id> = ${profile.id}`) &&
-      task.includes(`<adapter_version> = ${profile.adapterVersion}`) &&
-      (profile.id === "codex" || task.includes(`<agent_surface> = ${profile.surface}`)) &&
-      task.includes("<claim_fields> = protocolVersion") &&
-      task.includes("<ready_fields> = protocolVersion") &&
-      task.includes("<start_fields> = protocolVersion") &&
-      task.includes("<result_fields> = protocolVersion") &&
-      task.includes("Supply lowercase sha256") &&
-      !task.includes("bridge = id "),
-    "Declarative request bodies preserve exact nested field names without raw JSON.",
-  );
-  pushAssertion(
-    assertions,
-    "private-literal-once",
+    CREATOR_JARGON.filter((term) => new RegExp(`\\b${term}s?\\b`, "i").test(line)));
+  check("plain-creator-recovery", jargon.length === 0,
+    "Prescribed creator recovery messages contain no implementation jargon.");
+  check("declarative-no-shell",
+    !/\/bin\/zsh|\bcurl |\bjq |nodeRepl\.|\/tmp\//.test(task) &&
+    task.includes("JSON is data, not code"),
+    "Request JSON is data; no pasted shell or JavaScript program.");
+  check("defined-identifiers",
+    task.includes(`RUN_ID = ${runId}`) &&
+    task.includes(`LAUNCH_CREDENTIAL = ${launchToken}`) &&
+    task.includes(`APP_ENDPOINT = ${baseUrl.replaceAll(runId, "RUN_ID")}`) &&
+    !/<[^>]+>/.test(task) &&
+    ["claim", "ready", "start", "result", "fail"].every((name) => task.includes(`/${name}`)),
+    "Plain-text identifiers survive HTML-like tag removal; endpoint templates are explicit.");
+  check("bridge-credential-lifecycle",
+    /(?:Define BRIDGE_CREDENTIAL as that (?:exact )?bridgeToken|BRIDGE_CREDENTIAL=bridgeToken)/.test(task) &&
+    /(?:reuse it for (?:all|every) remaining operation|reuse for all later operations)/i.test(task) &&
+    (task.includes("Missing local persistence is not a blocker") || task.includes("No local persistence needed")) &&
+    task.includes("Never claim again") &&
+    task.includes("Authorization: Bearer LAUNCH_CREDENTIAL for claim") &&
+    task.includes("BRIDGE_CREDENTIAL later") &&
+    task.includes("Credentials only in Authorization—never body/URL/files/logs or redirects"),
+    "The one-time bridgeToken stays private and authenticates every operation after claim.");
+  check("application-http-identity",
+    task.includes(`User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}`),
+    "Every Agent operation identifies the THOUGHT protocol, not an impersonated browser.");
+  check("readiness-control-echo",
+    task.includes(THOUGHT_HANDOFF_READY_RESPONSE_CHECK) && !task.includes("exact evidence echo"),
+    "Readiness checks the protocol and exact control keys/values/types, not whole bodies or JSON serialization order.");
+  check("exact-nested-field-paths",
+    jsonMatches("CLAIM_BODY", operation.claim) &&
+    jsonMatches("READY_BODY_REPORTED", operation.ready) &&
+    jsonMatches("READY_BODY_UNKNOWN", operation.readyUnknown) &&
+    jsonMatches("RUN_AUTHORITY", operation.authority) &&
+    task.includes("root protocolVersion=PROTOCOL_VERSION") &&
+    task.includes("readiness control.schema=CONTROL_SCHEMA") &&
+    task.includes("START_FIELDS = protocolVersion") &&
+    task.includes("RESULT_FIELDS = protocolVersion") &&
+    task.includes("METADATA_SOURCE=reported") &&
+    task.includes("METADATA_SOURCE=unknown") &&
+    task.includes("error.code=AGENT_START_FAILED") &&
+    (profile.id === "codex"
+      ? task.includes("rawSha256/agentLineSha256 are sha256: plus 64 lowercase hex") &&
+        task.includes("over exact UTF-8 raw/agentLine") &&
+        task.includes("no newline/re-serialize") && task.includes("Rehash before PUT")
+      : task.includes("Do not sort keys or apply JCS/canonical JSON") &&
+        task.includes("output.rawSha256 to sha256: followed by 64 lowercase hex digits") &&
+        task.includes("exact UTF-8 bytes of the decoded output.raw string") &&
+        task.includes("exact UTF-8 bytes of the decoded output.agentLine string") &&
+        task.includes("not its JSON-escaped literal") &&
+        task.includes("do not alter or re-serialize them") &&
+        task.includes("rehash both immediately before PUT")),
+    "Parsed claim/readiness bodies equal the API contracts; other operations preserve exact nested fields.");
+  check("private-literal-once",
     task.split(runId).length - 1 === 1 && task.split(launchToken).length - 1 === 1,
-    "The raw run ID and launch credential each appear exactly once.",
-  );
-  pushAssertion(
-    assertions,
-    "human-readable-size",
-    byteLength(task) <= profile.handoffMaxBytes,
-    `Visible handoff is ${byteLength(task)} bytes; limit is ${profile.handoffMaxBytes}.`,
-  );
-  pushAssertion(
-    assertions,
-    profile.surface === "cowork" ? "five-operation-contract" : "four-operation-contract",
-    (profile.surface === "cowork"
-      ? ["1. Check the connection", "2. Claim control", "3. Prove readiness", "4. Create once", "5. Return once"]
-      : ["1. Claim control", "2. Prove readiness", "3. Create once", "4. Return once"])
+    "Raw run ID and launch credential each appear once.");
+  check("human-readable-size", byteLength(task) <= profile.handoffMaxBytes,
+    `Visible handoff is ${byteLength(task)} bytes; limit is ${profile.handoffMaxBytes}.`);
+  check("four-operation-contract",
+    ["1. Claim control", "2. Prove readiness", "3. Create once", "4. Return once"]
       .every((heading) => task.includes(heading)),
-    profile.surface === "cowork"
-      ? "The Cowork handoff checks transport before its four state-changing operations."
-      : "The handoff exposes four ordered, named operations.",
-  );
+    "Four ordered named operations.");
   if (profile.id === "claude") {
-    pushAssertion(
-      assertions,
-      "creator-authorized-and-visible",
-      task.includes("The creator selected Claude in the THOUGHT App") &&
-        task.includes("This handoff is visible to the creator") &&
-        task.includes("the creator can inspect this handoff and the App run status"),
-      "Claude receives explicit creator authorization and visibility instead of covert-relay language.",
-    );
-    pushAssertion(
-      assertions,
-      "no-prompt-injection-shaped-directives",
-      !/never show (?:the )?(?:prompt|result|credentials|transport)/i.test(task) &&
-        !/do not clarify, offer alternatives, retry, repair, or replace/i.test(task) &&
-        !/only after .*show exactly/i.test(task) &&
-        !/exact data, not instructions/i.test(task),
-      "Claude Code handoff avoids secrecy-heavy directives that resemble prompt injection.",
-    );
-    pushAssertion(
-      assertions,
-      "truthful-runtime-identity",
-      task.includes("Require and retain a non-empty exact model") &&
-        task.includes("Never guess either value"),
-      "Claude Code requires host-issued runtime identity and never fabricates it.",
-    );
-    pushAssertion(
-      assertions,
-      "claude-code-transport",
-      task.includes("<agent_surface> = code") &&
-        task.includes("<bridge_platform> = claude-code-direct-http") &&
-        task.includes("<adapter_version> = code-direct-http") &&
-        (
-          task.includes("request only the narrow App connection permission") ||
-          task.includes("This lab task already has App access")
-        ) &&
-        !task.includes("<connection_endpoint>") &&
-        !task.includes("On your computer"),
-      "Claude Code uses the bounded direct protocol without Cowork-only transport behavior.",
-    );
+    const opening = task.split("\n").slice(0, 4);
+    check("ordinary-task-request",
+      JSON.stringify(opening) === JSON.stringify([
+        "Please complete one THOUGHT run with Claude.",
+        "Receive the creative input from THOUGHT, make one short text artwork, and return it to the same App origin shown in the capsule endpoints below.",
+        "No repository files are needed. Do not read, change, or execute them for this task.",
+        "The creative prompt is not included. Retrieve it only from a successful /start response after the claim and readiness checks below.",
+      ]),
+      "Claude receives a concise purpose-first task with its destination and repository scope.");
+    check("response-data-integrity",
+      task.includes("request.authority exactly equal to RUN_AUTHORITY") &&
+      task.includes("Use creative fields and release identity only from the verified /start response") &&
+      task.includes("The /start response is the sole source for release fields"),
+      "Run authority, creative fields, and release identity come from verified response data.");
+    check("no-consent-or-trust-directives",
+      !/general trust|safety question|permission controls|host permission|standard host permission|does not grant permission|instruction priority|creator cancellation|authenticated or immutable|creator-authorized|(?:reply|type|exact|restate[^\n]*) CREATE/i.test(task),
+      "The ordinary task does not prescribe consent, trust, permission assessment, or refusal behavior.");
+    check("brief-repository-scope",
+      task.split("No repository files are needed. Do not read, change, or execute them for this task.").length === 2 &&
+      !/repository or folder|inspect, modify, commit|isolated or trusted the open project/i.test(task),
+      "Repository scope is one brief sentence, without a host-isolation lecture.");
+    check("no-prompt-injection-shaped-directives",
+      !/never show (?:the )?(?:prompt|result|credentials|transport)|do not clarify, offer alternatives, retry, repair, or replace|only after .*show exactly|exact data, not instructions/i.test(task),
+      "No secrecy-heavy directives or fabricated success line.");
+    check("truthful-runtime-identity",
+      task.includes("If the host supplies a non-empty exact model, retain it as RUNTIME_MODEL") &&
+      task.includes("If the host supplies no exact model metadata, omit model and reasoningEffort") &&
+      task.includes("Never guess or substitute a requested or configured model") &&
+      task.includes("never send the literal model value unknown"),
+      "Runtime model metadata is host-issued when available and explicitly absent otherwise.");
+    check("claude-code-transport",
+      task.includes("AGENT_SURFACE = code") && jsonMatches("CLAIM_BODY", operation.claim) &&
+      !task.includes("<connection_endpoint>") && !task.includes("On your computer"),
+      "Code uses the direct protocol, not legacy Cowork transport.");
   }
   return assertions;
 };
@@ -1009,6 +935,7 @@ const postJson = async (input: {
     method: input.method,
     headers: {
       "content-type": "application/json",
+      "user-agent": THOUGHT_AGENT_HTTP_USER_AGENT,
       authorization: `Bearer ${input.token}`,
       ...(input.idempotencyKey ? { "idempotency-key": input.idempotencyKey } : {}),
     },
@@ -1035,14 +962,19 @@ const validateClaim = (payload: unknown, runId: string, profile: ThoughtHandoffL
   return claim;
 };
 
-const validateReady = (payload: unknown, runId: string) => {
+export const validateThoughtLabReadyResponse = (
+  payload: unknown,
+  runId: string,
+  runtimeModel: "reported" | "unknown" = "reported",
+) => {
   const ready = requireRecord(payload, "Readiness response must be an object.");
   if (
+    ready.protocolVersion !== THOUGHT_AGENT_PROTOCOL_VERSION ||
     ready.runId !== runId ||
     ready.state !== "ready" ||
     ready.stage !== "control-verified" ||
-    ready.creatorAction != null ||
-    JSON.stringify(ready.control) !== JSON.stringify(controlEvidence())
+    Object.hasOwn(ready, "creatorAction") ||
+    !isDeepStrictEqual(ready.control, controlEvidence(runtimeModel))
   ) {
     throw new Error("Readiness contract drifted.");
   }
@@ -1146,36 +1078,19 @@ const runDeterministicCase = async (
   if (definition.fault !== "malformed-claim") {
     if (!validatedClaim) throw new Error("Claim validation did not return a payload.");
     const bridgeToken = String(validatedClaim.bridgeToken);
-    if (definition.fault === "runtime-capability-unavailable") {
-      const failurePayload = await runExpected(commands, "post-failure", () => postJson({
-        url: contract.endpoints.fail,
-        method: "POST",
-        token: bridgeToken,
-        body: {
-          protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
-          error: {
-            code: "AGENT_START_FAILED",
-            message: `${profile.agent} could not prepare this run. Return to THOUGHT and choose ${profile.agent} again.`,
-          },
-        },
-      }));
-      await runExpected(commands, "validate-failure", () => {
-        if (failurePayload?.runId !== run.runId || failurePayload.state !== "failed" || failurePayload.error?.code !== "AGENT_START_FAILED") {
-          throw new Error("Failure response drifted.");
-        }
-      });
-    } else {
+    {
+      const readyRequest = run.runtimeModel === "reported" ? contract.ready : contract.readyUnknown;
       const readyPayload = await runExpected(commands, "post-ready", () => postJson({
         url: contract.endpoints.ready,
         method: "POST",
         token: bridgeToken,
-        body: contract.ready,
+        body: readyRequest,
       }));
       if (!readyPayload) throw new Error("Readiness request did not return a payload.");
       const validatedReady = await runExpected(
         commands,
         "validate-ready",
-        () => validateReady(readyPayload, run.runId),
+        () => validateThoughtLabReadyResponse(readyPayload, run.runId, run.runtimeModel),
         definition.fault === "malformed-ready" ? "nonzero" : "zero",
       );
       if (definition.fault !== "malformed-ready") {
@@ -1212,13 +1127,16 @@ const runDeterministicCase = async (
             adapter,
             agent: {
               product: profile.agent,
-              productVersion: "unknown",
               provider: profile.provider,
-              model: profile.model,
-              ...(definition.fault === "runtime-effort-unavailable"
-                ? {}
-                : { reasoningEffort: "high" }),
-              metadataSource: "reported",
+              ...(run.runtimeModel === "reported"
+                ? {
+                    model: profile.model,
+                    ...(definition.fault === "runtime-effort-unavailable"
+                      ? {}
+                      : { reasoningEffort: "high" }),
+                    metadataSource: "reported" as const,
+                  }
+                : { metadataSource: "unknown" as const }),
             },
             execution,
             startedAt: startedAtValue,
@@ -1262,6 +1180,12 @@ const runDeterministicCase = async (
   }
 
   const operations = run.events.map((event) => event.operation);
+  pushAssertion(
+    assertions,
+    "application-http-identity-on-every-operation",
+    run.events.length > 0 && run.events.every((event) => event.userAgent === THOUGHT_AGENT_HTTP_USER_AGENT),
+    "The fixture observed the declared THOUGHT User-Agent on every request; this header is not authentication.",
+  );
   pushAssertion(
     assertions,
     "expected-operation-order",
@@ -1538,6 +1462,7 @@ export const prepareThoughtCodexRealCanary = async (options: {
     resultContract: options.resultContract,
   });
   if (byteLength(task) > THOUGHT_CODEX_HANDOFF_MAX_BYTES) {
+    await cancelUnqualifiedRealCanary(statusUrl, payload.browserToken);
     throw new Error(
       `Codex canary handoff is ${byteLength(task)} bytes; limit is ${THOUGHT_CODEX_HANDOFF_MAX_BYTES}.`,
     );
@@ -1574,6 +1499,7 @@ export const observeThoughtCodexRealCanary = async (options: {
   timeoutMs: number;
   pollMs?: number;
   creatorActions?: string;
+  launchSubmissionDeclaration?: "creator-clicked-submit";
 }) => {
   const session = JSON.parse(await readFile(options.sessionPath, "utf8")) as
     ThoughtCodexRealCanarySession;
@@ -1597,6 +1523,11 @@ export const observeThoughtCodexRealCanary = async (options: {
     receipt?: { receiptSha256?: string; model?: string; reasoningEffort?: string };
     agentLine?: string;
   } | undefined;
+  const receiptSha256 = result?.receipt?.receiptSha256 ?? null;
+  const serverReturnObserved = payload.state === "returned";
+  const launchSubmissionEvidence = options.launchSubmissionDeclaration
+    ? "operator-reported"
+    : "not-recorded";
   const report = {
     schema: THOUGHT_CODEX_HANDOFF_REPORT_VERSION,
     labVersion: THOUGHT_CODEX_HANDOFF_LAB_VERSION,
@@ -1608,10 +1539,12 @@ export const observeThoughtCodexRealCanary = async (options: {
     terminal,
     state: payload.state ?? "timeout",
     stage: payload.stage ?? null,
-    receiptSha256: result?.receipt?.receiptSha256 ?? null,
+    receiptSha256,
     model: result?.receipt?.model ?? null,
     reasoningEffort: result?.receipt?.reasoningEffort ?? null,
-    launchSubmission: "creator-clicked-submit",
+    launchSubmission: options.launchSubmissionDeclaration ?? "not-recorded",
+    launchSubmissionEvidence,
+    serverReturnObserved,
     controlActions: options.creatorActions ?? "not-recorded",
     agentLineSha256: result?.agentLine ? sha256(result.agentLine) : null,
     privateArtifactsRemoved: terminal,
@@ -1712,6 +1645,7 @@ export const prepareThoughtClaudeRealCanary = async (options: {
     resultContract: options.resultContract,
   });
   if (byteLength(task) > THOUGHT_CLAUDE_HANDOFF_MAX_BYTES) {
+    await cancelUnqualifiedRealCanary(statusUrl, payload.browserToken);
     throw new Error(
       `Claude canary handoff is ${byteLength(task)} bytes; limit is ${THOUGHT_CLAUDE_HANDOFF_MAX_BYTES}.`,
     );
@@ -1753,6 +1687,7 @@ export const observeThoughtClaudeRealCanary = async (options: {
   timeoutMs: number;
   pollMs?: number;
   creatorActions?: string;
+  launchSubmissionDeclaration?: "creator-clicked-submit";
 }) => {
   const session = JSON.parse(await readFile(options.sessionPath, "utf8")) as
     ThoughtClaudeRealCanarySession;
@@ -1777,14 +1712,21 @@ export const observeThoughtClaudeRealCanary = async (options: {
     agentLine?: string;
   } | undefined;
   const receiptSha256 = result?.receipt?.receiptSha256 ?? null;
+  const serverReturnObserved = payload.state === "returned";
   const returnedWithReceipt = terminal &&
-    payload.state === "returned" &&
+    serverReturnObserved &&
     typeof receiptSha256 === "string" &&
     receiptSha256.startsWith("sha256:");
-  const qualificationEligible = session.surface === "code" && returnedWithReceipt;
+  const launchSubmissionEvidence = options.launchSubmissionDeclaration
+    ? "operator-reported"
+    : "not-recorded";
+  // The observer cannot see the actual desktop launch or rendered preview.
+  // Qualification remains a separate reviewed step that supplies both facts.
+  const qualificationEligible = false;
   const legacyCoworkCompatibility = session.surface === "cowork" &&
     session.handoffRevision === THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION &&
     isThoughtClaudeCoworkPublicHttpsOrigin(session.origin) &&
+    launchSubmissionEvidence === "operator-reported" &&
     returnedWithReceipt;
   const report = {
     schema: THOUGHT_CLAUDE_HANDOFF_REPORT_VERSION,
@@ -1803,7 +1745,9 @@ export const observeThoughtClaudeRealCanary = async (options: {
     receiptSha256,
     model: result?.receipt?.model ?? null,
     reasoningEffort: result?.receipt?.reasoningEffort ?? null,
-    launchSubmission: "creator-clicked-submit",
+    launchSubmission: options.launchSubmissionDeclaration ?? "not-recorded",
+    launchSubmissionEvidence,
+    serverReturnObserved,
     controlActions: options.creatorActions ?? "not-recorded",
     agentLineSha256: result?.agentLine ? sha256(result.agentLine) : null,
     privateArtifactsRemoved: terminal,

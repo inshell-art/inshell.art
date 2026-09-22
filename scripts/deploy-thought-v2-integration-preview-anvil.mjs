@@ -584,8 +584,14 @@ async function main() {
     },
   };
   await fs.mkdir(path.dirname(addressesFile), { recursive: true });
-  await fs.writeFile(addressesFile, `${JSON.stringify(runtime, null, 2)}\n`, "utf8");
-  console.log(JSON.stringify(runtime, null, 2));
+  const temporary = `${addressesFile}.tmp`;
+  await fs.writeFile(temporary, `${JSON.stringify(runtime, null, 2)}\n`, {
+    encoding: "utf8",
+    mode: 0o600,
+  });
+  await fs.rename(temporary, addressesFile);
+  await fs.chmod(addressesFile, 0o600);
+  console.log(`Wrote THOUGHT local runtime: ${addressesFile}`);
 }
 
 main().catch((error) => {

@@ -112,6 +112,22 @@ function bidCacheStorage(): typeof globalThis.localStorage | null {
   }
 }
 
+function isLocalDevnet() {
+  const env = (globalThis as any).__VITE_ENV__ as Record<string, unknown> | undefined;
+  const buildEnv = (globalThis as any).__INSHELL_VITE_ENV__ as
+    | Record<string, unknown>
+    | undefined;
+  const processEnv = (globalThis as any)?.process?.env as
+    | Record<string, unknown>
+    | undefined;
+  return String(
+    env?.VITE_NETWORK ??
+      buildEnv?.VITE_NETWORK ??
+      processEnv?.VITE_NETWORK ??
+      "",
+  ).toLowerCase() === "devnet";
+}
+
 function bidCacheKey(address: string, fromBlock: number | undefined): string {
   return `inshell:pulse:bids:${address.toLowerCase()}:${fromBlock ?? "auto"}`;
 }
@@ -228,6 +244,7 @@ function readBidCache(
   address: string,
   fromBlock: number | undefined
 ): { bids: NormalizedBid[]; lastBlock?: number; complete: boolean } | null {
+  if (isLocalDevnet()) return null;
   const storage = bidCacheStorage();
   if (!storage) return null;
   try {
@@ -271,6 +288,7 @@ function writeBidCache(
   lastBlock: number | undefined,
   complete: boolean
 ) {
+  if (isLocalDevnet()) return;
   const storage = bidCacheStorage();
   if (!storage) return;
   try {
@@ -323,11 +341,14 @@ export function createBidsService(opts: {
 }) {
   const address = opts.address;
   const provider: ProviderInterface = opts.provider ?? getDefaultProvider();
+  const localDevnet = isLocalDevnet();
   const useCacheApi =
-    opts.preferCacheApi ??
-    (typeof globalThis.fetch === "function" &&
-      typeof globalThis.location !== "undefined");
-  const allowDirectFallback = opts.allowDirectFallback ?? !useCacheApi;
+    !localDevnet &&
+    (opts.preferCacheApi ??
+      (typeof globalThis.fetch === "function" &&
+        typeof globalThis.location !== "undefined"));
+  const allowDirectFallback =
+    localDevnet || (opts.allowDirectFallback ?? !useCacheApi);
   const maxBids = opts.maxBids ?? 200;
   const initialChunkSize = Math.max(1, opts.chunkSize ?? DEFAULT_LOG_CHUNK_SIZE);
   const reorgDepth = opts.reorgDepth ?? 2;
