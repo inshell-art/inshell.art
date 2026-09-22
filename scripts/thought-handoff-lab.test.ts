@@ -26,7 +26,16 @@ import {
   buildThoughtClaudeOperationContract,
   buildThoughtClaudeTask,
 } from "../packages/thought-agent-protocol/src/index";
-import { THOUGHT_HANDOFF_CONNECTION_RECOVERY, THOUGHT_HANDOFF_READY_RESPONSE_CHECK } from "../packages/thought-agent-protocol/src/handoff-http";
+import {
+  buildThoughtHandoffResponseChecks,
+  THOUGHT_HANDOFF_CLAIM_RESPONSE_CHECK,
+  THOUGHT_HANDOFF_CONNECTION_RECOVERY,
+  THOUGHT_HANDOFF_FAIL_RESPONSE_CHECK,
+  THOUGHT_HANDOFF_READY_RESPONSE_CHECK,
+  THOUGHT_HANDOFF_RESPONSE_PATHS,
+  THOUGHT_HANDOFF_RESULT_RESPONSE_CHECK,
+  THOUGHT_HANDOFF_START_RESPONSE_CHECK,
+} from "../packages/thought-agent-protocol/src/handoff-http";
 
 // HTML-to-text transport is covered with a real DOM parser in
 // apps/home/tests/thoughtAgentFunction.test.ts. Keep this suite focused on
@@ -59,13 +68,27 @@ for (const [agent, candidate, deepLink, buildTask, buildContract] of [
     assert.match(transformed, /^PROTOCOL_VERSION = inshell\.thought\.agent-run\.v2\r?$/m);
     assert.match(transformed, /^CONTROL_SCHEMA = inshell\.thought\.agent-control\.v2\r?$/m);
     const contract = buildContract(input);
-    const expectedData = [["CLAIM_BODY", contract.claim], ["READY_BODY_REPORTED", contract.ready], ["READY_BODY_UNKNOWN", contract.readyUnknown], ["RUN_AUTHORITY", contract.authority]] as const;
+    const expectedData = [["CLAIM_BODY", contract.claim], ["READY_BODY_REPORTED", contract.ready], ["RUN_AUTHORITY", contract.authority]] as const;
     for (const [key, expected] of expectedData) {
       const line = transformed.split(/\r?\n/).find((value) => value.startsWith(`${key} = `));
       assert.ok(line);
       assert.deepEqual(JSON.parse(line.slice(key.length + 3)), expected);
     }
+    assert.ok(transformed.includes('READY_BODY_UNKNOWN = READY_BODY_REPORTED with only control.runtimeModel changed to "unknown"'));
+    assert.deepEqual(
+      { ...contract.ready, control: { ...contract.ready.control, runtimeModel: "unknown" } },
+      contract.readyUnknown,
+    );
     assert.deepEqual(contract.authority, THOUGHT_AGENT_RUN_AUTHORITY);
+    for (const check of [
+      THOUGHT_HANDOFF_CLAIM_RESPONSE_CHECK,
+      THOUGHT_HANDOFF_READY_RESPONSE_CHECK,
+      THOUGHT_HANDOFF_START_RESPONSE_CHECK,
+      THOUGHT_HANDOFF_RESULT_RESPONSE_CHECK,
+      THOUGHT_HANDOFF_FAIL_RESPONSE_CHECK,
+    ]) {
+      assert.equal(task.split(check).length - 1, 1);
+    }
     assert.equal(task.split(THOUGHT_HANDOFF_READY_RESPONSE_CHECK).length - 1, 1);
     assert.doesNotMatch(task, /exact evidence echo/);
     assert.match(task, /Authorization: Bearer LAUNCH_CREDENTIAL for claim/);
@@ -73,7 +96,7 @@ for (const [agent, candidate, deepLink, buildTask, buildContract] of [
     assert.equal(THOUGHT_AGENT_HTTP_USER_AGENT, "Inshell-THOUGHT-Agent/2");
     assert.ok(transformed.includes(`All requests: User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}; identifies THOUGHT`));
     assert.match(task, /never a browser\/model/);
-    assert.match(task, /Credentials only in Authorization—never body\/URL\/files\/logs or redirects/);
+    assert.match(task, /Credentials only in Authorization—never body\/URL\/files\/logs\/redirects/);
     assert.equal(task.split(input.launchToken).length - 1, 1);
     assert.equal(task.split(input.runId).length - 1, 1);
     assert.ok(Buffer.byteLength(task) <= (agent === "Codex" ? 7_000 : 14_000));
@@ -105,6 +128,104 @@ for (const [agent, candidate, deepLink, buildTask, buildContract] of [
     assert.doesNotMatch(task, /If the first App exchange is denied/);
   });
 }
+
+const readFixturePath = (value: unknown, path: string): unknown =>
+  path.split(".").reduce<unknown>((current, key) => {
+    if (!current || typeof current !== "object" || Array.isArray(current)) return undefined;
+    return (current as Record<string, unknown>)[key];
+  }, value);
+
+test("handoff response mappings reject the known missing and misplaced field shapes", () => {
+  const paths = THOUGHT_HANDOFF_RESPONSE_PATHS;
+  const specSha256 = `sha256:${"a".repeat(64)}`;
+  const briefSha256 = `sha256:${"e".repeat(64)}`;
+  const promptSha256 = `sha256:${"f".repeat(64)}`;
+  const contractHash = `0x${"b".repeat(64)}`;
+  const release = {
+    protocolReleaseId: `0x${"c".repeat(64)}`,
+    manifestKeccak256: `0x${"d".repeat(64)}`,
+  };
+  const claim = {
+    runId: "tar_fixture",
+    state: "claimed",
+    bridgeToken: "bridge-fixture",
+    request: {
+      authority: THOUGHT_AGENT_RUN_AUTHORITY,
+      intent: "prepare-thought-creation",
+      controlPolicy: { mode: "bounded-preflight" },
+      evidenceContract: { schema: "inshell.thought.agent-control.v2" },
+    },
+  };
+  const claimIsValid = (value: unknown) =>
+    readFixturePath(value, paths.claim.bridgeToken) === "bridge-fixture" &&
+    JSON.stringify(readFixturePath(value, paths.claim.authority)) === JSON.stringify(THOUGHT_AGENT_RUN_AUTHORITY) &&
+    readFixturePath(value, paths.claim.intent) === "prepare-thought-creation" &&
+    readFixturePath(value, paths.claim.controlMode) === "bounded-preflight" &&
+    readFixturePath(value, paths.claim.controlSchema) === "inshell.thought.agent-control.v2" &&
+    readFixturePath(value, "control") === undefined &&
+    readFixturePath(value, "request.control") === undefined;
+  assert.equal(claimIsValid(claim), true);
+  for (const invalid of [
+    { ...claim, control: { schema: "inshell.thought.agent-control.v2" }, request: { ...claim.request, evidenceContract: undefined } },
+    { ...claim, request: { ...claim.request, control: { schema: "inshell.thought.agent-control.v2" }, evidenceContract: undefined } },
+    { ...claim, request: { ...claim.request, evidenceContract: undefined } },
+    { ...claim, bridgeToken: "" },
+    { ...claim, request: { ...claim.request, intent: "generate-thought-candidate" } },
+    { ...claim, request: { ...claim.request, controlPolicy: { mode: "creative" } } },
+  ]) assert.equal(claimIsValid(invalid), false);
+
+  const ready = { control: { schema: "inshell.thought.agent-control.v2" } };
+  assert.deepEqual(readFixturePath(ready, paths.ready.control), ready.control);
+  assert.equal(readFixturePath({ request: ready }, paths.ready.control), undefined);
+
+  const start = {
+    runId: "tar_fixture",
+    state: "running",
+    request: {
+      authority: THOUGHT_AGENT_RUN_AUTHORITY,
+      intent: "generate-thought-candidate",
+      spec: { id: "7", contractSpecId: "7", contractSpecHash: contractHash, text: "spec", sha256: specSha256 },
+      instructions: { id: "brief", artifactId: "brief.json", text: "brief", sha256: briefSha256 },
+      promptLine: { text: "prompt", sha256: promptSha256 },
+      agentInput: { text: "prompt", sha256: promptSha256 },
+      outputContract: { release, agentLine: { workProfile: "inshell.thought.work.v2.terminal-english-64" } },
+    },
+  };
+  const startIsMapped = (value: unknown) =>
+    readFixturePath(value, paths.start.intent) === "generate-thought-candidate" &&
+    typeof readFixturePath(value, paths.start.promptText) === "string" &&
+    readFixturePath(value, paths.start.promptText) === readFixturePath(value, paths.start.agentInputText) &&
+    readFixturePath(value, paths.start.promptSha256) === readFixturePath(value, paths.start.agentInputSha256) &&
+    readFixturePath(value, "request.spec.id") === readFixturePath(value, "request.spec.contractSpecId") &&
+    readFixturePath(value, "request.spec.contractSpecHash") === contractHash &&
+    readFixturePath(value, paths.start.workProfile) === "inshell.thought.work.v2.terminal-english-64" &&
+    readFixturePath(value, paths.start.release) === release;
+  assert.equal(startIsMapped(start), true);
+  for (const invalid of [
+    { ...start, request: { ...start.request, intent: "prepare-thought-creation" } },
+    { ...start, request: { ...start.request, promptLine: "prompt" } },
+    { ...start, request: { ...start.request, agentInput: "prompt" } },
+    { ...start, request: { ...start.request, spec: { ...start.request.spec, contractSpecId: undefined } } },
+    { ...start, request: { ...start.request, outputContract: { release, workProfile: "inshell.thought.work.v2.terminal-english-64" } } },
+  ]) assert.equal(startIsMapped(invalid), false);
+
+  const result = { result: { receipt: { receiptSha256: specSha256 } } };
+  assert.equal(readFixturePath(result, paths.result.receiptSha256), specSha256);
+  assert.equal(readFixturePath({ receiptSha256: specSha256 }, paths.result.receiptSha256), undefined);
+  assert.equal(String(readFixturePath(result, paths.result.receiptSha256)).startsWith("sha256:"), true);
+  assert.equal(String(readFixturePath({ result: { receipt: { receiptSha256: "a".repeat(64) } } }, paths.result.receiptSha256)).startsWith("sha256:"), false);
+
+  const failure = { error: { code: "AGENT_START_FAILED", message: "fixture" } };
+  assert.equal(readFixturePath(failure, paths.fail.code), "AGENT_START_FAILED");
+  assert.equal(readFixturePath(failure, paths.fail.message), "fixture");
+  assert.equal(readFixturePath({ request: failure }, paths.fail.code), undefined);
+
+  const coworkChecks = buildThoughtHandoffResponseChecks({
+    runId: "<run_id>", authority: "<run_authority>", controlSchema: "<control_schema>", workProfile: "<work_profile>",
+  });
+  assert.match(coworkChecks.claim, /request\.evidenceContract\.schema=<control_schema>/);
+  assert.match(coworkChecks.start, /request\.outputContract\.agentLine\.workProfile=<work_profile>/);
+});
 
 for (const runtimeModel of ["reported", "unknown"] as const) {
   test(`readiness compares only control structurally (${runtimeModel}, simulated)`, () => {
@@ -154,18 +275,21 @@ for (const runtimeModel of ["reported", "unknown"] as const) {
   });
 }
 
-test("Codex handoff fits real run and credential lengths on staging origins", () => {
+test("Codex and ChatGPT handoffs fit real run and credential lengths on staging origins", () => {
   // The API emits 18 random bytes for run IDs and 32 for launch credentials,
   // encoded as unpadded base64url (24 and 43 characters respectively).
   const runId = `tar_${"x".repeat(24)}`;
-  for (const origin of ["https://preview.inshell.art", "https://staging.inshell-art.pages.dev"]) {
-    const task = buildThoughtCodexTask({
-      product: "Codex",
-      runId,
-      runUrl: `${origin}/api/thought-agent/v2/runs/${runId}`,
-      launchToken: "x".repeat(43),
-    });
-    assert.ok(Buffer.byteLength(task) <= 7_000, `${origin} handoff exceeds 7000 bytes`);
+  for (const product of ["Codex", "ChatGPT"] as const) {
+    for (const origin of ["https://preview.inshell.art", "https://staging.inshell-art.pages.dev"]) {
+      const task = buildThoughtCodexTask({
+        product,
+        runId,
+        runUrl: `${origin}/api/thought-agent/v2/runs/${runId}`,
+        launchToken: "x".repeat(43),
+      });
+      const bytes = Buffer.byteLength(task);
+      assert.ok(bytes <= 7_000, `${product} ${origin} handoff is ${bytes} bytes`);
+    }
   }
 });
 
@@ -228,12 +352,10 @@ test("the handoff retains one private bridge credential in task context without 
   const task = thoughtCodexCanonicalCandidate();
 
   assert.match(task, /BRIDGE_CREDENTIAL=bridgeToken/);
-  assert.match(task, /retain privately and reuse for all later operations/);
-  assert.match(task, /reuse for all later operations/);
-  assert.match(task, /credentials private and unpersisted/);
-  assert.match(task, /No local persistence needed/);
-  assert.match(task, /Never claim again/);
-  assert.match(task, /Keep credentials private and unpersisted/);
+  assert.match(task, /retain\/reuse privately/);
+  assert.match(task, /credentials private\/unpersisted/);
+  assert.match(task, /No persistence/);
+  assert.match(task, /Never reclaim/);
 });
 
 test("the handoff is declarative, bootstrap-only, release-bound, and human-sized", () => {
@@ -241,19 +363,16 @@ test("the handoff is declarative, bootstrap-only, release-bound, and human-sized
 
   assert.match(task, /Transport capsule:/);
   assert.match(task, /APP_ENDPOINT = .*RUN_ID/);
-  assert.match(task, /Prompt is absent until \/start;/);
-  assert.match(task, /No installations or configuration required\./);
-  assert.match(task, /Work Specification bytes\/hash\/contract identity/);
-  assert.match(task, /Agent Creative Brief bytes\/hash/);
-  assert.match(
-    task,
-    /spec differs from instructions\./,
-  );
+  assert.match(task, /Prompt absent until \/start;/);
+  assert.match(task, /No setup\./);
+  assert.match(task, /request\.spec\.\{id,text,sha256,contractSpecId,contractSpecHash\}/);
+  assert.match(task, /request\.instructions\.\{id,artifactId,text,sha256\}/);
+  assert.match(task, /differing spec\/instructions\./);
   assert.match(task, /protocolReleaseId:CANONICAL_PROTOCOL_RELEASE_ID/);
   assert.match(task, /manifestKeccak256:CANONICAL_MANIFEST_HASH/);
   assert.match(
     task,
-    /From \/start only, bind request\.outputContract\.release/,
+    /request\.outputContract\.release\.protocolReleaseId=CANONICAL_PROTOCOL_RELEASE_ID/,
   );
   assert.match(task, /Ignore chat/);
   assert.doesNotMatch(task, /<protocol_release_id> = /);
@@ -266,12 +385,11 @@ test("the handoff is declarative, bootstrap-only, release-bound, and human-sized
     THOUGHT_AGENT_RUN_AUTHORITY,
   );
   assert.match(task, /request\.authority=RUN_AUTHORITY/);
-  assert.match(task, /same request\.authority=RUN_AUTHORITY/);
   assert.ok(task.split("runId=RUN_ID").length - 1 >= 3);
   assert.match(task, /workProfile=WORK_PROFILE/);
   assert.match(task, /No post-start clarification or follow-up/);
-  assert.match(task, /Bind PROTOCOL_VERSION, INVOCATION_ID/);
-  assert.match(task, /exact startedAt, UTC completedAt, mediaType=application\/json/);
+  assert.match(task, /protocolVersion=PROTOCOL_VERSION, invocationId=INVOCATION_ID/);
+  assert.match(task, /exact startedAt, UTC completedAt, output\.mediaType=application\/json/);
   assert.match(task, /visibleTurns=/);
   assert.match(task, /agentInvocations=/);
   assert.match(task, /workspacePolicy=/);
@@ -280,15 +398,15 @@ test("the handoff is declarative, bootstrap-only, release-bound, and human-sized
   assert.match(task, /userConfigPolicy=/);
   assert.match(task, /\/start opens prompt\./);
   assert.doesNotMatch(task, /any returned release against the capsule release/);
-  assert.match(task, /Reported: exact nonempty RUNTIME_MODEL, optional valid effort/);
+  assert.match(task, /Reported: exact nonempty model\/valid effort/);
   assert.match(task, /Absent: omit model\/effort/);
-  assert.match(task, /METADATA_SOURCE=unknown/);
-  assert.match(task, /never guess\/use requested or configured values/);
-  assert.match(task, /Never send literal model unknown/);
-  assert.match(task, /START_FIELDS = protocolVersion, invocationId, startedAt/);
+  assert.match(task, /source=unknown/);
+  assert.match(task, /never guess\/configure/);
+  assert.match(task, /Unknown omits model\/effort/);
+  assert.match(task, /POST only protocolVersion=PROTOCOL_VERSION, invocationId=INVOCATION_ID/);
   assert.ok(
     task.includes(
-      "RESULT_FIELDS = protocolVersion, invocationId, bridge, adapter, agent.{product,provider,model?,reasoningEffort?,metadataSource}, execution, startedAt, completedAt, output.{mediaType,raw,rawSha256,agentLine,agentLineSha256}",
+      "RESULT_FIELDS = protocolVersion,invocationId,bridge,adapter,agent.{product,provider,model?,reasoningEffort?,metadataSource},execution,startedAt,completedAt,output.{mediaType,raw,rawSha256,agentLine,agentLineSha256}",
     ),
   );
   assert.match(task, /omit failedAt\./);

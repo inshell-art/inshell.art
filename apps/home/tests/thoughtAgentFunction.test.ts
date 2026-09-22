@@ -18,7 +18,9 @@ import { onRequestPost as onStartRun } from "../../../functions/api/thought-agen
 import {
   THOUGHT_AGENT_CONTROL_VERSION,
   THOUGHT_AGENT_HTTP_USER_AGENT,
+  THOUGHT_AGENT_LINE_CONTRACT,
   THOUGHT_AGENT_PROTOCOL_VERSION,
+  THOUGHT_AGENT_RUN_AUTHORITY,
   THOUGHT_AGENT_RESULT_VERSION,
   THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
   THOUGHT_V2_PROTOCOL_RELEASE,
@@ -555,10 +557,14 @@ describe("THOUGHT Agent Pages API", () => {
     expect(transported).toBe(handoff);
     expect(transported).toContain(`User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}`);
     const agentAuth = (token: string) => ({ ...auth(token), "user-agent": THOUGHT_AGENT_HTTP_USER_AGENT });
-    const body = (name: string) => JSON.parse(transported.split("\n").find((line) => line.startsWith(`${name} = `))!.slice(name.length + 3));
+    const lineValue = (name: string) => transported.split("\n").find((line) => line.startsWith(`${name} = `))!.slice(name.length + 3);
+    const body = (name: string) => JSON.parse(lineValue(name));
     const claim = body("CLAIM_BODY");
     const readyReported = body("READY_BODY_REPORTED");
-    const readyUnknown = body("READY_BODY_UNKNOWN");
+    const readyUnknownLine = lineValue("READY_BODY_UNKNOWN");
+    const readyUnknown = readyUnknownLine === 'READY_BODY_REPORTED with only control.runtimeModel changed to "unknown"'
+      ? { ...readyReported, control: { ...readyReported.control, runtimeModel: "unknown" } }
+      : JSON.parse(readyUnknownLine);
     const ready = runtimeModel === "reported" ? readyReported : readyUnknown;
     // Wire object key order has no semantic meaning. The handler normalizes it.
     ready.control = Object.fromEntries(Object.entries(ready.control).reverse());
@@ -569,6 +575,17 @@ describe("THOUGHT Agent Pages API", () => {
     expect(readyUnknown.protocolVersion).toBe(THOUGHT_AGENT_PROTOCOL_VERSION);
     expect(readyUnknown.control.schema).toBe(THOUGHT_AGENT_CONTROL_VERSION);
     expect(readyUnknown.control.runtimeModel).toBe("unknown");
+    expect(transported).toContain("request.authority=RUN_AUTHORITY");
+    expect(transported).toContain("request.intent=prepare-thought-creation");
+    expect(transported).toContain("request.controlPolicy.mode=bounded-preflight");
+    expect(transported).toContain("request.evidenceContract.schema=CONTROL_SCHEMA");
+    expect(transported).toContain("request.intent=generate-thought-candidate");
+    expect(transported).toContain("request.spec.{id,text,sha256,contractSpecId,contractSpecHash}");
+    expect(transported).toContain("request.promptLine.{text,sha256}");
+    expect(transported).toContain("request.agentInput.{text,sha256}");
+    expect(transported).toContain("request.outputContract.agentLine.workProfile=WORK_PROFILE");
+    expect(transported).toContain("result.receipt.receiptSha256 must begin sha256:");
+    expect(transported).toContain("root error.code and error.message");
     const before = { ...d1.rows.get(runId)! };
 
     // Incident attempt 1: control.schema was incorrectly used as protocolVersion.
@@ -596,6 +613,14 @@ describe("THOUGHT Agent Pages API", () => {
     const claimedBody = await claimed.json();
     expect(claimedBody.state).toBe("claimed");
     expect(claimedBody.bridgeToken).toEqual(expect.any(String));
+    expect(claimedBody.request.authority).toStrictEqual(THOUGHT_AGENT_RUN_AUTHORITY);
+    expect(claimedBody.request.intent).toBe("prepare-thought-creation");
+    expect(claimedBody.request.controlPolicy.mode).toBe("bounded-preflight");
+    expect(claimedBody.request.evidenceContract.schema).toBe(THOUGHT_AGENT_CONTROL_VERSION);
+    expect(claimedBody).not.toHaveProperty("control");
+    expect(claimedBody.request).not.toHaveProperty("control");
+    expect(claimedBody).not.toHaveProperty("bridge");
+    expect(claimedBody).not.toHaveProperty("adapter");
     const afterClaim = { ...d1.rows.get(runId)! };
     const launchOnReady = await onReadyRunV2({
       request: request(`${runUrl}/ready`, ready, auth(launchToken)), env, params: { runId },
@@ -618,6 +643,18 @@ describe("THOUGHT Agent Pages API", () => {
     });
     expect(replay.status).toBe(200);
     expect(await replay.json()).toStrictEqual(readyPayload);
+    const started = await startRun(env, runId, claimedBody.bridgeToken, `tai_${adapterId}_${runtimeModel}`, "v2");
+    expect(started.status).toBe(200);
+    const startedPayload = await started.json();
+    expect(startedPayload.request.authority).toStrictEqual(THOUGHT_AGENT_RUN_AUTHORITY);
+    expect(startedPayload.request.intent).toBe("generate-thought-candidate");
+    expect(startedPayload.request.spec.id).toBe(THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId);
+    expect(startedPayload.request.spec.contractSpecId).toBe(THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId);
+    expect(startedPayload.request.spec.contractSpecHash).toBe(THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecHash);
+    expect(startedPayload.request.promptLine).toEqual(expect.objectContaining({ text: "handshake fixture", sha256: expect.stringMatching(/^sha256:/) }));
+    expect(startedPayload.request.agentInput).toEqual(expect.objectContaining({ text: "handshake fixture", sha256: startedPayload.request.promptLine.sha256 }));
+    expect(startedPayload.request.outputContract.agentLine.workProfile).toBe(THOUGHT_AGENT_LINE_CONTRACT.workProfile);
+    expect(startedPayload.request).not.toHaveProperty("workProfile");
   });
 
   test("runs create -> claim -> start -> result -> poll", async () => {
@@ -1211,6 +1248,8 @@ describe("THOUGHT Agent Pages API", () => {
       model: null,
       reasoningEffort: null,
     });
+    expect(returned.payload.result.receipt.receiptSha256).toMatch(/^sha256:/);
+    expect(returned.payload).not.toHaveProperty("receiptSha256");
 
     const rowAfterResult = { ...d1.rows.get(runId)! };
     const repeatedResult = await submitResult(
