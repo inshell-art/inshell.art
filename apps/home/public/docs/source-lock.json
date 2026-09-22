@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "6d1da1d8710ddbf181d6a29eec6d9e21b58726d1d0e058445b589a7a27645fe0",
+  "sourceTreeSha256": "c16c169e435fcbd3ceb6aa92543240a853a9f48eb501989f43d37745fcca2589",
   "groups": [
     {
       "id": "public-docs",
@@ -708,7 +708,7 @@
       "title": "Shared product runtime",
       "owner": "inshell.art shared App infrastructure",
       "reason": "Shared Ethereum, surface, utility, and Agent-protocol code used by public routes.",
-      "groupSha256": "ffffc3b7aea48113c582a377508c2972abb780a0b8e6bcff03d415102a0a0443",
+      "groupSha256": "425f4e58207d35c8ea09d5cda9ec219cca8deea170441efd348d6079952eebbf",
       "files": [
         {
           "path": "packages/ethereum/src/abi.ts",
@@ -807,8 +807,8 @@
         },
         {
           "path": "packages/thought-agent-protocol/src/codex-client.ts",
-          "byteLength": 28596,
-          "sha256": "a417d16c13825e932e1608fa9d37b92eba0a0b2bf8c831fa931373853ea5fc92"
+          "byteLength": 28584,
+          "sha256": "775d5d1f7bca3c005d4b5143d0583b03d25ba805aefc1748b549266fe31f92e6"
         },
         {
           "path": "packages/thought-agent-protocol/src/creative-brief.generated.ts",

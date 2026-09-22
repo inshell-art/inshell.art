@@ -147,7 +147,7 @@ export function buildThoughtCodexTask(input: ThoughtCodexTaskInput) {
   const endpointTemplate = contract.baseUrl.replaceAll(contract.runId, "RUN_ID");
   const networkRule = contract.networkAuthorization === "preauthorized"
     ? "This lab has App access; do not request it."
-    : "Use this turn's App permission.";
+    : "Use App permission.";
   const candidateShape = `{schema:RESULT_SCHEMA,release:{protocolReleaseId:CANONICAL_PROTOCOL_RELEASE_ID,manifestKeccak256:CANONICAL_MANIFEST_HASH},agentLine:ONE_EXACT_LINE,declaration:{schema:inshell.thought.agent-declaration.v1,status:declared-unverified,${contract.declarationLabelField}:AGENT_PRODUCT,declaredOneCreativeResult:true}}`;
 
   return [

@@ -275,18 +275,21 @@ for (const runtimeModel of ["reported", "unknown"] as const) {
   });
 }
 
-test("Codex handoff fits real run and credential lengths on staging origins", () => {
+test("Codex and ChatGPT handoffs fit real run and credential lengths on staging origins", () => {
   // The API emits 18 random bytes for run IDs and 32 for launch credentials,
   // encoded as unpadded base64url (24 and 43 characters respectively).
   const runId = `tar_${"x".repeat(24)}`;
-  for (const origin of ["https://preview.inshell.art", "https://staging.inshell-art.pages.dev"]) {
-    const task = buildThoughtCodexTask({
-      product: "Codex",
-      runId,
-      runUrl: `${origin}/api/thought-agent/v2/runs/${runId}`,
-      launchToken: "x".repeat(43),
-    });
-    assert.ok(Buffer.byteLength(task) <= 7_000, `${origin} handoff exceeds 7000 bytes`);
+  for (const product of ["Codex", "ChatGPT"] as const) {
+    for (const origin of ["https://preview.inshell.art", "https://staging.inshell-art.pages.dev"]) {
+      const task = buildThoughtCodexTask({
+        product,
+        runId,
+        runUrl: `${origin}/api/thought-agent/v2/runs/${runId}`,
+        launchToken: "x".repeat(43),
+      });
+      const bytes = Buffer.byteLength(task);
+      assert.ok(bytes <= 7_000, `${product} ${origin} handoff is ${bytes} bytes`);
+    }
   }
 });
 

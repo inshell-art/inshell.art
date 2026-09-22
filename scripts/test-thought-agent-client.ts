@@ -320,7 +320,7 @@ assert(task.includes("Run bounded control, then exactly one creative turn;"));
 assert(task.includes("no readiness/CREATE confirmation"));
 assert(!task.includes("Reply CREATE"));
 assert(task.includes("No setup."));
-assert(task.includes("Use this turn's App permission."));
+assert(task.includes("Use App permission."));
 assert(task.includes("U=uncertain after dispatch"));
 assert(task.includes("ready—replay exact READY_BODY+bridge once"));
 assert(task.includes("APP_ENDPOINT/claim"));

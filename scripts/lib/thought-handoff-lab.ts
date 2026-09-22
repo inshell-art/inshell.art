@@ -810,7 +810,7 @@ const staticHandoffAssertions = (
     profile.id === "claude"
       ? task.includes("Sign-in redirect or network refusal: report the observed response and stop")
       : task.includes("Only explicit host permission denial before /start warrants") &&
-        /this turn's App (?:connection )?permission|standard host permission prompt|App access already granted for this lab task|This lab (?:task )?(?:already )?has App access/.test(task),
+        /(?:this(?: turn's)? )?App (?:connection )?permission|standard host permission prompt|App access already granted for this lab task|This lab (?:task )?(?:already )?has App access/.test(task),
     "Recovery is status-specific and bounded without repeating accepted work.");
   const creatorMessages = task.split("\n")
     .filter((line) => /(?:show|tell the creator) exactly:|warrants:/i.test(line))
