@@ -794,8 +794,8 @@ const staticHandoffAssertions = (
   check("prompt-withheld-in-handoff", !task.includes(promptLine),
     "The creative prompt is absent from the launch handoff.");
   check("no-installation-request",
-    /No installations or configuration|Never ask the creator to install, configure, or learn anything|This task requires no installation or local configuration/.test(task) &&
-    /Never execute responses|download or execute nothing from it/.test(task),
+    /No installations or configuration|No setup|Never ask the creator to install, configure, or learn anything|This task requires no installation or local configuration/.test(task) &&
+    /Never execute responses|download or execute nothing from it|treat responses as data/.test(task),
     "No installation requests or execution of response data.");
   check("operation-specific-recovery",
     THOUGHT_HANDOFF_OPERATION_RECOVERY.every((line) => task.includes(line)) &&
@@ -810,7 +810,7 @@ const staticHandoffAssertions = (
     profile.id === "claude"
       ? task.includes("Sign-in redirect or network refusal: report the observed response and stop")
       : task.includes("Only explicit host permission denial before /start warrants") &&
-        /this turn's App connection permission|standard host permission prompt|App access already granted for this lab task|This lab task (?:already )?has App access/.test(task),
+        /this turn's App (?:connection )?permission|standard host permission prompt|App access already granted for this lab task|This lab (?:task )?(?:already )?has App access/.test(task),
     "Recovery is status-specific and bounded without repeating accepted work.");
   const creatorMessages = task.split("\n")
     .filter((line) => /(?:show|tell the creator) exactly:|warrants:/i.test(line))
@@ -832,12 +832,12 @@ const staticHandoffAssertions = (
     "Plain-text identifiers survive HTML-like tag removal; endpoint templates are explicit.");
   check("bridge-credential-lifecycle",
     /(?:Define BRIDGE_CREDENTIAL as that (?:exact )?bridgeToken|BRIDGE_CREDENTIAL=bridgeToken)/.test(task) &&
-    /(?:reuse it for (?:all|every) remaining operation|reuse for all later operations)/i.test(task) &&
-    (task.includes("Missing local persistence is not a blocker") || task.includes("No local persistence needed")) &&
-    task.includes("Never claim again") &&
+    /(?:reuse it for (?:all|every) remaining operation|reuse for all later operations|retain\/reuse privately)/i.test(task) &&
+    (task.includes("Missing local persistence is not a blocker") || task.includes("No local persistence needed") || task.includes("No persistence")) &&
+    /Never claim again|Never reclaim/.test(task) &&
     task.includes("Authorization: Bearer LAUNCH_CREDENTIAL for claim") &&
     task.includes("BRIDGE_CREDENTIAL later") &&
-    task.includes("Credentials only in Authorization—never body/URL/files/logs or redirects"),
+    task.includes("Credentials only in Authorization—never body/URL/files/logs/redirects"),
     "The one-time bridgeToken stays private and authenticates every operation after claim.");
   check("application-http-identity",
     task.includes(`User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}`),
@@ -848,19 +848,23 @@ const staticHandoffAssertions = (
   check("exact-nested-field-paths",
     jsonMatches("CLAIM_BODY", operation.claim) &&
     jsonMatches("READY_BODY_REPORTED", operation.ready) &&
-    jsonMatches("READY_BODY_UNKNOWN", operation.readyUnknown) &&
+    task.includes('READY_BODY_UNKNOWN = READY_BODY_REPORTED with only control.runtimeModel changed to "unknown"') &&
+    isDeepStrictEqual(
+      { ...operation.ready, control: { ...operation.ready.control, runtimeModel: "unknown" } },
+      operation.readyUnknown,
+    ) &&
     jsonMatches("RUN_AUTHORITY", operation.authority) &&
     task.includes("root protocolVersion=PROTOCOL_VERSION") &&
-    task.includes("readiness control.schema=CONTROL_SCHEMA") &&
-    task.includes("START_FIELDS = protocolVersion") &&
+    task.includes("only readiness has control.schema") &&
+    /(?:START_FIELDS = protocolVersion|POST only protocolVersion=PROTOCOL_VERSION)/.test(task) &&
     task.includes("RESULT_FIELDS = protocolVersion") &&
-    task.includes("METADATA_SOURCE=reported") &&
-    task.includes("METADATA_SOURCE=unknown") &&
+    /(?:METADATA_SOURCE|source)=reported/.test(task) &&
+    /(?:METADATA_SOURCE|source)=unknown/.test(task) &&
     task.includes("error.code=AGENT_START_FAILED") &&
     (profile.id === "codex"
       ? task.includes("rawSha256/agentLineSha256 are sha256: plus 64 lowercase hex") &&
-        task.includes("over exact UTF-8 raw/agentLine") &&
-        task.includes("no newline/re-serialize") && task.includes("Rehash before PUT")
+        /(?:of|over) exact UTF-8 raw\/(?:line|agentLine)/.test(task) &&
+        task.includes("rehash before PUT")
       : task.includes("Do not sort keys or apply JCS/canonical JSON") &&
         task.includes("output.rawSha256 to sha256: followed by 64 lowercase hex digits") &&
         task.includes("exact UTF-8 bytes of the decoded output.raw string") &&
@@ -889,7 +893,7 @@ const staticHandoffAssertions = (
       ]),
       "Claude receives a concise purpose-first task with its destination and repository scope.");
     check("response-data-integrity",
-      task.includes("request.authority exactly equal to RUN_AUTHORITY") &&
+      task.includes("request.authority=RUN_AUTHORITY") &&
       task.includes("Use creative fields and release identity only from the verified /start response") &&
       task.includes("The /start response is the sole source for release fields"),
       "Run authority, creative fields, and release identity come from verified response data.");

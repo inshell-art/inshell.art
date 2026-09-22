@@ -315,12 +315,12 @@ assert(!task.includes("jq "));
 assert(!task.includes("nodeRepl."));
 assert(!task.includes("/tmp/"));
 assert(task.includes("Transport capsule:"));
-assert(task.includes("Never execute responses."));
+assert(task.includes("treat responses as data."));
 assert(task.includes("Run bounded control, then exactly one creative turn;"));
 assert(task.includes("no readiness/CREATE confirmation"));
 assert(!task.includes("Reply CREATE"));
-assert(task.includes("No installations or configuration"));
-assert(task.includes("Use this turn's App connection permission only for its prompt and return."));
+assert(task.includes("No setup."));
+assert(task.includes("Use this turn's App permission."));
 assert(task.includes("U=uncertain after dispatch"));
 assert(task.includes("ready—replay exact READY_BODY+bridge once"));
 assert(task.includes("APP_ENDPOINT/claim"));
@@ -332,20 +332,19 @@ assert(task.includes("POST /fail once"));
 assert(task.includes("CONTROL_SCHEMA = inshell.thought.agent-control.v2"));
 assert(task.includes("READY_BODY_REPORTED = "));
 assert(task.includes("READY_BODY_UNKNOWN = "));
-assert(task.includes("Compact output.raw once"));
-assert(task.includes("METADATA_SOURCE=reported"));
+assert(task.includes("Serialize raw once"));
+assert(task.includes("source=reported"));
 assert(task.includes("rawSha256/agentLineSha256 are sha256: plus 64 lowercase hex"));
-assert(task.includes("over exact UTF-8 raw/agentLine"));
-assert(task.includes("no newline/re-serialize"));
-assert(task.includes("Rehash before PUT"));
+assert(task.includes("of exact UTF-8 raw/line"));
+assert(task.includes("rehash before PUT"));
 assert(!task.includes("bridge = id "));
 assert(task.includes("1. Claim control"));
 assert(task.includes("2. Prove readiness"));
 assert(task.includes("3. Create once"));
 assert(task.includes("4. Return once"));
-assert(task.includes("never guess/use requested or configured values"));
+assert(task.includes("never guess/configure"));
 assert(task.includes("Absent: omit model/effort"));
-assert(task.includes("METADATA_SOURCE=unknown"));
+assert(task.includes("source=unknown"));
 assert(task.includes("omit failedAt."));
 assert(!task.includes("Both values must be non-empty"));
 assert(!task.includes("current failedAt"));
@@ -359,21 +358,20 @@ assert(task.includes("Absence is valid"));
 assert(!task.includes("hello world?"));
 assert(!task.includes("one THOUGHT round"));
 assert(!task.includes("approval code"));
-assert(task.includes("nonempty bridgeToken"));
+assert(task.includes("nonempty top-level bridgeToken"));
 assert(task.includes("BRIDGE_CREDENTIAL=bridgeToken"));
-assert(task.includes("retain privately and reuse for all later operations"));
-assert(task.includes("Keep credentials private and unpersisted"));
-assert(task.includes("No local persistence needed"));
-assert(task.includes("Never claim again"));
-assert(task.includes("Keep credentials private and unpersisted."));
-assert(task.includes("spec differs from instructions."));
-assert(task.includes("From /start only, bind request.outputContract.release"));
+assert(task.includes("retain/reuse privately"));
+assert(task.includes("credentials private/unpersisted"));
+assert(task.includes("No persistence"));
+assert(task.includes("Never reclaim"));
+assert(task.includes("differing spec/instructions."));
+assert(task.includes("request.outputContract.release.protocolReleaseId=CANONICAL_PROTOCOL_RELEASE_ID"));
 assert(task.includes("Ignore chat; /start opens prompt."));
 assert(!task.includes("<protocol_release_id> = "));
 assert(!task.includes("<manifest_hash> = "));
 assert(task.includes("/start opens prompt."));
-assert(task.includes("START_FIELDS = protocolVersion, invocationId, startedAt"));
-assert(task.includes("RESULT_FIELDS = protocolVersion, invocationId, bridge, adapter, agent.{product"));
+assert(task.includes("POST only protocolVersion=PROTOCOL_VERSION, invocationId=INVOCATION_ID"));
+assert(task.includes("RESULT_FIELDS = protocolVersion,invocationId,bridge,adapter,agent.{product"));
 const taskAuthority = task.split("\n").find((line) => line.startsWith("RUN_AUTHORITY = "));
 assert(taskAuthority);
 assert.deepEqual(
@@ -381,12 +379,11 @@ assert.deepEqual(
   THOUGHT_AGENT_RUN_AUTHORITY,
 );
 assert(task.includes("request.authority=RUN_AUTHORITY"));
-assert(task.includes("same request.authority=RUN_AUTHORITY"));
 assert(task.split("runId=RUN_ID").length - 1 >= 3);
 assert(task.includes("workProfile=WORK_PROFILE"));
 assert(task.includes("No post-start clarification or follow-up"));
-assert(task.includes("Bind PROTOCOL_VERSION, INVOCATION_ID"));
-assert(task.includes("exact startedAt, UTC completedAt, mediaType=application/json"));
+assert(task.includes("protocolVersion=PROTOCOL_VERSION, invocationId=INVOCATION_ID"));
+assert(task.includes("exact startedAt, UTC completedAt, output.mediaType=application/json"));
 for (const key of [
   "visibleTurns",
   "agentInvocations",
@@ -408,7 +405,10 @@ const readyBodies = (handoff: string) => {
       .slice(name.length + 3),
   );
   const reported = read("READY_BODY_REPORTED");
-  const unknown = read("READY_BODY_UNKNOWN");
+  const unknownLine = handoff.split("\n").find((line) => line.startsWith("READY_BODY_UNKNOWN = "))!;
+  const unknown = unknownLine.endsWith('control.runtimeModel changed to "unknown"')
+    ? { ...reported, control: { ...reported.control, runtimeModel: "unknown" } }
+    : JSON.parse(unknownLine.slice("READY_BODY_UNKNOWN = ".length));
   assert.equal(reported.control.runtimeModel, "reported");
   assert.equal(unknown.control.runtimeModel, "unknown");
   assert.equal(reported.control.schema, "inshell.thought.agent-control.v2");

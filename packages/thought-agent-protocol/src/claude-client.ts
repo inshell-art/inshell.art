@@ -8,7 +8,13 @@ import {
   type ThoughtDirectAgentTaskInput,
 } from "./direct-agent-task";
 import { THOUGHT_V2_PROTOCOL_RELEASE } from "./release.generated";
-import { THOUGHT_HANDOFF_HTTP_IDENTIFICATION, THOUGHT_HANDOFF_READY_RESPONSE_CHECK } from "./handoff-http";
+import {
+  buildThoughtHandoffResponseChecks,
+  THOUGHT_HANDOFF_FAIL_RESPONSE_CHECK,
+  THOUGHT_HANDOFF_HTTP_IDENTIFICATION,
+  THOUGHT_HANDOFF_READY_RESPONSE_CHECK,
+  THOUGHT_HANDOFF_RESULT_RESPONSE_CHECK,
+} from "./handoff-http";
 
 export type ThoughtClaudeReleaseBinding = ThoughtDirectAgentReleaseBinding;
 export type ThoughtClaudeResultContractBinding =
@@ -99,6 +105,12 @@ const buildThoughtClaudeCoworkTask = (input: ThoughtClaudeTaskInput) => {
   ).toString();
   const endpointTemplate = contract.baseUrl.replaceAll(contract.runId, "<run_id>");
   const candidateShape = `schema=<result_schema>; release.protocolReleaseId=<canonical_protocol_release_id>; release.manifestKeccak256=<canonical_manifest_hash>; agentLine=<one exact line>; declaration.schema=inshell.thought.agent-declaration.v1; declaration.status=declared-unverified; declaration.${contract.declarationLabelField}=<agent_product>; declaration.declaredOneCreativeResult=true`;
+  const responseChecks = buildThoughtHandoffResponseChecks({
+    runId: "<run_id>",
+    authority: "<run_authority>",
+    controlSchema: "<control_schema>",
+    workProfile: "<work_profile>",
+  });
   const permissionRule = contract.networkAuthorization === "preauthorized"
     ? "This canary already has permission to contact the App."
     : "If Claude presents a connection-permission prompt, request permission only for <app_origin>. Continue when that prompt resolves; do not ask the creator to type RETRY.";
@@ -128,6 +140,7 @@ const buildThoughtClaudeCoworkTask = (input: ThoughtClaudeTaskInput) => {
     `<protocol> = ${contract.protocolVersion}`,
     `<connectivity_schema> = ${THOUGHT_AGENT_CONNECTIVITY_SCHEMA}`,
     `<control_schema> = ${contract.controlVersion}`,
+    `<run_authority> = ${JSON.stringify(contract.authority)}`,
     `<invocation_id> = ${contract.invocationId}`,
     `<result_schema> = ${contract.resultVersion}`,
     `<work_profile> = ${contract.workProfile}`,
@@ -161,7 +174,8 @@ const buildThoughtClaudeCoworkTask = (input: ThoughtClaudeTaskInput) => {
     "If the check cannot receive that response because the task is using a cloud sandbox, a proxy or CONNECT request is blocked, robots policy refuses access, or the public service is unreachable, do not claim the run and do not ask for RETRY. Tell the creator exactly: Claude could not reach THOUGHT from this task. Start it again with Run this task set to On your computer. Nothing was created.",
     "",
     "2. Claim control",
-    "At <claim_endpoint>, submit one POST using <launch_credential> as Bearer authorization. Use exactly <claim_fields>, without shortening or renaming a field; fill them from <protocol> and the listed bridge/adapter values. Accept only runId=<run_id>, state=claimed, a non-empty top-level bridgeToken, the exact App-issued run authority (bootstrap-only handoff, App-issued canonical capsule, start-response-only creative input, chat edits non-authoritative, transcript purity not attested), and a bounded-preflight request using <control_schema>. The creative prompt must still be absent.",
+    "At <claim_endpoint>, POST exactly <claim_fields> using <launch_credential> Bearer authorization.",
+    responseChecks.claim,
     "Call the returned bridgeToken <bridge_credential>. Retain it before validating the rest of the claim, reuse it for the remaining operations, and do not claim this run twice.",
     "",
     "3. Prove readiness",
@@ -171,22 +185,24 @@ const buildThoughtClaudeCoworkTask = (input: ThoughtClaudeTaskInput) => {
     "Continue immediately on success.",
     "",
     "4. Create once",
-    "At <start_endpoint>, submit one POST using <bridge_credential>. Use exactly <start_fields>, without shortening or renaming a field: <protocol>, <invocation_id>, and one current UTC startedAt. Accept only the matching running state and generate-thought-candidate request.",
-    "Require the same exact App-issued run authority in the /start request. Verify independently: selected Work Specification bytes/hash/contract identity; Agent Creative Brief bytes/hash; promptLine and agentInput bytes/hashes; and request.outputContract.agentLine.workProfile=<work_profile>. Spec and instructions must differ.",
+    "At <start_endpoint>, POST exactly <start_fields> using <bridge_credential>: <protocol>, <invocation_id>, current UTC startedAt.",
+    responseChecks.start,
     "Use only request.outputContract.release from this /start response. Define its protocolReleaseId as <canonical_protocol_release_id> and its manifestKeccak256 as <canonical_manifest_hash>; require each to be a 0x-prefixed 32-byte hex value. Ignore release values from chat or any other source. A successful /start opens the prompt; never call it sealed.",
     `Read the now-open prompt and creative instructions, then produce one exact 1-${THOUGHT_V2_PROTOCOL_RELEASE.limits.agentMaxBytes}-byte Terminal English agentLine. Preserve its bytes. Do not begin a clarification or follow-up round after the creative phase opens. If a valid line cannot be produced, stop without inventing one.`,
     `Encode one compact candidate with this shape: ${candidateShape}.`,
     "",
     "5. Return once",
-    "At <result_endpoint>, submit one PUT using <bridge_credential> and Idempotency-Key=<invocation_id>. Use exactly <result_fields>, without shortening or renaming a field. Bind <protocol>, <invocation_id>, the exact claim bridge/adapter, <agent_product>/<agent_provider>, the selected metadata source, the retained model and optional effort only when metadataSource=reported, the policy below, exact startedAt, current UTC completedAt, mediaType=application/json, and the exact candidate as output.raw. When metadataSource=unknown, omit model and reasoningEffort. Supply lowercase sha256: hashes of both candidate bytes and agentLine bytes.",
+    "At <result_endpoint>, submit one PUT using <bridge_credential> and Idempotency-Key=<invocation_id>. Use exactly <result_fields>. Bind <protocol>, <invocation_id>, the exact <claim_fields> bridge/adapter values (claim response has neither), <agent_product>/<agent_provider>, selected metadata, model/effort only when reported, the policy below, exact startedAt, current UTC completedAt, mediaType=application/json, and the exact candidate as output.raw. When metadataSource=unknown, omit model and reasoningEffort. Supply lowercase sha256: hashes of candidate and agentLine bytes.",
     `The execution policy is visibleTurns=${contract.execution.visibleTurns}, agentInvocations=${contract.execution.agentInvocations}, workspacePolicy=${contract.execution.workspacePolicy}, sandboxPolicy=${contract.execution.sandboxPolicy}, approvalPolicy=${contract.execution.approvalPolicy}, userConfigPolicy=${contract.execution.userConfigPolicy}.`,
-    "Accept completion only for runId=<run_id>, state=returned, and an actual receiptSha256 beginning sha256:. An identical delivery may be retried idempotently; never submit a conflicting result.",
+    "Accept completion only for runId=<run_id> and state=returned. An identical delivery may be retried idempotently; never submit a conflicting result.",
+    THOUGHT_HANDOFF_RESULT_RESPONSE_CHECK,
     "The receipt proves that the App accepted and bound its canonical run; it does not attest an untouched chat transcript or absence of outside influence.",
     "",
     "Recovery",
     "- A failed connection check is terminal for this task. Never loop on RETRY and never suggest installation, organization settings, an allowlist, a browser extension, or a local folder.",
     "- Only after the connection check has passed, an exact RETRY may repeat one later failed control operation. Never claim twice, and RETRY never opens the creative prompt.",
     "- For another proven blocker, state the observed problem and request one plain creator action. Do not claim success or invent a receipt.",
+    THOUGHT_HANDOFF_FAIL_RESPONSE_CHECK,
     "",
     "After the App returns a valid receipt, tell the creator that the THOUGHT work was returned and include the actual receipt. The work itself will appear in the THOUGHT App.",
     "Do not include bearer authorization values in the chat response.",

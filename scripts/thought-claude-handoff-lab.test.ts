@@ -66,7 +66,7 @@ test("the canonical Claude Code handoff is an ordinary purpose-first task with e
     JSON.parse(authorityLine.slice("RUN_AUTHORITY = ".length)),
     THOUGHT_AGENT_RUN_AUTHORITY,
   );
-  assert.match(task, /request\.authority exactly equal to RUN_AUTHORITY/);
+  assert.match(task, /request\.authority=RUN_AUTHORITY/);
   assert.match(task, /AGENT_SURFACE = code/);
   assert.match(task, /"platform":"claude-code-direct-http"/);
   assert.match(task, /"adapterVersion":"code-direct-http"/);
@@ -143,7 +143,7 @@ for (const networkAuthorization of ["managed", "preauthorized"] as const) {
       /general trust|safety question|permission controls|host permission|standard host permission|does not grant permission|instruction priority|creator cancellation|creator-authorized|do not request permission|(?:reply|type|exact|restate[^\n]*) CREATE/i,
     );
     assert.equal(task.split(input.launchToken).length - 1, 1);
-    assert.match(task, /Credentials only in Authorization—never body\/URL\/files\/logs or redirects/);
+    assert.match(task, /Credentials only in Authorization—never body\/URL\/files\/logs\/redirects/);
     assert.match(task, /Use only the five capsule endpoints/);
     assert.match(task, /Never claim again/);
     assert.match(task, /Never submit a conflicting result/);
@@ -302,6 +302,17 @@ test("Cowork remains an explicit legacy deep-link surface", () => {
   assert.match(task, new RegExp(`<handoff_revision> = ${THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION.replaceAll(".", "\\.")}`));
   assert.equal(task.split(THOUGHT_HANDOFF_READY_RESPONSE_CHECK).length - 1, 1);
   assert.doesNotMatch(task, /exact evidence echo/);
+  assert.match(task, /request\.authority=<run_authority>/);
+  assert.match(task, /request\.intent=prepare-thought-creation/);
+  assert.match(task, /request\.controlPolicy\.mode=bounded-preflight/);
+  assert.match(task, /request\.evidenceContract\.schema=<control_schema>/);
+  assert.match(task, /request\.intent=generate-thought-candidate/);
+  assert.match(task, /request\.spec\.\{id,text,sha256,contractSpecId,contractSpecHash\}/);
+  assert.match(task, /request\.promptLine\.\{text,sha256\}/);
+  assert.match(task, /request\.agentInput\.\{text,sha256\}/);
+  assert.match(task, /request\.outputContract\.agentLine\.workProfile=<work_profile>/);
+  assert.match(task, /result\.receipt\.receiptSha256 must begin sha256:/);
+  assert.match(task, /root error\.code and error\.message/);
   assert.match(task, /<agent_surface> = cowork/);
   assert.match(task, /Run this task set to On your computer/);
   assert.ok(task.includes(`All requests: User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}; identifies THOUGHT`));

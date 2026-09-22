@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "d8bfa98901069e6f9a2d4317f00a152615cf5dd12771f68592c5484be62b6e5a",
+  "sourceTreeSha256": "6d1da1d8710ddbf181d6a29eec6d9e21b58726d1d0e058445b589a7a27645fe0",
   "groups": [
     {
       "id": "public-docs",
@@ -708,7 +708,7 @@
       "title": "Shared product runtime",
       "owner": "inshell.art shared App infrastructure",
       "reason": "Shared Ethereum, surface, utility, and Agent-protocol code used by public routes.",
-      "groupSha256": "11988246e1913cbbae6e74afb37c4f311c174a8e97f1c77e2d479d019dbd54b0",
+      "groupSha256": "ffffc3b7aea48113c582a377508c2972abb780a0b8e6bcff03d415102a0a0443",
       "files": [
         {
           "path": "packages/ethereum/src/abi.ts",
@@ -802,13 +802,13 @@
         },
         {
           "path": "packages/thought-agent-protocol/src/claude-client.ts",
-          "byteLength": 15220,
-          "sha256": "f1d84d7540ddf2834f30556d951c7e08417565d79bb1d2befa6b02732a225e4e"
+          "byteLength": 14675,
+          "sha256": "d6f6bb48375b73ed4da0797655a99b17622fc9efea7c02c1f0365e8177742a4e"
         },
         {
           "path": "packages/thought-agent-protocol/src/codex-client.ts",
-          "byteLength": 29024,
-          "sha256": "39bb6db74a0bbd6e0415ae36324ac6af8dd12e1f263681604392447d977ee623"
+          "byteLength": 28596,
+          "sha256": "a417d16c13825e932e1608fa9d37b92eba0a0b2bf8c831fa931373853ea5fc92"
         },
         {
           "path": "packages/thought-agent-protocol/src/creative-brief.generated.ts",
@@ -817,13 +817,13 @@
         },
         {
           "path": "packages/thought-agent-protocol/src/direct-agent-task.ts",
-          "byteLength": 14724,
-          "sha256": "fca3663a1dd18059d2e4c9f5fd64ff3da3cea94fa2a54bb6e48052914d5f18b4"
+          "byteLength": 14312,
+          "sha256": "5b3cd4500946751ed06d26288d4a705fcfe52ff5e932d9c90997c195e6b98a5d"
         },
         {
           "path": "packages/thought-agent-protocol/src/handoff-http.ts",
-          "byteLength": 3249,
-          "sha256": "e00ae18bdb48f60eaf78a2ebe6afd9112675609341e47f3d4634e0117b6f20b8"
+          "byteLength": 6225,
+          "sha256": "b1fda7ef5ac13dc4af0d7487668f01edd457a734b98e6b74703f62cf448250d0"
         },
         {
           "path": "packages/thought-agent-protocol/src/index.ts",
