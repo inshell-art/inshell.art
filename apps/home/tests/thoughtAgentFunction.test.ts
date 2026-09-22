@@ -534,7 +534,10 @@ describe("THOUGHT Agent Pages API", () => {
     jest.restoreAllMocks();
   });
 
-  test.each(["codex", "claude"] as const)("%s handoff survives HTML text conversion and supplies exact authenticated v2 requests", async (adapterId) => {
+  test.each([
+    ["codex", "reported"], ["codex", "unknown"],
+    ["claude", "reported"], ["claude", "unknown"],
+  ] as const)("%s/%s handoff survives HTML text conversion and supplies exact authenticated v2 requests", async (adapterId, runtimeModel) => {
     const d1 = createD1Mock();
     const env = { INSHELL_CHAIN_DATA_DB: d1.db };
     const created = await createRun(env, "handshake fixture", adapterId);
@@ -556,7 +559,9 @@ describe("THOUGHT Agent Pages API", () => {
     const claim = body("CLAIM_BODY");
     const readyReported = body("READY_BODY_REPORTED");
     const readyUnknown = body("READY_BODY_UNKNOWN");
-    const ready = readyUnknown;
+    const ready = runtimeModel === "reported" ? readyReported : readyUnknown;
+    // Wire object key order has no semantic meaning. The handler normalizes it.
+    ready.control = Object.fromEntries(Object.entries(ready.control).reverse());
     expect(claim.protocolVersion).toBe(THOUGHT_AGENT_PROTOCOL_VERSION);
     expect(readyReported.protocolVersion).toBe(THOUGHT_AGENT_PROTOCOL_VERSION);
     expect(readyReported.control.schema).toBe(THOUGHT_AGENT_CONTROL_VERSION);
@@ -601,7 +606,18 @@ describe("THOUGHT Agent Pages API", () => {
       request: request(`${runUrl}/ready`, ready, agentAuth(claimedBody.bridgeToken)), env, params: { runId },
     });
     expect(readyResponse.status).toBe(200);
-    expect(await readyResponse.json()).toMatchObject({ state: "ready", stage: "control-verified" });
+    const readyPayload = await readyResponse.json();
+    expect(readyPayload).toMatchObject({ protocolVersion: ready.protocolVersion, runId, state: "ready", stage: "control-verified" });
+    expect(readyPayload).not.toHaveProperty("creatorAction");
+    expect(readyPayload.control).toStrictEqual(ready.control);
+    expect(readyPayload).not.toStrictEqual(ready);
+    expect(readyPayload.control).not.toStrictEqual(ready);
+    expect(JSON.stringify(readyPayload.control)).not.toBe(JSON.stringify(ready.control));
+    const replay = await onReadyRunV2({
+      request: request(`${runUrl}/ready`, ready, agentAuth(claimedBody.bridgeToken)), env, params: { runId },
+    });
+    expect(replay.status).toBe(200);
+    expect(await replay.json()).toStrictEqual(readyPayload);
   });
 
   test("runs create -> claim -> start -> result -> poll", async () => {

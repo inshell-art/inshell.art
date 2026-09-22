@@ -14,6 +14,8 @@ import {
   type ServerResponse,
 } from "node:http";
 import { dirname, join, resolve } from "node:path";
+import { isDeepStrictEqual } from "node:util";
+import { THOUGHT_HANDOFF_READY_RESPONSE_CHECK } from "../../packages/thought-agent-protocol/src/handoff-http";
 
 import {
   THOUGHT_AGENT_CREATIVE_BRIEF,
@@ -785,7 +787,7 @@ const staticHandoffAssertions = (
       ? task.includes("Continue immediately on success.") &&
         task.includes("Once the creative phase begins, complete exactly this one result")
       : /(?:Run bounded control, then exactly one creative turn|If (?:the preflight|it) passes, continue directly into (?:exactly )?one creative turn)/i.test(task) &&
-        /(?:do not|never) ask the creator to confirm (?:a|the)? ?(?:successful preflight|readiness)/i.test(task),
+        /(?:no readiness\/CREATE confirmation|(?:do not|never) ask the creator to confirm (?:a|the)? ?(?:successful preflight|readiness))/i.test(task),
     "Successful preflight continues into one creative result without an extra CREATE gate.");
   check("no-create-gate", !/reply CREATE|exact CREATE/i.test(task),
     "No creator CREATE gate.");
@@ -831,7 +833,7 @@ const staticHandoffAssertions = (
   check("bridge-credential-lifecycle",
     /(?:Define BRIDGE_CREDENTIAL as that (?:exact )?bridgeToken|BRIDGE_CREDENTIAL=bridgeToken)/.test(task) &&
     /(?:reuse it for (?:all|every) remaining operation|reuse for all later operations)/i.test(task) &&
-    task.includes("Missing local persistence is not a blocker") &&
+    (task.includes("Missing local persistence is not a blocker") || task.includes("No local persistence needed")) &&
     task.includes("Never claim again") &&
     task.includes("Authorization: Bearer LAUNCH_CREDENTIAL for claim") &&
     task.includes("BRIDGE_CREDENTIAL later") &&
@@ -840,6 +842,9 @@ const staticHandoffAssertions = (
   check("application-http-identity",
     task.includes(`User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}`),
     "Every Agent operation identifies the THOUGHT protocol, not an impersonated browser.");
+  check("readiness-control-echo",
+    task.includes(THOUGHT_HANDOFF_READY_RESPONSE_CHECK) && !task.includes("exact evidence echo"),
+    "Readiness checks the protocol and exact control keys/values/types, not whole bodies or JSON serialization order.");
   check("exact-nested-field-paths",
     jsonMatches("CLAIM_BODY", operation.claim) &&
     jsonMatches("READY_BODY_REPORTED", operation.ready) &&
@@ -957,18 +962,19 @@ const validateClaim = (payload: unknown, runId: string, profile: ThoughtHandoffL
   return claim;
 };
 
-const validateReady = (
+export const validateThoughtLabReadyResponse = (
   payload: unknown,
   runId: string,
   runtimeModel: "reported" | "unknown" = "reported",
 ) => {
   const ready = requireRecord(payload, "Readiness response must be an object.");
   if (
+    ready.protocolVersion !== THOUGHT_AGENT_PROTOCOL_VERSION ||
     ready.runId !== runId ||
     ready.state !== "ready" ||
     ready.stage !== "control-verified" ||
-    ready.creatorAction != null ||
-    JSON.stringify(ready.control) !== JSON.stringify(controlEvidence(runtimeModel))
+    Object.hasOwn(ready, "creatorAction") ||
+    !isDeepStrictEqual(ready.control, controlEvidence(runtimeModel))
   ) {
     throw new Error("Readiness contract drifted.");
   }
@@ -1084,7 +1090,7 @@ const runDeterministicCase = async (
       const validatedReady = await runExpected(
         commands,
         "validate-ready",
-        () => validateReady(readyPayload, run.runId, run.runtimeModel),
+        () => validateThoughtLabReadyResponse(readyPayload, run.runId, run.runtimeModel),
         definition.fault === "malformed-ready" ? "nonzero" : "zero",
       );
       if (definition.fault !== "malformed-ready") {

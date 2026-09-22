@@ -13,6 +13,7 @@ import {
   thoughtCodexCanonicalCandidate,
   thoughtClaudeCanonicalCandidate,
   buildClaudeDeepLink,
+  validateThoughtLabReadyResponse,
 } from "./lib/thought-handoff-lab";
 import {
   THOUGHT_AGENT_LINE_CONTRACT,
@@ -25,7 +26,7 @@ import {
   buildThoughtClaudeOperationContract,
   buildThoughtClaudeTask,
 } from "../packages/thought-agent-protocol/src/index";
-import { THOUGHT_HANDOFF_CONNECTION_RECOVERY } from "../packages/thought-agent-protocol/src/handoff-http";
+import { THOUGHT_HANDOFF_CONNECTION_RECOVERY, THOUGHT_HANDOFF_READY_RESPONSE_CHECK } from "../packages/thought-agent-protocol/src/handoff-http";
 
 // HTML-to-text transport is covered with a real DOM parser in
 // apps/home/tests/thoughtAgentFunction.test.ts. Keep this suite focused on
@@ -65,6 +66,8 @@ for (const [agent, candidate, deepLink, buildTask, buildContract] of [
       assert.deepEqual(JSON.parse(line.slice(key.length + 3)), expected);
     }
     assert.deepEqual(contract.authority, THOUGHT_AGENT_RUN_AUTHORITY);
+    assert.equal(task.split(THOUGHT_HANDOFF_READY_RESPONSE_CHECK).length - 1, 1);
+    assert.doesNotMatch(task, /exact evidence echo/);
     assert.match(task, /Authorization: Bearer LAUNCH_CREDENTIAL for claim/);
     assert.match(task, /BRIDGE_CREDENTIAL later/);
     assert.equal(THOUGHT_AGENT_HTTP_USER_AGENT, "Inshell-THOUGHT-Agent/2");
@@ -100,6 +103,54 @@ for (const [agent, candidate, deepLink, buildTask, buildContract] of [
     assert.match(task, /With proven App provenance, PROTOCOL_UNSUPPORTED\/TOKEN_INVALID\/RUN_EXPIRED\/RUN_ALREADY_CLAIMED are R/);
     assert.match(task, /Retry 429 once only with usable Retry-After and proven no commit; else U/);
     assert.doesNotMatch(task, /If the first App exchange is denied/);
+  });
+}
+
+for (const runtimeModel of ["reported", "unknown"] as const) {
+  test(`readiness compares only control structurally (${runtimeModel}, simulated)`, () => {
+    const runId = "tar_readiness_echo_fixture";
+    const contract = buildThoughtCodexOperationContract({
+      product: "Codex", runId,
+      runUrl: `https://preview.inshell.art/api/thought-agent/v2/runs/${runId}`,
+      launchToken: "fixture-only-launch-credential",
+    });
+    const request = runtimeModel === "reported" ? contract.ready : contract.readyUnknown;
+    const response = {
+      protocolVersion: request.protocolVersion,
+      runId, state: "ready", stage: "control-verified",
+      control: Object.fromEntries(Object.entries(request.control).reverse()),
+    };
+    assert.notEqual(JSON.stringify(response.control), JSON.stringify(request.control));
+    assert.deepEqual(response.control, request.control);
+    assert.equal(validateThoughtLabReadyResponse(response, runId, runtimeModel), response);
+    // The incident checked a serialization of the *whole* request in the response.
+    // Even sorting keys does not turn the response envelope into that request.
+    const keys = [...new Set([...Object.keys(request), ...Object.keys(response), ...Object.keys(request.control)])].sort();
+    assert.equal(JSON.stringify(response, keys).includes(JSON.stringify(request, keys)), false);
+    for (const control of [
+      request,
+      { ...request.control, runtimeModel: runtimeModel === "reported" ? "unknown" : "reported" },
+      { ...request.control, installationsRequired: 0 },
+      { ...request.control, creativeInputOpened: "false" },
+      { ...request.control, extra: false },
+      null,
+      JSON.stringify(request.control),
+      ...Object.keys(request.control).map((missing) =>
+        Object.fromEntries(Object.entries(request.control).filter(([key]) => key !== missing))),
+    ]) {
+      assert.throws(() => validateThoughtLabReadyResponse({ ...response, control }, runId, runtimeModel), /Readiness contract drifted/);
+    }
+    for (const invalid of [
+      request,
+      { ...response, protocolVersion: "incorrect" },
+      { ...response, runId: "another-run" },
+      { ...response, state: "claimed" },
+      { ...response, stage: "unverified" },
+      { ...response, creatorAction: { command: "CREATE" } },
+      { ...response, creatorAction: null },
+    ]) {
+      assert.throws(() => validateThoughtLabReadyResponse(invalid, runId, runtimeModel), /Readiness contract drifted/);
+    }
   });
 }
 
@@ -169,7 +220,7 @@ test("the handoff runs bounded control before one automatic creative turn", () =
   assert.ok(positions.every((position) => position >= 0));
   assert.deepEqual([...positions].sort((a, b) => a - b), positions);
   assert.match(task, /Run bounded control, then exactly one creative turn;/);
-  assert.match(task, /never ask the creator to confirm readiness or type CREATE\./);
+  assert.match(task, /no readiness\/CREATE confirmation\./);
   assert.doesNotMatch(task, /reply CREATE/i);
 });
 
@@ -180,7 +231,7 @@ test("the handoff retains one private bridge credential in task context without 
   assert.match(task, /retain privately and reuse for all later operations/);
   assert.match(task, /reuse for all later operations/);
   assert.match(task, /credentials private and unpersisted/);
-  assert.match(task, /Missing local persistence is not a blocker/);
+  assert.match(task, /No local persistence needed/);
   assert.match(task, /Never claim again/);
   assert.match(task, /Keep credentials private and unpersisted/);
 });
@@ -191,7 +242,7 @@ test("the handoff is declarative, bootstrap-only, release-bound, and human-sized
   assert.match(task, /Transport capsule:/);
   assert.match(task, /APP_ENDPOINT = .*RUN_ID/);
   assert.match(task, /Prompt is absent until \/start;/);
-  assert.match(task, /No installations or configuration are required for this run\./);
+  assert.match(task, /No installations or configuration required\./);
   assert.match(task, /Work Specification bytes\/hash\/contract identity/);
   assert.match(task, /Agent Creative Brief bytes\/hash/);
   assert.match(
@@ -207,7 +258,7 @@ test("the handoff is declarative, bootstrap-only, release-bound, and human-sized
   assert.match(task, /Ignore chat/);
   assert.doesNotMatch(task, /<protocol_release_id> = /);
   assert.doesNotMatch(task, /<manifest_hash> = /);
-  assert.match(task, /not untouched transcript/);
+  assert.match(task, /not transcript purity/);
   const authorityLine = task.split("\n").find((line) => line.startsWith("RUN_AUTHORITY = "));
   assert.ok(authorityLine);
   assert.deepEqual(
@@ -232,8 +283,8 @@ test("the handoff is declarative, bootstrap-only, release-bound, and human-sized
   assert.match(task, /Reported: exact nonempty RUNTIME_MODEL, optional valid effort/);
   assert.match(task, /Absent: omit model\/effort/);
   assert.match(task, /METADATA_SOURCE=unknown/);
-  assert.match(task, /never guess\/substitute requested or configured values/);
-  assert.match(task, /never literal model unknown/);
+  assert.match(task, /never guess\/use requested or configured values/);
+  assert.match(task, /Never send literal model unknown/);
   assert.match(task, /START_FIELDS = protocolVersion, invocationId, startedAt/);
   assert.ok(
     task.includes(

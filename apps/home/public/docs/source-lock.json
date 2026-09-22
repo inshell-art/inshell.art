@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "aba9b00a23368976d87d9c8bf50ad7085a6ca0a0d13f80f48512b0b08bedac50",
+  "sourceTreeSha256": "794beaf38fcb9a0c2bf481bc49b54b6a43805c1e4398932abc6572a32e597d46",
   "groups": [
     {
       "id": "public-docs",
@@ -595,7 +595,7 @@
       "title": "Documentation gates",
       "owner": "inshell.art repository automation",
       "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
-      "groupSha256": "fc77f0b8ef881eeb176b30248b6926ee657667125da885b72a838f8a7268b69e",
+      "groupSha256": "9d31838cd39e31d084108241cbaa631aac49ee4e6a63f934ed5b266cd52b4681",
       "files": [
         {
           "path": ".github/workflows/deploy-pages.yml",
@@ -639,8 +639,8 @@
         },
         {
           "path": "scripts/check-release-evidence.mjs",
-          "byteLength": 6678,
-          "sha256": "d5cf4632103780bd24d62af3eea6c7ba830d8979379f3bdd6f98b0e2ea561365"
+          "byteLength": 7426,
+          "sha256": "ffe30aa56cc3e51e1160bb0de642e7099cbdccf1a405a4ab0f53d7414e908813"
         },
         {
           "path": "scripts/check-thought-root-surface-contract.mjs",
@@ -708,7 +708,7 @@
       "title": "Shared product runtime",
       "owner": "inshell.art shared App infrastructure",
       "reason": "Shared Ethereum, surface, utility, and Agent-protocol code used by public routes.",
-      "groupSha256": "47ead4ecab76cbdbc8aeb4ef2e1ff75279883eb36b3db24fa267e99711be2c6c",
+      "groupSha256": "11988246e1913cbbae6e74afb37c4f311c174a8e97f1c77e2d479d019dbd54b0",
       "files": [
         {
           "path": "packages/ethereum/src/abi.ts",
@@ -802,13 +802,13 @@
         },
         {
           "path": "packages/thought-agent-protocol/src/claude-client.ts",
-          "byteLength": 15161,
-          "sha256": "0d70b53e39bff54aa8e974d4378eabcbac48274947adbf40f3a2d20677aa9b0d"
+          "byteLength": 15220,
+          "sha256": "f1d84d7540ddf2834f30556d951c7e08417565d79bb1d2befa6b02732a225e4e"
         },
         {
           "path": "packages/thought-agent-protocol/src/codex-client.ts",
-          "byteLength": 29126,
-          "sha256": "a2b03b7aabdb98d62ccf7f72b686db311a996ad97b4dbae2b618ec543af67cfb"
+          "byteLength": 29024,
+          "sha256": "39bb6db74a0bbd6e0415ae36324ac6af8dd12e1f263681604392447d977ee623"
         },
         {
           "path": "packages/thought-agent-protocol/src/creative-brief.generated.ts",
@@ -817,13 +817,13 @@
         },
         {
           "path": "packages/thought-agent-protocol/src/direct-agent-task.ts",
-          "byteLength": 14663,
-          "sha256": "6648a3aaafcacd7b47d7291f9b5718acb04ab408155f343ce02beb17c7935e58"
+          "byteLength": 14724,
+          "sha256": "fca3663a1dd18059d2e4c9f5fd64ff3da3cea94fa2a54bb6e48052914d5f18b4"
         },
         {
           "path": "packages/thought-agent-protocol/src/handoff-http.ts",
-          "byteLength": 3006,
-          "sha256": "070ce998b12e08d2d204b495cb54fc7a2ca1a939ff506ecc6484599d0efa2c72"
+          "byteLength": 3249,
+          "sha256": "e00ae18bdb48f60eaf78a2ebe6afd9112675609341e47f3d4634e0117b6f20b8"
         },
         {
           "path": "packages/thought-agent-protocol/src/index.ts",
@@ -1064,7 +1064,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "d81d71d921a36b3f591a17b103ea848fbe976fc31f9eecd486ee3a26b0181f72",
+      "groupSha256": "a3a961102dd9a391c7707b034494b9526b01ba77f59cede3a32c76d7a1476b1e",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1383,8 +1383,8 @@
         },
         {
           "path": "docs/DEPLOYMENT_LOCK_RUNBOOK.md",
-          "byteLength": 15868,
-          "sha256": "055392580ebf0518408ffd7492a95919b375ca2902eec4e6ad5cdc980a169402"
+          "byteLength": 16748,
+          "sha256": "5b360de8019278970355caf164e0e89d777cebb287593192750f72fa05f3d98e"
         },
         {
           "path": "scripts/deployment-lock-evidence.ts",
