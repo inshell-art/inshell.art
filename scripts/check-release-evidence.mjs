@@ -11,7 +11,7 @@ const requiredCells = ["mac-a/codex", "mac-a/claude"];
 const allowedCells = [...requiredCells, "mac-b/codex", "mac-b/claude"];
 const text = (value) => typeof value === "string" && value.trim().length > 0;
 const date = (value) => typeof value === "string" && Number.isFinite(Date.parse(value));
-const cellFields = new Set(["machine", "agent", "testedCommit", "mode", "execution", "surface", "state", "runId", "taskSha256", "receiptSha256", "agentLineSha256", "osVersion", "appVersion", "browserVersion", "model", "launchObserved", "previewObserved", "completedAt", "origin"]);
+const cellFields = new Set(["machine", "agent", "testedCommit", "mode", "execution", "surface", "state", "runId", "taskSha256", "receiptSha256", "agentLineSha256", "osVersion", "appVersion", "browserVersion", "metadataSource", "model", "launchObserved", "previewObserved", "completedAt", "origin"]);
 
 // This validates reviewed observations, not provider attestation or operator
 // authorization to promote. Never manufacture observations from a fixture run.
@@ -47,8 +47,18 @@ export function validateReleaseEvidence(evidence, now = Date.now()) {
     for (const field of ["taskSha256", "receiptSha256", "agentLineSha256"]) {
       if (!digest.test(cell[field] ?? "")) errors.push(`${key}: invalid ${field}.`);
     }
-    for (const field of ["osVersion", "appVersion", "browserVersion", "model"]) {
+    for (const field of ["osVersion", "appVersion", "browserVersion"]) {
       if (!text(cell[field]) || /^(unknown|not-recorded|n\/a)$/i.test(cell[field]) || /fixture|simulated|\blab\b/i.test(cell[field])) errors.push(`${key}: record actual ${field}.`);
+    }
+    // Preserve the accepted run's provenance, never substitute a model-picker
+    // setting. Unknown qualifies Studio Preview creation, not model attestation
+    // or App-attested mint eligibility. Absence must be explicit, not inferred.
+    if (cell.metadataSource === "unknown") {
+      if (Object.hasOwn(cell, "model")) errors.push(`${key}: unknown metadata must omit model.`);
+    } else if (cell.metadataSource === "reported") {
+      if (!text(cell.model) || /^(unknown|not-recorded|n\/a)$/i.test(cell.model) || /fixture|simulated|\blab\b/i.test(cell.model)) errors.push(`${key}: record actual reported model.`);
+    } else {
+      errors.push(`${key}: record metadataSource as reported or unknown from the accepted run.`);
     }
     // CLI cells can qualify the handshake, but also need independently recorded
     // browser/OS launch evidence. A successful CLI cannot prove a deep link works.

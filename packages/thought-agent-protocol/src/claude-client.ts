@@ -8,7 +8,7 @@ import {
   type ThoughtDirectAgentTaskInput,
 } from "./direct-agent-task";
 import { THOUGHT_V2_PROTOCOL_RELEASE } from "./release.generated";
-import { THOUGHT_HANDOFF_HTTP_IDENTIFICATION } from "./handoff-http";
+import { THOUGHT_HANDOFF_HTTP_IDENTIFICATION, THOUGHT_HANDOFF_READY_RESPONSE_CHECK } from "./handoff-http";
 
 export type ThoughtClaudeReleaseBinding = ThoughtDirectAgentReleaseBinding;
 export type ThoughtClaudeResultContractBinding =
@@ -19,7 +19,7 @@ export type ThoughtClaudeTaskInput = ThoughtDirectAgentTaskInput & {
 };
 
 export const THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION =
-  "inshell.thought.claude-cowork-handoff.v4" as const;
+  "inshell.thought.claude-cowork-handoff.v5" as const;
 
 const THOUGHT_AGENT_CONNECTIVITY_SCHEMA =
   "inshell.thought.agent-connectivity.v1" as const;
@@ -166,7 +166,9 @@ const buildThoughtClaudeCoworkTask = (input: ThoughtClaudeTaskInput) => {
     "",
     "3. Prove readiness",
     "Resolve host-issued model metadata once. If the UI names a non-empty exact model, retain it as <runtime_model>, retain reasoning effort only when supplied and valid, use metadataSource=reported, and select READY_BODY_REPORTED as READY_BODY. If no exact model metadata is available, omit model and reasoningEffort, use metadataSource=unknown, and select READY_BODY_UNKNOWN as READY_BODY. Missing metadata does not block creation. Supplied malformed or contradictory metadata is a blocker and must not be converted to unknown.",
-    "At <ready_endpoint>, submit one POST using <bridge_credential>. Send the selected exact READY_BODY. Accept only runId=<run_id>, state=ready, stage=control-verified, no creatorAction, and an exact evidence echo. Continue immediately on success.",
+    "At <ready_endpoint>, submit one POST using <bridge_credential>. Send the selected exact READY_BODY. Accept only runId=<run_id>, state=ready, stage=control-verified, no creatorAction.",
+    THOUGHT_HANDOFF_READY_RESPONSE_CHECK,
+    "Continue immediately on success.",
     "",
     "4. Create once",
     "At <start_endpoint>, submit one POST using <bridge_credential>. Use exactly <start_fields>, without shortening or renaming a field: <protocol>, <invocation_id>, and one current UTC startedAt. Accept only the matching running state and generate-thought-candidate request.",

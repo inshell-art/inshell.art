@@ -57,7 +57,7 @@ function evidence() {
       surface: agent === "claude" ? "code" : "codex", state: "returned", runId: `tar_${machine}_${agent}`,
       taskSha256: hash, receiptSha256: `sha256:${(machine === "mac-a" ? (agent === "codex" ? "1" : "2") : (agent === "codex" ? "3" : "4")).repeat(64)}`, agentLineSha256: hash,
       osVersion: "macOS test", appVersion: "test-version", browserVersion: "Chrome test",
-      model: agent === "codex" ? "gpt-5.6" : "claude-opus-5",
+      metadataSource: "reported", model: agent === "codex" ? "gpt-5.6" : "claude-opus-5",
       launchObserved: true, previewObserved: true, completedAt: "2026-08-26T00:00:00.000Z",
       origin: "https://preview.inshell.art",
     }))),
@@ -68,6 +68,44 @@ test("two reviewed operator-Mac cells pass; an unqualified template never does",
   assert.deepEqual(validateReleaseEvidence(evidence()), []);
   assert.ok(validateReleaseEvidence({ schema: "inshell.thought.release-evidence.v1", cells: [] }).length);
 });
+
+function unknownModels(value) {
+  for (const cell of value.cells) {
+    cell.metadataSource = "unknown";
+    delete cell.model;
+  }
+  return value;
+}
+
+test("explicit unknown metadata qualifies either Agent without inventing a model", () => {
+  for (const indices of [[0], [1], [0, 1]]) {
+    const value = evidence();
+    for (const index of indices) {
+      value.cells[index].metadataSource = "unknown";
+      delete value.cells[index].model;
+    }
+    assert.deepEqual(validateReleaseEvidence(value), []);
+  }
+});
+
+for (const [name, mutate] of Object.entries({
+  "missing provenance": (c) => { delete c.metadataSource; },
+  "configured provenance": (c) => { c.metadataSource = "configured"; },
+  "invalid provenance": (c) => { c.metadataSource = null; },
+  "unknown with exact model": (c) => { c.metadataSource = "unknown"; },
+  "unknown with null model": (c) => { c.metadataSource = "unknown"; c.model = null; },
+  "unknown with literal unknown": (c) => { c.metadataSource = "unknown"; c.model = "unknown"; },
+  "reported without model": (c) => { delete c.model; },
+  "reported with null model": (c) => { c.model = null; },
+  "reported with blank model": (c) => { c.model = " "; },
+  "reported with literal unknown": (c) => { c.model = "unknown"; },
+  "reported with non-string model": (c) => { c.model = 42; },
+})) {
+  test(`release model evidence rejects ${name}`, () => {
+    const value = evidence(); mutate(value.cells[0]);
+    assert.ok(validateReleaseEvidence(value).length > 0);
+  });
+}
 
 for (const [name, mutate] of Object.entries({
   "missing cell": (e) => e.cells.pop(),
@@ -93,8 +131,10 @@ for (const [name, mutate] of Object.entries({
   "malformed cell": (e) => { e.cells[0] = null; },
 })) {
   test(`release gate rejects ${name}`, () => {
-    const value = evidence(); mutate(value);
-    assert.ok(validateReleaseEvidence(value).length > 0);
+    for (const value of [evidence(), unknownModels(evidence())]) {
+      mutate(value);
+      assert.ok(validateReleaseEvidence(value).length > 0);
+    }
   });
 }
 
@@ -126,6 +166,8 @@ test("git gate permits evidence-only commits and content-identical promotions, r
     mkdirSync(join(root, "release-evidence"));
     const save = () => writeFileSync(join(root, EVIDENCE_PATH), JSON.stringify(value));
     save(); git("add", EVIDENCE_PATH); git("commit", "-m", "evidence only");
+    assert.deepEqual(checkReleaseEvidence(root), []);
+    unknownModels(value); save(); git("add", EVIDENCE_PATH); git("commit", "-m", "explicit unknown provenance");
     assert.deepEqual(checkReleaseEvidence(root), []);
     writeFileSync(join(root, "app.txt"), "drift");
     assert.match(checkReleaseEvidence(root).join(), /differs/);

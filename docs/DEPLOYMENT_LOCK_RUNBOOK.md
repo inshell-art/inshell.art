@@ -198,8 +198,20 @@ After reviewing the results, fill `release-evidence/thought-canaries.json`:
 Each cell records `machine`, `agent`, `testedCommit`, `mode: real-canary`,
 `execution: desktop-deep-link` or `cli`, `surface` (`code` for Claude),
 `state: returned`, unique `runId`, `taskSha256`, `receiptSha256`, `agentLineSha256`,
-`osVersion`, `appVersion`, `browserVersion`, `model`, `origin`, `completedAt`,
+`osVersion`, `appVersion`, `browserVersion`, `metadataSource`, `origin`, `completedAt`,
 `launchObserved: true`, and `previewObserved: true`.
+
+Record model provenance from the accepted run: `metadataSource: reported`
+requires its exact reported `model`; `metadataSource: unknown` requires omitting
+`model`. Do not use a configured/requested model, a guessed value, null, or the
+literal string `unknown` as a model. If the source receipt represents absence
+as null, retain that original receipt and omit the model in this summary with
+explicit unknown provenance. Missing or contradictory provenance fails the gate;
+do not rewrite reported metadata as unknown to bypass validation. Previously
+recorded summaries without provenance require source review, not automatic
+migration. This qualifies Studio Preview creation and local preservation only:
+it does not establish model/provider attestation or App-attested mint eligibility.
+All candidate, receipt, environment, launch, preview and review checks still apply.
 
 Copy run IDs and hashes from the real observer report. Record visible launch and
 preview observations separately. `launchSubmissionEvidence: operator-reported`

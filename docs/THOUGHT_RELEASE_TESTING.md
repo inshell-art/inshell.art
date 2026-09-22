@@ -10,11 +10,25 @@ This supersedes the earlier two-Mac/four-cell requirement; historical reports re
 The checker retains candidate, actual environment, unique run/receipt, launch, visible preview and operator-review requirements.
 Ordinary ChatGPT is not Codex. Earlier simulated staging passes remain simulated.
 
+Record the accepted run's model provenance explicitly: `metadataSource: reported`
+with the exact reported model, or `metadataSource: unknown` with model omitted.
+Unknown provenance does not block Studio Preview creation/Save/Load qualification;
+it does not establish model attestation or App-attested mint eligibility. Never
+substitute a configured model or omit any other required canary evidence.
+
 ## Automated integration tests
 
 Fake Agent/API/browser/storage runs test application wiring, not real Agent behavior.
 Legacy commands named canary:thought-agent-browser-release are compatibility aliases for automated integration tests.
 Use test:thought-agent-browser-integration for new runs.
+
+Readiness regression coverage must include both Codex and Claude, with reported
+and unknown model metadata: compare only `response.control` with
+`READY_BODY.control` by exact keys, values and types, ignoring object key order.
+Verify the top-level protocol, run ID, ready state, control-verified stage and
+absence of `creatorAction` separately. A whole-request substring comparison or
+serialized JSON equality is not this check. Keep malformed-control rejection
+and replay boundaries covered. These tests do not establish real-Agent success.
 
 ## Real-Agent canary
 

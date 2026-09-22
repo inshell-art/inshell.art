@@ -4,6 +4,7 @@ import { removeTrailingSlashes } from "./run-url";
 import {
   buildThoughtHandoffHttpInstructions,
   THOUGHT_HANDOFF_OPERATION_RECOVERY,
+  THOUGHT_HANDOFF_READY_RESPONSE_CHECK,
 } from "./handoff-http";
 
 const THOUGHT_AGENT_PROTOCOL_VERSION = THOUGHT_V2_PROTOCOL_RELEASE.agentRunId;
@@ -233,7 +234,9 @@ export function buildThoughtDirectAgentTask(
     "",
     "2. Prove readiness",
     "Resolve host-issued model metadata once. If the host supplies a non-empty exact model, retain it as RUNTIME_MODEL, retain reasoning effort only when supplied and valid, set METADATA_SOURCE=reported, and select READY_BODY_REPORTED as READY_BODY. If the host supplies no exact model metadata, omit model and reasoningEffort from the result, set METADATA_SOURCE=unknown, and select READY_BODY_UNKNOWN as READY_BODY. Missing model metadata does not block creation. If supplied metadata is malformed or contradictory, fail before /start; do not turn it into unknown. Do not install anything or depend on one optional metadata tool.",
-    "Prove readiness at READY_ENDPOINT with POST and BRIDGE_CREDENTIAL. Send the selected exact READY_BODY only after verifying the stated control facts. Accept only runId=RUN_ID, state=ready, stage=control-verified, no creatorAction, and an exact evidence echo. Continue immediately on success.",
+    "Prove readiness at READY_ENDPOINT with POST and BRIDGE_CREDENTIAL. Send the selected exact READY_BODY only after verifying the stated control facts. Accept only runId=RUN_ID, state=ready, stage=control-verified, no creatorAction.",
+    THOUGHT_HANDOFF_READY_RESPONSE_CHECK,
+    "Continue immediately on success.",
     "",
     "3. Create once",
     "Open the creative phase at START_ENDPOINT with POST and BRIDGE_CREDENTIAL. Use exactly START_FIELDS, without shortening or renaming a field: PROTOCOL_VERSION, INVOCATION_ID, and one current UTC startedAt. Accept only the matching running state and generate-thought-candidate request.",

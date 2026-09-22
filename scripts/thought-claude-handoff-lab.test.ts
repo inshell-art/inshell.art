@@ -5,6 +5,7 @@ import { access, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { THOUGHT_HANDOFF_READY_RESPONSE_CHECK } from "../packages/thought-agent-protocol/src/handoff-http";
 
 import {
   THOUGHT_CODEX_HANDOFF_CASES,
@@ -297,7 +298,10 @@ test("Cowork remains an explicit legacy deep-link surface", () => {
   });
   const parsed = new URL(buildClaudeDeepLink(task, "cowork"));
   assert.equal(parsed.hostname, "cowork");
+  assert.equal(THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION, "inshell.thought.claude-cowork-handoff.v5");
   assert.match(task, new RegExp(`<handoff_revision> = ${THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION.replaceAll(".", "\\.")}`));
+  assert.equal(task.split(THOUGHT_HANDOFF_READY_RESPONSE_CHECK).length - 1, 1);
+  assert.doesNotMatch(task, /exact evidence echo/);
   assert.match(task, /<agent_surface> = cowork/);
   assert.match(task, /Run this task set to On your computer/);
   assert.ok(task.includes(`All requests: User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}; identifies THOUGHT`));

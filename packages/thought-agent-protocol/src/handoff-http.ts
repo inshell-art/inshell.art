@@ -3,6 +3,9 @@ export const THOUGHT_AGENT_HTTP_USER_AGENT = "Inshell-THOUGHT-Agent/2" as const;
 export const THOUGHT_HANDOFF_HTTP_IDENTIFICATION =
   `All requests: User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}; identifies THOUGHT, never a browser/model.`;
 
+export const THOUGHT_HANDOFF_READY_RESPONSE_CHECK =
+  "Require response.protocolVersion=READY_BODY.protocolVersion. Compare response.control to READY_BODY.control: exact keys/values/types, ignoring key order; not whole bodies or JSON text.";
+
 /** Plain-text request data: identifiers must survive HTML/rich-text composers. */
 export function buildThoughtHandoffHttpInstructions(contract: {
   protocolVersion: string;
