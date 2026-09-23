@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "794beaf38fcb9a0c2bf481bc49b54b6a43805c1e4398932abc6572a32e597d46",
+  "sourceTreeSha256": "c16c169e435fcbd3ceb6aa92543240a853a9f48eb501989f43d37745fcca2589",
   "groups": [
     {
       "id": "public-docs",
@@ -595,7 +595,7 @@
       "title": "Documentation gates",
       "owner": "inshell.art repository automation",
       "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
-      "groupSha256": "9d31838cd39e31d084108241cbaa631aac49ee4e6a63f934ed5b266cd52b4681",
+      "groupSha256": "069db002ae2209a73f19d74c99191d4a4d15d5a2dfd322a99e77640fa47aa42a",
       "files": [
         {
           "path": ".github/workflows/deploy-pages.yml",
@@ -624,13 +624,13 @@
         },
         {
           "path": "package.json",
-          "byteLength": 13250,
-          "sha256": "f6d6d8893c30e606061bbd9918994b48bf9cbb267ad7d264792db46ec64977af"
+          "byteLength": 13315,
+          "sha256": "36a67b59964e6dc2efa763c10224a242816d5e10b56ceba2323424aa8bfe4e13"
         },
         {
           "path": "scripts/check-dependency-security.mjs",
-          "byteLength": 1841,
-          "sha256": "1c8239092c5de0ebbd4eeed2480aebf0d88a95e18a0612bd4d265047ab0f79b4"
+          "byteLength": 2222,
+          "sha256": "27c6259a8f11c2e7d5f1e353b696b2f8462d40ec587f0f57a9ba249a141408b9"
         },
         {
           "path": "scripts/check-detail-surface-contract.mjs",
@@ -708,7 +708,7 @@
       "title": "Shared product runtime",
       "owner": "inshell.art shared App infrastructure",
       "reason": "Shared Ethereum, surface, utility, and Agent-protocol code used by public routes.",
-      "groupSha256": "11988246e1913cbbae6e74afb37c4f311c174a8e97f1c77e2d479d019dbd54b0",
+      "groupSha256": "425f4e58207d35c8ea09d5cda9ec219cca8deea170441efd348d6079952eebbf",
       "files": [
         {
           "path": "packages/ethereum/src/abi.ts",
@@ -802,13 +802,13 @@
         },
         {
           "path": "packages/thought-agent-protocol/src/claude-client.ts",
-          "byteLength": 15220,
-          "sha256": "f1d84d7540ddf2834f30556d951c7e08417565d79bb1d2befa6b02732a225e4e"
+          "byteLength": 14675,
+          "sha256": "d6f6bb48375b73ed4da0797655a99b17622fc9efea7c02c1f0365e8177742a4e"
         },
         {
           "path": "packages/thought-agent-protocol/src/codex-client.ts",
-          "byteLength": 29024,
-          "sha256": "39bb6db74a0bbd6e0415ae36324ac6af8dd12e1f263681604392447d977ee623"
+          "byteLength": 28584,
+          "sha256": "775d5d1f7bca3c005d4b5143d0583b03d25ba805aefc1748b549266fe31f92e6"
         },
         {
           "path": "packages/thought-agent-protocol/src/creative-brief.generated.ts",
@@ -817,13 +817,13 @@
         },
         {
           "path": "packages/thought-agent-protocol/src/direct-agent-task.ts",
-          "byteLength": 14724,
-          "sha256": "fca3663a1dd18059d2e4c9f5fd64ff3da3cea94fa2a54bb6e48052914d5f18b4"
+          "byteLength": 14312,
+          "sha256": "5b3cd4500946751ed06d26288d4a705fcfe52ff5e932d9c90997c195e6b98a5d"
         },
         {
           "path": "packages/thought-agent-protocol/src/handoff-http.ts",
-          "byteLength": 3249,
-          "sha256": "e00ae18bdb48f60eaf78a2ebe6afd9112675609341e47f3d4634e0117b6f20b8"
+          "byteLength": 6225,
+          "sha256": "b1fda7ef5ac13dc4af0d7487668f01edd457a734b98e6b74703f62cf448250d0"
         },
         {
           "path": "packages/thought-agent-protocol/src/index.ts",

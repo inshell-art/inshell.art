@@ -188,9 +188,12 @@ const lock = (keys) => ({ lockfileVersion: "9.0", packages: Object.fromEntries(k
 test("dependency floors accept current resolved lock, not merely root overrides", () => {
   const actual = load(readFileSync(new URL("../pnpm-lock.yaml", import.meta.url), "utf8"));
   assert.deepEqual(dependencySecurityErrors(actual), []);
-  assert.deepEqual(dependencySecurityErrors(lock(["nanoid@3.3.18", "nanoid@5.1.6", "postcss@8.5.23", "js-yaml@4.3.1"])), []);
+  const resolved = lock(["@humanfs/node@0.16.8", "browserslist@4.28.7", "nanoid@3.3.18", "nanoid@5.1.6", "postcss@8.5.23", "js-yaml@4.3.1"]);
+  resolved.snapshots["@humanfs/node@0.16.8"] = {};
+  resolved.snapshots["browserslist@4.28.7"] = {};
+  assert.deepEqual(dependencySecurityErrors(resolved), []);
 });
-for (const version of ["nanoid@3.3.16", "nanoid@5.1.5", "nanoid@4.0.0", "postcss@8.5.22", "js-yaml@4.3.0", "extract-zip@2.0.1", "nanoid@3.3.18-rc.1"]) {
+for (const version of ["@humanfs/node@0.16.7", "browserslist@4.28.6", "nanoid@3.3.16", "nanoid@5.1.5", "nanoid@4.0.0", "postcss@8.5.22", "js-yaml@4.3.0", "extract-zip@2.0.1", "nanoid@3.3.18-rc.1"]) {
   test(`dependency guard rejects ${version}, including transitive snapshots`, () => {
     assert.equal(dependencySecurityErrors(lock([version])).length, 1);
     const value = lock(["postcss@8.5.23"]); value.snapshots[version] = {};
