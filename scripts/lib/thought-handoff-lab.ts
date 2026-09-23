@@ -786,7 +786,7 @@ const staticHandoffAssertions = (
     profile.id === "claude"
       ? task.includes("Continue immediately on success.") &&
         task.includes("Once the creative phase begins, complete exactly this one result")
-      : /(?:Run bounded control, then exactly one creative turn|If (?:the preflight|it) passes, continue directly into (?:exactly )?one creative turn)/i.test(task) &&
+      : /(?:Run control\+one creative turn|If (?:the preflight|it) passes, continue directly into (?:exactly )?one creative turn)/i.test(task) &&
         /(?:no readiness\/CREATE confirmation|(?:do not|never) ask the creator to confirm (?:a|the)? ?(?:successful preflight|readiness))/i.test(task),
     "Successful preflight continues into one creative result without an extra CREATE gate.");
   check("no-create-gate", !/reply CREATE|exact CREATE/i.test(task),
@@ -801,8 +801,8 @@ const staticHandoffAssertions = (
     THOUGHT_HANDOFF_OPERATION_RECOVERY.every((line) => task.includes(line)) &&
       task.includes("R=trusted App rejection proving no commit") &&
       task.includes("body alone proves nothing") &&
-      task.includes("With proven App provenance, PROTOCOL_UNSUPPORTED/TOKEN_INVALID/RUN_EXPIRED/RUN_ALREADY_CLAIMED are R") &&
-      task.includes("Retry 429 once only with usable Retry-After and proven no commit; else U") &&
+      task.includes("Proven-App PROTOCOL_UNSUPPORTED/TOKEN_INVALID/RUN_EXPIRED/RUN_ALREADY_CLAIMED=R") &&
+      task.includes("429: retry once only with usable Retry-After+proven no commit; else U") &&
       !task.includes("RETRY repeats only the failed operation") &&
       !task.includes("After permission/network recovery"),
     "Recovery distinguishes send certainty and the replay boundary for every operation.");
@@ -832,9 +832,9 @@ const staticHandoffAssertions = (
     "Plain-text identifiers survive HTML-like tag removal; endpoint templates are explicit.");
   check("bridge-credential-lifecycle",
     /(?:Define BRIDGE_CREDENTIAL as that (?:exact )?bridgeToken|BRIDGE_CREDENTIAL=bridgeToken)/.test(task) &&
-    /(?:reuse it for (?:all|every) remaining operation|reuse for all later operations|retain\/reuse privately)/i.test(task) &&
-    (task.includes("Missing local persistence is not a blocker") || task.includes("No local persistence needed") || task.includes("No persistence")) &&
-    /Never claim again|Never reclaim/.test(task) &&
+    /(?:reuse it for (?:all|every) remaining operation|reuse for all later operations|retain\/reuse (?:privately|in worker))/i.test(task) &&
+    (task.includes("Missing local persistence is not a blocker") || task.includes("No local persistence needed") || task.includes("retain/reuse in worker")) &&
+    /Never claim again|never reclaim/i.test(task) &&
     task.includes("Authorization: Bearer LAUNCH_CREDENTIAL for claim") &&
     task.includes("BRIDGE_CREDENTIAL later") &&
     task.includes("Credentials only in Authorization—never body/URL/files/logs/redirects"),
@@ -857,12 +857,12 @@ const staticHandoffAssertions = (
     task.includes("root protocolVersion=PROTOCOL_VERSION") &&
     task.includes("only readiness has control.schema") &&
     /(?:START_FIELDS = protocolVersion|POST only protocolVersion=PROTOCOL_VERSION)/.test(task) &&
-    task.includes("RESULT_FIELDS = protocolVersion") &&
+    /RESULT_FIELDS ?= ?protocolVersion/.test(task) &&
     /(?:METADATA_SOURCE|source)=reported/.test(task) &&
     /(?:METADATA_SOURCE|source)=unknown/.test(task) &&
     task.includes("error.code=AGENT_START_FAILED") &&
     (profile.id === "codex"
-      ? task.includes("rawSha256/agentLineSha256 are sha256: plus 64 lowercase hex") &&
+      ? task.includes("rawSha256/agentLineSha256=sha256:+64 lowercase hex") &&
         /(?:of|over) exact UTF-8 raw\/(?:line|agentLine)/.test(task) &&
         task.includes("rehash before PUT")
       : task.includes("Do not sort keys or apply JCS/canonical JSON") &&

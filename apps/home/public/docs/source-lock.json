@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "c16c169e435fcbd3ceb6aa92543240a853a9f48eb501989f43d37745fcca2589",
+  "sourceTreeSha256": "3b930abc69eeed2a0fa55a0e2bfa21204575d427ea80d93ab08a34c9327c43ef",
   "groups": [
     {
       "id": "public-docs",
@@ -595,7 +595,7 @@
       "title": "Documentation gates",
       "owner": "inshell.art repository automation",
       "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
-      "groupSha256": "069db002ae2209a73f19d74c99191d4a4d15d5a2dfd322a99e77640fa47aa42a",
+      "groupSha256": "584c52360867cd5702524c457737f39b3c6bf1fa666260dd1b0bd663774c7458",
       "files": [
         {
           "path": ".github/workflows/deploy-pages.yml",
@@ -624,8 +624,8 @@
         },
         {
           "path": "package.json",
-          "byteLength": 13315,
-          "sha256": "36a67b59964e6dc2efa763c10224a242816d5e10b56ceba2323424aa8bfe4e13"
+          "byteLength": 13360,
+          "sha256": "91d65c1d82642a426bed6b33619b43a4a7bcf30806c1071ee00d1d406485a537"
         },
         {
           "path": "scripts/check-dependency-security.mjs",
@@ -708,7 +708,7 @@
       "title": "Shared product runtime",
       "owner": "inshell.art shared App infrastructure",
       "reason": "Shared Ethereum, surface, utility, and Agent-protocol code used by public routes.",
-      "groupSha256": "425f4e58207d35c8ea09d5cda9ec219cca8deea170441efd348d6079952eebbf",
+      "groupSha256": "a31214413453806ddc800641a7771e7f40df5e0c0eef25b9a5d69b7f3df65197",
       "files": [
         {
           "path": "packages/ethereum/src/abi.ts",
@@ -807,8 +807,8 @@
         },
         {
           "path": "packages/thought-agent-protocol/src/codex-client.ts",
-          "byteLength": 28584,
-          "sha256": "775d5d1f7bca3c005d4b5143d0583b03d25ba805aefc1748b549266fe31f92e6"
+          "byteLength": 28443,
+          "sha256": "547ed328328c275fc97ada55eea24e5f9535cd8d1be6e16719f988c9b215bc2c"
         },
         {
           "path": "packages/thought-agent-protocol/src/creative-brief.generated.ts",
@@ -822,8 +822,8 @@
         },
         {
           "path": "packages/thought-agent-protocol/src/handoff-http.ts",
-          "byteLength": 6225,
-          "sha256": "b1fda7ef5ac13dc4af0d7487668f01edd457a734b98e6b74703f62cf448250d0"
+          "byteLength": 6809,
+          "sha256": "5e31434ea92f168e463b0bf488d9d65bf4c213664d864f973b84b9d36f95ba64"
         },
         {
           "path": "packages/thought-agent-protocol/src/index.ts",
