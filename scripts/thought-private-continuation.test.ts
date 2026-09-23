@@ -11,6 +11,7 @@ import {
 
 const LAUNCH_TOKEN = "synthetic-launch-token-never-print";
 const BRIDGE_TOKEN = "synthetic-bridge-token-never-print";
+const PTY_SENTINEL = "synthetic-pty-echo-sentinel-never-print";
 
 // Synthetic only: this worker proves the process/input lifetime contract. It
 // does not contact THOUGHT, exercise an Agent desktop app, or count as canary
@@ -85,6 +86,59 @@ const take = async (stage) => {
   emit("TERMINAL_WORKER_ERROR:" + error.name);
   process.exitCode = 2;
 });
+`;
+
+const PTY_WORKER_SOURCE = String.raw`
+const { spawnSync } = require("node:child_process");
+const readline = require("node:readline");
+const stty = spawnSync("stty", ["-echo", "-echonl"], {
+  stdio: ["inherit", "ignore", "ignore"],
+});
+if (stty.status !== 0) process.exit(3);
+const input = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
+const lines = input[Symbol.asyncIterator]();
+const emit = (value) => process.stdout.write(value + "\n");
+const take = async () => {
+  const item = await lines.next();
+  if (item.done) process.exit(2);
+  return item.value;
+};
+(async () => {
+  emit("ECHO_READY");
+  const nonce = await take();
+  if (nonce !== "NONCE:${PTY_SENTINEL}") process.exit(4);
+  emit("THOUGHT_CONTINUATION_OK");
+  if (await take() !== "PROCEED") process.exit(5);
+  emit("PRECLAIM_CONTINUATION_PROVED");
+  input.close();
+})().catch(() => process.exit(6));
+`;
+
+const PTY_RELAY_SOURCE = String.raw`
+import os, pty, select, sys
+pid, master = pty.fork()
+if pid == 0:
+    os.execvp(sys.argv[1], sys.argv[1:])
+stdin_fd = sys.stdin.fileno()
+while True:
+    readable, _, _ = select.select([master, stdin_fd], [], [])
+    if master in readable:
+        try:
+            data = os.read(master, 4096)
+        except OSError:
+            break
+        if not data:
+            break
+        os.write(sys.stdout.fileno(), data)
+    if stdin_fd in readable:
+        data = os.read(stdin_fd, 4096)
+        if not data:
+            break
+        os.write(master, data)
+_, status = os.waitpid(pid, 0)
+if os.WIFEXITED(status):
+    raise SystemExit(os.WEXITSTATUS(status))
+raise SystemExit(128 + os.WTERMSIG(status))
 `;
 
 type SyntheticWorker = {
@@ -162,6 +216,71 @@ const startWorker = (available = true): SyntheticWorker => {
   };
 };
 
+const startPtyWorker = (): SyntheticWorker => {
+  const child = spawn("python3", [
+    "-c",
+    PTY_RELAY_SOURCE,
+    process.execPath,
+    "-e",
+    PTY_WORKER_SOURCE,
+  ], {
+    env: { PATH: process.env.PATH },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  const lines: string[] = [];
+  const stderr: string[] = [];
+  const waiters = new Set<() => void>();
+  createInterface({ input: child.stdout, crlfDelay: Infinity }).on("line", (line) => {
+    lines.push(line.replace(/\r$/, ""));
+    for (const wake of waiters) wake();
+  });
+  createInterface({ input: child.stderr, crlfDelay: Infinity }).on("line", (line) => {
+    stderr.push(line.replace(/\r$/, ""));
+    for (const wake of waiters) wake();
+  });
+  let settled = false;
+  const exited = new Promise<{ code: number | null; signal: string | null }>((resolve, reject) => {
+    child.once("error", reject);
+    child.once("exit", (code, signal) => resolve({ code, signal }));
+  });
+  void exited.finally(() => {
+    settled = true;
+  });
+  const waitFor = async (value: string) => {
+    const deadline = Date.now() + 5_000;
+    while (!lines.includes(value)) {
+      if (Date.now() >= deadline) {
+        throw new Error(`Timed out waiting for ${value}. stdout=${JSON.stringify(lines)} stderr=${JSON.stringify(stderr)}`);
+      }
+      await new Promise<void>((resolve) => {
+        const timer = setTimeout(() => {
+          waiters.delete(wake);
+          resolve();
+        }, 25);
+        const wake = () => {
+          clearTimeout(timer);
+          waiters.delete(wake);
+          resolve();
+        };
+        waiters.add(wake);
+      });
+    }
+  };
+  return {
+    child,
+    lines,
+    stderr,
+    write: (value) => child.stdin.write(`${value}\n`),
+    closeInput: () => child.stdin.end(),
+    waitFor,
+    exited,
+    cleanup: async () => {
+      if (!settled) child.kill("SIGKILL");
+      await exited;
+    },
+  };
+};
+
 const assertPrivateDiagnostics = (worker: SyntheticWorker) => {
   const diagnostics = [...worker.lines, ...worker.stderr].join("\n");
   assert.doesNotMatch(diagnostics, new RegExp(LAUNCH_TOKEN));
@@ -187,6 +306,35 @@ test("synthetic private continuation completes prompt-to-answer in one live work
     ["STAGE:claim", "STAGE:ready", "STAGE:start", "STAGE:result"],
   );
   assertPrivateDiagnostics(worker);
+});
+
+test("synthetic PTY disables input echo before accepting its fake nonce", async (context) => {
+  const worker = startPtyWorker();
+  context.after(() => worker.cleanup());
+  await worker.waitFor("ECHO_READY");
+  worker.write(`NONCE:${PTY_SENTINEL}`);
+  await worker.waitFor("THOUGHT_CONTINUATION_OK");
+  assert.doesNotMatch([...worker.lines, ...worker.stderr].join("\n"), new RegExp(PTY_SENTINEL));
+  worker.write("PROCEED");
+  await worker.waitFor("PRECLAIM_CONTINUATION_PROVED");
+  const outcome = await worker.exited;
+  assert.equal(outcome.code, 0);
+});
+
+test("Codex handoff binds composition to verified post-start input", () => {
+  const task = buildThoughtCodexTask({
+    product: "ChatGPT",
+    runId: `tar_${"p".repeat(24)}`,
+    runUrl: `https://preview.inshell.art/api/thought-agent/v2/runs/tar_${"p".repeat(24)}`,
+    launchToken: "q".repeat(43),
+  });
+  assert.match(task, /no agentLine\/candidate before verified \/start/);
+  assert.match(task, /Same worker displays verified brief\/input\/rules then waits for CANDIDATE via write_stdin/);
+  assert.match(task, /validate\/hash\/PUT/);
+  assert.match(task, /promptLine\.\{text,sha256\},agentInput\.\{text,sha256\}/);
+  assert.match(task, /promptLine\.text\/sha256=agentInput\.text\/sha256/);
+  assert.match(task, /Candidate=.*agentLine=ONE_EXACT_LINE/);
+  assert.doesNotMatch(task, /agentLine=(?!ONE_EXACT_LINE)[^;\n]+/);
 });
 
 test("synthetic closed input is terminal before claim", async (context) => {
@@ -264,8 +412,26 @@ test("Codex keeps its executable continuation boundary without inventing one for
         Buffer.byteLength(codex) <= 7_000,
         `Codex ${networkAuthorization}/${declarationLabelField} handoff is ${Buffer.byteLength(codex)} bytes`,
       );
-      assert.match(codex, /exec_command\(tty:true\)=>live session_id/);
-      assert.match(codex, /write PROCEED; then claim/);
+      assert.match(codex, /one exec_command\(tty:true\) -c/);
+      assert.match(codex, /disable ECHO\+ECHONL before markers or stop/);
+      assert.match(codex, /write fake nonce; assert absent in output/);
+      assert.match(codex, /launch may enter once via write_stdin/);
+      assert.match(codex, /Bridge remains worker-private/);
+      assert.match(codex, /same-worker credential-free GET CONNECTIVITY_ENDPOINT/);
+      assert.match(codex, /permission fix permits fresh worker/);
+      assert.match(codex, /Possible claim dispatch forbids replacement\/reclaim/);
+      assert.match(codex, /sandbox_permissions=require_escalated once for App origin/);
+      assert.match(codex, /Labels cannot bypass host/);
+      assert.match(codex, /no agentLine\/candidate before verified \/start/);
+      assert.match(codex, /Same worker displays verified brief\/input\/rules then waits for CANDIDATE via write_stdin/);
+      assert.match(codex, /validate\/hash\/PUT/);
+      assert.match(codex, /Candidate=.*release\.\{protocolReleaseId=.*manifestKeccak256=/);
+      assert.match(codex, /declaration\.\{schema=.*status=.*(?:label|agentLabel)=AGENT_PRODUCT,declaredOneCreativeResult=true\}/);
+      assert.match(codex, /THOUGHT_STOP pre-dispatch or for trusted App rejection/);
+      assert.match(codex, /THOUGHT_UNCERTAIN only after possible unproven dispatch/);
+      assert.match(codex, /Report actual App receipt/);
+      assert.match(codex, /never raw exception\/reason\/body\/headers\/URL\/credential/);
+      assert.doesNotMatch(codex, /precomputed agentLine|hardcoded agentLine/i);
     }
   }
   assert.ok(Buffer.byteLength(claude) <= 14_000, `Claude handoff is ${Buffer.byteLength(claude)} bytes`);
