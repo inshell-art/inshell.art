@@ -10,7 +10,11 @@ export const THOUGHT_HANDOFF_HTTP_IDENTIFICATION =
  * claim when that channel is unavailable.
  */
 export const buildThoughtCodexPrivateContinuationInstructions = () => [
-  "CONTINUATION: preclaim exec_command(tty:true)=>live session_id for one -c worker (no heredoc); emits THOUGHT_CONTINUATION_READY; nonce via write_stdin; emits THOUGHT_CONTINUATION_OK+waits; verify; write PROCEED; then claim. Same worker owns token/all ops/candidate. No proof=no claim. Only markers/verified data/receipt; no raw/credential/file/log. Lost worker/private state=>terminal stop/reconcile/no replace/reclaim/regenerate; intact=>Recovery.",
+  "WORKER: one exec_command(tty:true) -c; disable ECHO+ECHONL before markers or stop. Emit ECHO_READY; write fake nonce; assert absent in output; await OK; write PROCEED. No heredoc.",
+  "CREDENTIALS: after no-echo proof, launch may enter once via write_stdin if needed; never terminal output/stdout/stderr/files/logs. Bridge remains worker-private; no relay/storage.",
+  "PRECLAIM: same-worker credential-free GET CONNECTIVITY_ENDPOINT; require schema=CONNECTIVITY_SCHEMA,status=reachable,protocolVersion=PROTOCOL_VERSION. Failure=no claim; permission fix permits fresh worker. Possible claim dispatch forbids replacement/reclaim.",
+  "DIAGNOSTICS: stage+class only; THOUGHT_STOP pre-dispatch or for trusted App rejection; THOUGHT_UNCERTAIN only after possible unproven dispatch; never raw exception/reason/body/headers/URL/credential. Worker loss after claim=>stop/reconcile.",
+  "CREATIVE: no agentLine/candidate before verified /start. Same worker displays verified brief/input/rules then waits for CANDIDATE via write_stdin; compose valid 1-64-byte Terminal English; validate/hash/PUT; no creator clarification.",
 ];
 
 export const THOUGHT_HANDOFF_RESPONSE_PATHS = {

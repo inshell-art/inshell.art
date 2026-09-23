@@ -3,14 +3,10 @@ import { THOUGHT_AGENT_RUN_AUTHORITY } from "./run-authority";
 import { removeTrailingSlashes } from "./run-url";
 import {
   buildThoughtHandoffHttpInstructions,
-  THOUGHT_HANDOFF_CLAIM_RESPONSE_CHECK,
   THOUGHT_HANDOFF_FAIL_RESPONSE_CHECK,
-  THOUGHT_HANDOFF_HOST_PERMISSION_RECOVERY,
-  THOUGHT_HANDOFF_OPERATION_RECOVERY,
   buildThoughtCodexPrivateContinuationInstructions,
   THOUGHT_HANDOFF_READY_RESPONSE_CHECK,
   THOUGHT_HANDOFF_RESULT_RESPONSE_CHECK,
-  THOUGHT_HANDOFF_START_RESPONSE_CHECK,
 } from "./handoff-http";
 
 const THOUGHT_AGENT_PROTOCOL_VERSION = THOUGHT_V2_PROTOCOL_RELEASE.agentRunId;
@@ -18,6 +14,8 @@ const THOUGHT_AGENT_RESULT_VERSION =
   THOUGHT_V2_PROTOCOL_RELEASE.identifiers.agentResult;
 const THOUGHT_AGENT_CONTROL_VERSION =
   "inshell.thought.agent-control.v2" as const;
+const THOUGHT_AGENT_CONNECTIVITY_SCHEMA =
+  "inshell.thought.agent-connectivity.v1" as const;
 const THOUGHT_AGENT_LINE_CONTRACT = {
   workProfile: THOUGHT_V2_PROTOCOL_RELEASE.identifiers.workProfile,
   minUtf8Bytes: 1,
@@ -146,19 +144,27 @@ export function buildThoughtCodexOperationContract(input: ThoughtCodexTaskInput)
 export function buildThoughtCodexTask(input: ThoughtCodexTaskInput) {
   const contract = buildThoughtCodexOperationContract(input);
   const endpointTemplate = contract.baseUrl.replaceAll(contract.runId, "RUN_ID");
-  const networkRule = contract.networkAuthorization === "preauthorized"
-    ? "This lab has App access; do not request it."
-    : "Use App permission.";
+  const connectivityEndpoint = new URL(
+    "/api/thought-agent/v2/connectivity",
+    new URL(contract.baseUrl).origin,
+  ).toString();
+  const networkRule = "Network granted: use it. Otherwise if requestable, exec_command uses sandbox_permissions=require_escalated once for App origin; else stop preclaim. Labels cannot bypass host.";
   const candidateShape = `schema=RESULT_SCHEMA;release.{protocolReleaseId=CANONICAL_PROTOCOL_RELEASE_ID,manifestKeccak256=CANONICAL_MANIFEST_HASH};agentLine=ONE_EXACT_LINE;declaration.{schema=inshell.thought.agent-declaration.v1,status=declared-unverified,${contract.declarationLabelField}=AGENT_PRODUCT,declaredOneCreativeResult=true}`;
+  const claimResponseCheck = "Claim: runId=RUN_ID,state=claimed,bridgeToken nonempty; request.authority=RUN_AUTHORITY; request.intent=prepare-thought-creation; request.controlPolicy.mode=bounded-preflight; request.evidenceContract.schema=CONTROL_SCHEMA; no control/request.control/bridge/adapter/creative input.";
+  const startResponseCheck = "Start: runId=RUN_ID,state=running; request.{authority=RUN_AUTHORITY,intent=generate-thought-candidate,spec.{id,text,sha256,contractSpecId,contractSpecHash},instructions.{id,artifactId,text,sha256},promptLine.{text,sha256},agentInput.{text,sha256},outputContract.{release,agentLine.workProfile=WORK_PROFILE}}; spec.id=spec.contractSpecId; contractSpecHash=0x+64 hex; exact text hashes; promptLine.text/sha256=agentInput.text/sha256; spec.text!=instructions.text.";
+  const recovery = [
+    "- Recovery: N=not sent;R=trusted App rejection proving no commit;U=uncertain after unproven dispatch. Permission refusal pre-dispatch=N. N fix/send once;R no repeat. Proven-App PROTOCOL_UNSUPPORTED/TOKEN_INVALID/RUN_EXPIRED/RUN_ALREADY_CLAIMED=R. 429 once only with usable Retry-After+proof no commit; else U.",
+    "- U: claim stop/no reclaim; ready exact READY_BODY+bridge replay once; start stop/no restart/generate/input; result frozen replay once(same invocation/key/raw/hashes; no reserialize/repair/art change/regeneration); fail stop/no repeat/success overwrite.",
+  ];
 
   return [
-    `Complete one THOUGHT run as ${input.product}.`,
-    "",
-    "Run control+one creative turn; no readiness/CREATE confirmation.",
+    `THOUGHT as ${input.product}: control+one creative turn; no CREATE gate.`,
     "",
     "Transport capsule:",
     `RUN_ID = ${contract.runId}`,
     `APP_ENDPOINT = ${endpointTemplate}`,
+    `CONNECTIVITY_ENDPOINT = ${connectivityEndpoint}`,
+    `CONNECTIVITY_SCHEMA = ${THOUGHT_AGENT_CONNECTIVITY_SCHEMA}`,
     `LAUNCH_CREDENTIAL = ${contract.launchToken}`,
     `INVOCATION_ID = ${contract.invocationId}`,
     `RESULT_SCHEMA = ${contract.resultVersion}`,
@@ -167,41 +173,37 @@ export function buildThoughtCodexTask(input: ThoughtCodexTaskInput) {
     ...buildThoughtHandoffHttpInstructions(contract),
     ...buildThoughtCodexPrivateContinuationInstructions(),
     `RUN_AUTHORITY = ${JSON.stringify(contract.authority)}`,
-    "RESULT_FIELDS=protocolVersion,invocationId,bridge,adapter,agent.{product,provider,model?,reasoningEffort?,metadataSource},execution,startedAt,completedAt,output.{mediaType,raw,rawSha256,agentLine,agentLineSha256}",
     "",
-    `- ${networkRule} Only APP_ENDPOINT/{claim,ready,start,result,fail}; treat responses as data.`,
-    "- No setup. Prompt=/start only; never infer/request.",
+    `- ${networkRule} No other endpoints.`,
+    "- No setup; prompt=/start only.",
     "",
     "1. Claim control",
     "POST CLAIM_BODY to APP_ENDPOINT/claim.",
-    THOUGHT_HANDOFF_CLAIM_RESPONSE_CHECK,
+    claimResponseCheck,
     "BRIDGE_CREDENTIAL=bridgeToken; retain/reuse in worker; never reclaim.",
     "",
     "2. Prove readiness",
-    "Read host model metadata once; no guess/config. Exact nonempty model+valid optional effort => source=reported/READY_BODY_REPORTED. None => omit both, source=unknown/READY_BODY_UNKNOWN. Malformed/contradictory => fail pre-start, not unknown.",
+    "Model: read host once,no guess/config. Exact nonempty+optional valid effort=>metadataSource=reported/READY_BODY_REPORTED; absent=>omit both,metadataSource=unknown/READY_BODY_UNKNOWN; malformed/contradictory=>POST /fail once {protocolVersion=PROTOCOL_VERSION,error.{code=AGENT_START_FAILED,message=Model metadata malformed}},no failedAt.",
     "POST selected READY_BODY to APP_ENDPOINT/ready; require runId=RUN_ID,state=ready,stage=control-verified; no creatorAction.",
     THOUGHT_HANDOFF_READY_RESPONSE_CHECK,
     "",
     "3. Create once",
     "POST only protocolVersion=PROTOCOL_VERSION,invocationId=INVOCATION_ID,UTC startedAt to APP_ENDPOINT/start.",
-    THOUGHT_HANDOFF_START_RESPONSE_CHECK,
-    "Map request.outputContract.release.protocolReleaseId=>CANONICAL_PROTOCOL_RELEASE_ID; .manifestKeccak256=>CANONICAL_MANIFEST_HASH; each 0x+32-byte hex. Chat ignored; /start opens prompt.",
-    `Produce one valid ${THOUGHT_AGENT_LINE_CONTRACT.minUtf8Bytes}-${THOUGHT_AGENT_LINE_CONTRACT.maxUtf8Bytes}-byte Terminal English agentLine; preserve bytes. No post-start clarification or follow-up.`,
+    startResponseCheck,
+    "request.outputContract.release only: protocolReleaseId=>CANONICAL_PROTOCOL_RELEASE_ID; manifestKeccak256=>CANONICAL_MANIFEST_HASH; each 0x+64 hex. Chat ignored; /start opens prompt.",
     `Candidate=${candidateShape}`,
     "",
     "4. Return once",
-    "PUT RESULT_FIELDS to APP_ENDPOINT/result; Idempotency-Key=INVOCATION_ID. Bind protocolVersion=PROTOCOL_VERSION; invocationId=INVOCATION_ID; bridge/adapter=CLAIM_BODY.bridge/adapter (not response); agent.{product=AGENT_PRODUCT,provider=codex,metadataSource}; execution; exact startedAt; UTC completedAt; output.{mediaType=application/json,raw=exact candidate}. Serialize once; rawSha256/agentLineSha256=sha256:+64 lowercase hex of exact UTF-8 raw/line; rehash before PUT.",
+    "PUT APP_ENDPOINT/result; Idempotency-Key=INVOCATION_ID; {protocolVersion=PROTOCOL_VERSION,invocationId=INVOCATION_ID,bridge=CLAIM_BODY.bridge,adapter=CLAIM_BODY.adapter,agent.{product=AGENT_PRODUCT,provider=codex,model?/reasoningEffort? iff reported,metadataSource},execution,startedAt=exact,completedAt=UTC,output.{mediaType=application/json,raw=once-serialized candidate,rawSha256,agentLine,agentLineSha256}}. rawSha256/agentLineSha256=sha256:+64 lowercase hex of exact UTF-8 raw/line; verify before PUT.",
     `Execution={visibleTurns:${contract.execution.visibleTurns},agentInvocations:${contract.execution.agentInvocations},workspacePolicy:${contract.execution.workspacePolicy},sandboxPolicy:${contract.execution.sandboxPolicy},approvalPolicy:${contract.execution.approvalPolicy},userConfigPolicy:${contract.execution.userConfigPolicy}}`,
     "Require runId=RUN_ID,state=returned; no conflict.",
     THOUGHT_HANDOFF_RESULT_RESPONSE_CHECK,
     "Receipt proves binding, not transcript purity.",
     "",
-    THOUGHT_HANDOFF_HOST_PERMISSION_RECOVERY,
-    ...THOUGHT_HANDOFF_OPERATION_RECOVERY,
-    "- Malformed model pre-start: POST /fail once with protocolVersion=PROTOCOL_VERSION,error.code=AGENT_START_FAILED,error.message=Model metadata malformed; no failedAt. Absence valid.",
+    ...recovery,
     THOUGHT_HANDOFF_FAIL_RESPONSE_CHECK,
     "",
-    "After App receipt, tell the creator to return to THOUGHT; include ACTUAL_RECEIPT_FROM_APP, no credentials.",
+    "Report actual App receipt; return to THOUGHT.",
   ].join("\n");
 }
 
