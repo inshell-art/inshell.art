@@ -19,7 +19,7 @@
     "schemaUrl": "/docs/source-lock.schema.json",
     "canonicalSchemaUrl": "https://inshell.art/docs/source-lock.schema.json",
     "mediaType": "application/json",
-    "sha256": "e5a49a8b695b3574f8b42ca986d069d05e10c5ef3bf8c257f43d7b796556798e",
+    "sha256": "027c0c5eb598a57ced74fdb30c3e26480c673ac3a8b7a5aea4eb2dc14ee66880",
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },

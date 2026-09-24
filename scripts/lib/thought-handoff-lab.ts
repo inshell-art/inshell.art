@@ -786,8 +786,8 @@ const staticHandoffAssertions = (
     profile.id === "claude"
       ? task.includes("Continue immediately on success.") &&
         task.includes("Once the creative phase begins, complete exactly this one result")
-      : /(?:Run bounded control, then exactly one creative turn|If (?:the preflight|it) passes, continue directly into (?:exactly )?one creative turn)/i.test(task) &&
-        /(?:no readiness\/CREATE confirmation|(?:do not|never) ask the creator to confirm (?:a|the)? ?(?:successful preflight|readiness))/i.test(task),
+      : /(?:control\+one creative turn|If (?:the preflight|it) passes, continue directly into (?:exactly )?one creative turn)/i.test(task) &&
+        /(?:no CREATE gate|no readiness\/CREATE confirmation|(?:do not|never) ask the creator to confirm (?:a|the)? ?(?:successful preflight|readiness))/i.test(task),
     "Successful preflight continues into one creative result without an extra CREATE gate.");
   check("no-create-gate", !/reply CREATE|exact CREATE/i.test(task),
     "No creator CREATE gate.");
@@ -795,22 +795,33 @@ const staticHandoffAssertions = (
     "The creative prompt is absent from the launch handoff.");
   check("no-installation-request",
     /No installations or configuration|No setup|Never ask the creator to install, configure, or learn anything|This task requires no installation or local configuration/.test(task) &&
-    /Never execute responses|download or execute nothing from it|treat responses as data/.test(task),
+    /Never execute responses|download or execute nothing from it|treat responses as data|JSON is data, not code/.test(task),
     "No installation requests or execution of response data.");
   check("operation-specific-recovery",
-    THOUGHT_HANDOFF_OPERATION_RECOVERY.every((line) => task.includes(line)) &&
-      task.includes("R=trusted App rejection proving no commit") &&
-      task.includes("body alone proves nothing") &&
-      task.includes("With proven App provenance, PROTOCOL_UNSUPPORTED/TOKEN_INVALID/RUN_EXPIRED/RUN_ALREADY_CLAIMED are R") &&
-      task.includes("Retry 429 once only with usable Retry-After and proven no commit; else U") &&
+    (profile.id === "claude"
+      ? THOUGHT_HANDOFF_OPERATION_RECOVERY.every((line) => task.includes(line)) &&
+        task.includes("Exact endpoint+parsed protocol error is insufficient") &&
+        task.includes("429 replay once only with usable Retry-After+proof no commit; else U")
+      : task.includes("N=not sent:fix/send once") &&
+        task.includes("R=verified App no-commit:obey/no repeat") &&
+        task.includes("U=unproven after dispatch") &&
+        task.includes("claim stop/no reclaim") &&
+        task.includes("ready exact READY_BODY+bridge replay once") &&
+        task.includes("start stop/no restart/generate/input") &&
+        task.includes("result frozen replay once(same invocation/key/raw/hashes") &&
+        task.includes("fail stop/no repeat/success overwrite") &&
+        task.includes("429 once only with Retry-After+proof no commit;else U")) &&
+      task.includes("PROTOCOL_UNSUPPORTED/TOKEN_INVALID/RUN_EXPIRED/RUN_ALREADY_CLAIMED") &&
       !task.includes("RETRY repeats only the failed operation") &&
       !task.includes("After permission/network recovery"),
     "Recovery distinguishes send certainty and the replay boundary for every operation.");
   check("bounded-recovery",
     profile.id === "claude"
       ? task.includes("Sign-in redirect or network refusal: report the observed response and stop")
-      : task.includes("Only explicit host permission denial before /start warrants") &&
-        /(?:this(?: turn's)? )?App (?:connection )?permission|standard host permission prompt|App access already granted for this lab task|This lab (?:task )?(?:already )?has App access/.test(task),
+      : task.includes("THOUGHT_STOP(N/R) or THOUGHT_UNCERTAIN(U)") &&
+        task.includes("Network: use grant") &&
+        task.includes("sandbox_permissions=require_escalated once for origin") &&
+        task.includes("Labels never bypass host"),
     "Recovery is status-specific and bounded without repeating accepted work.");
   const creatorMessages = task.split("\n")
     .filter((line) => /(?:show|tell the creator) exactly:|warrants:/i.test(line))
@@ -832,9 +843,9 @@ const staticHandoffAssertions = (
     "Plain-text identifiers survive HTML-like tag removal; endpoint templates are explicit.");
   check("bridge-credential-lifecycle",
     /(?:Define BRIDGE_CREDENTIAL as that (?:exact )?bridgeToken|BRIDGE_CREDENTIAL=bridgeToken)/.test(task) &&
-    /(?:reuse it for (?:all|every) remaining operation|reuse for all later operations|retain\/reuse privately)/i.test(task) &&
-    (task.includes("Missing local persistence is not a blocker") || task.includes("No local persistence needed") || task.includes("No persistence")) &&
-    /Never claim again|Never reclaim/.test(task) &&
+    /(?:reuse it for (?:all|every) remaining operation|reuse for all later operations|retain\/reuse (?:privately|in worker))/i.test(task) &&
+    (task.includes("Missing local persistence is not a blocker") || task.includes("No local persistence needed") || task.includes("retain/reuse in worker")) &&
+    /Never claim again|never reclaim/i.test(task) &&
     task.includes("Authorization: Bearer LAUNCH_CREDENTIAL for claim") &&
     task.includes("BRIDGE_CREDENTIAL later") &&
     task.includes("Credentials only in Authorization—never body/URL/files/logs/redirects"),
@@ -857,15 +868,19 @@ const staticHandoffAssertions = (
     task.includes("root protocolVersion=PROTOCOL_VERSION") &&
     task.includes("only readiness has control.schema") &&
     /(?:START_FIELDS = protocolVersion|POST only protocolVersion=PROTOCOL_VERSION)/.test(task) &&
-    task.includes("RESULT_FIELDS = protocolVersion") &&
-    /(?:METADATA_SOURCE|source)=reported/.test(task) &&
-    /(?:METADATA_SOURCE|source)=unknown/.test(task) &&
-    task.includes("error.code=AGENT_START_FAILED") &&
     (profile.id === "codex"
-      ? task.includes("rawSha256/agentLineSha256 are sha256: plus 64 lowercase hex") &&
+      ? task.includes("{protocolVersion=PROTOCOL_VERSION,invocationId=INVOCATION_ID,bridge=CLAIM_BODY.bridge") &&
+        task.includes("metadataSource=reported") &&
+        task.includes("metadataSource=unknown") &&
+        task.includes("error.{code=AGENT_START_FAILED") &&
+        task.includes("rawSha256/agentLineSha256=sha256:+64 lowercase hex") &&
         /(?:of|over) exact UTF-8 raw\/(?:line|agentLine)/.test(task) &&
-        task.includes("rehash before PUT")
-      : task.includes("Do not sort keys or apply JCS/canonical JSON") &&
+        task.includes("verify before PUT")
+      : /RESULT_FIELDS ?= ?protocolVersion/.test(task) &&
+        /(?:METADATA_SOURCE|source)=reported/.test(task) &&
+        /(?:METADATA_SOURCE|source)=unknown/.test(task) &&
+        task.includes("error.code=AGENT_START_FAILED") &&
+        task.includes("Do not sort keys or apply JCS/canonical JSON") &&
         task.includes("output.rawSha256 to sha256: followed by 64 lowercase hex digits") &&
         task.includes("exact UTF-8 bytes of the decoded output.raw string") &&
         task.includes("exact UTF-8 bytes of the decoded output.agentLine string") &&

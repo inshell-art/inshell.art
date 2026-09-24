@@ -3,6 +3,26 @@ export const THOUGHT_AGENT_HTTP_USER_AGENT = "Inshell-THOUGHT-Agent/2" as const;
 export const THOUGHT_HANDOFF_HTTP_IDENTIFICATION =
   `All requests: User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}; identifies THOUGHT, never a browser/model.`;
 
+export const THOUGHT_HANDOFF_INPUT_HASH_CONVENTION =
+  "INPUT_HASH: spec/instructions/promptLine/agentInput sha256=\"sha256:\"+64 lowercase hex SHA-256(exact decoded .text UTF-8 bytes); no trim/normalize/JSON-hash; promptLine=agentInput text+hash.";
+
+export const THOUGHT_HANDOFF_OPERATION_DIAGNOSTICS =
+  "DIAG each preflight/claim/ready/start/result: emit OK:name only after HTTP+JSON+schema validation; failure only stage=name,class=permission|transport|http|parse|schema plus THOUGHT_STOP(N/R) or THOUGHT_UNCERTAIN(U). Never raw error/body/headers/URL/credential.";
+
+/**
+ * Codex returns the bridge token once, so the process that receives it must
+ * remain alive until result submission. Bind the supported Codex host to its
+ * concrete private input channel and fail closed before the irreversible
+ * claim when that channel is unavailable.
+ */
+export const buildThoughtCodexPrivateContinuationInstructions = () => [
+  "WORKER: one exec_command(tty:true) starts final noninteractive worker; all source secret-free in initial cmd; ECHO+ECHONL off before ECHO_READY. No child/replacement after proof; never write_stdin code/command.",
+  "After fake nonce absent+ECHO_OK, send LAUNCH_CREDENTIAL once. Never output/store it. Then write_stdin only candidate. Bridge stays in worker; no file/storage/log/relay.",
+  "PRECLAIM: worker GET CONNECTIVITY_ENDPOINT unauthenticated; require schema=CONNECTIVITY_SCHEMA,status=reachable,protocolVersion=PROTOCOL_VERSION. Failure=no claim; permission fix may fresh worker. Possible claim dispatch=>no replace/reclaim.",
+  THOUGHT_HANDOFF_OPERATION_DIAGNOSTICS,
+  "CREATIVE: only after valid /start, same worker shows input/rules; CANDIDATE via write_stdin; validate/hash/PUT one 1-64-byte Terminal English line; no clarification.",
+];
+
 export const THOUGHT_HANDOFF_RESPONSE_PATHS = {
   claim: {
     bridgeToken: "bridgeToken",
@@ -49,9 +69,9 @@ export const buildThoughtHandoffResponseChecks = (input: {
   const workProfile = input.workProfile ?? "WORK_PROFILE";
   return {
     claim:
-      `Claim: runId=${runId}, state=claimed, nonempty top-level ${responsePath.claim.bridgeToken}; ${responsePath.claim.authority}=${authority}; ${responsePath.claim.intent}=prepare-thought-creation; ${responsePath.claim.controlMode}=bounded-preflight; ${responsePath.claim.controlSchema}=${controlSchema}. Absent: control, request.control, bridge, adapter, creative input.`,
+      `Claim: runId=${runId},state=claimed; nonempty top-level ${responsePath.claim.bridgeToken}; ${responsePath.claim.authority}=${authority}; ${responsePath.claim.intent}=prepare-thought-creation; ${responsePath.claim.controlMode}=bounded-preflight; ${responsePath.claim.controlSchema}=${controlSchema}; no control/request.control/bridge/adapter/creative input.`,
     start:
-      `Start: runId=${runId}, state=running, ${responsePath.start.authority}=${authority}, ${responsePath.start.intent}=generate-thought-candidate. Check request.spec.{id,text,sha256,contractSpecId,contractSpecHash}, request.instructions.{id,artifactId,text,sha256}, request.promptLine.{text,sha256}, request.agentInput.{text,sha256}, ${responsePath.start.release}, ${responsePath.start.workProfile}=${workProfile}. Require spec.id=spec.contractSpecId; contractSpecHash=32-byte 0x hex; exact text hashes; equal prompt/input text+hash; differing spec/instructions. promptLine/agentInput are objects.`,
+      `Start: runId=${runId},state=running; ${responsePath.start.authority}=${authority}; ${responsePath.start.intent}=generate-thought-candidate. Under request require: spec.{id,text,sha256,contractSpecId,contractSpecHash}; instructions.{id,artifactId,text,sha256}; promptLine/agentInput objects with text,sha256; outputContract.release; outputContract.agentLine.workProfile=${workProfile}; spec.id=spec.contractSpecId; contractSpecHash=32-byte 0x hex; ${THOUGHT_HANDOFF_INPUT_HASH_CONVENTION} spec/instructions differ.`,
   } as const;
 };
 
@@ -60,15 +80,15 @@ const defaultResponseChecks = buildThoughtHandoffResponseChecks();
 export const THOUGHT_HANDOFF_CLAIM_RESPONSE_CHECK = defaultResponseChecks.claim;
 
 export const THOUGHT_HANDOFF_READY_RESPONSE_CHECK =
-  `Ready: protocolVersion=READY_BODY.protocolVersion; top-level ${responsePath.ready.control}=READY_BODY.control by exact typed entries, any order; never request.control.`;
+  `Ready: protocolVersion=READY_BODY.protocolVersion; top-level ${responsePath.ready.control}=READY_BODY.control by exact typed entries, any order; no request.control.`;
 
 export const THOUGHT_HANDOFF_START_RESPONSE_CHECK = defaultResponseChecks.start;
 
 export const THOUGHT_HANDOFF_RESULT_RESPONSE_CHECK =
-  `Result response: ${responsePath.result.receiptSha256} must begin sha256:; no top-level receiptSha256.`;
+  `Result: ${responsePath.result.receiptSha256} begins sha256:; no top-level receiptSha256.`;
 
 export const THOUGHT_HANDOFF_FAIL_RESPONSE_CHECK =
-  `Fail response paths: root ${responsePath.fail.code} and ${responsePath.fail.message}; never request.error.`;
+  `Fail: root ${responsePath.fail.code} and ${responsePath.fail.message}; no request.error.`;
 
 /** Plain-text request data: identifiers must survive HTML/rich-text composers. */
 export function buildThoughtHandoffHttpInstructions(contract: {
@@ -100,6 +120,6 @@ export const THOUGHT_HANDOFF_CONNECTION_RECOVERY = [
 ];
 
 export const THOUGHT_HANDOFF_OPERATION_RECOVERY = [
-  "- Recovery: N=not sent; R=trusted App rejection proving no commit; U=uncertain after dispatch (gateway/proxy/malformed/timeout; body alone proves nothing). Pre-dispatch Agent-app permission refusal is N. N: fix/send once. R: obey/no repeat. With proven App provenance, PROTOCOL_UNSUPPORTED/TOKEN_INVALID/RUN_EXPIRED/RUN_ALREADY_CLAIMED are R. Retry 429 once only with usable Retry-After and proven no commit; else U.",
-  "- U: claim—stop/reconcile in THOUGHT (credential spent; token returned once; never reclaim); ready—replay exact READY_BODY+bridge once (only ready replays control); start—stop/reconcile (never restart/generate; running cannot replay input); result—replay frozen request once (same invocation/key/raw/hashes; no reserialize/hash repair/art change/regeneration); fail—stop/reconcile (never repeat; terminal cannot overwrite success).",
+  "- Recovery: N=not sent: fix/send once; R=verified App no-commit: obey/no repeat; U=unproven after dispatch. Exact endpoint+parsed protocol error is insufficient; R also needs 4xx+known no-commit code; else U. Pre-send permission=N. PROTOCOL_UNSUPPORTED/TOKEN_INVALID/RUN_EXPIRED/RUN_ALREADY_CLAIMED are no-commit codes. 429 replay once only with usable Retry-After+proof no commit; else U.",
+  "- U rules: claim stop/reconcile (credential spent/token once/no reclaim); ready replay exact READY_BODY+bridge once (sole control replay); start stop/reconcile (no restart/generate/input replay); result replay frozen request once (same invocation/key/raw/hashes; no reserialize/hash repair/art change/regeneration); fail stop/reconcile (no repeat/success overwrite).",
 ] as const;

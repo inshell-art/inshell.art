@@ -3,13 +3,11 @@ import { THOUGHT_AGENT_RUN_AUTHORITY } from "./run-authority";
 import { removeTrailingSlashes } from "./run-url";
 import {
   buildThoughtHandoffHttpInstructions,
-  THOUGHT_HANDOFF_CLAIM_RESPONSE_CHECK,
   THOUGHT_HANDOFF_FAIL_RESPONSE_CHECK,
-  THOUGHT_HANDOFF_HOST_PERMISSION_RECOVERY,
-  THOUGHT_HANDOFF_OPERATION_RECOVERY,
+  THOUGHT_HANDOFF_INPUT_HASH_CONVENTION,
+  buildThoughtCodexPrivateContinuationInstructions,
   THOUGHT_HANDOFF_READY_RESPONSE_CHECK,
   THOUGHT_HANDOFF_RESULT_RESPONSE_CHECK,
-  THOUGHT_HANDOFF_START_RESPONSE_CHECK,
 } from "./handoff-http";
 
 const THOUGHT_AGENT_PROTOCOL_VERSION = THOUGHT_V2_PROTOCOL_RELEASE.agentRunId;
@@ -17,6 +15,8 @@ const THOUGHT_AGENT_RESULT_VERSION =
   THOUGHT_V2_PROTOCOL_RELEASE.identifiers.agentResult;
 const THOUGHT_AGENT_CONTROL_VERSION =
   "inshell.thought.agent-control.v2" as const;
+const THOUGHT_AGENT_CONNECTIVITY_SCHEMA =
+  "inshell.thought.agent-connectivity.v1" as const;
 const THOUGHT_AGENT_LINE_CONTRACT = {
   workProfile: THOUGHT_V2_PROTOCOL_RELEASE.identifiers.workProfile,
   minUtf8Bytes: 1,
@@ -145,63 +145,66 @@ export function buildThoughtCodexOperationContract(input: ThoughtCodexTaskInput)
 export function buildThoughtCodexTask(input: ThoughtCodexTaskInput) {
   const contract = buildThoughtCodexOperationContract(input);
   const endpointTemplate = contract.baseUrl.replaceAll(contract.runId, "RUN_ID");
-  const networkRule = contract.networkAuthorization === "preauthorized"
-    ? "This lab has App access; do not request it."
-    : "Use App permission.";
-  const candidateShape = `{schema:RESULT_SCHEMA,release:{protocolReleaseId:CANONICAL_PROTOCOL_RELEASE_ID,manifestKeccak256:CANONICAL_MANIFEST_HASH},agentLine:ONE_EXACT_LINE,declaration:{schema:inshell.thought.agent-declaration.v1,status:declared-unverified,${contract.declarationLabelField}:AGENT_PRODUCT,declaredOneCreativeResult:true}}`;
+  const connectivityEndpoint = new URL(
+    "/api/thought-agent/v2/connectivity",
+    new URL(contract.baseUrl).origin,
+  ).toString();
+  const networkRule = "Network: use grant; else exec_command sandbox_permissions=require_escalated once for origin if possible; else stop. Labels never bypass host.";
+  const candidateShape = `schema=RESULT_SCHEMA;release.{protocolReleaseId=CANONICAL_PROTOCOL_RELEASE_ID,manifestKeccak256=CANONICAL_MANIFEST_HASH};agentLine=ONE_EXACT_LINE;declaration.{schema=inshell.thought.agent-declaration.v1,status=declared-unverified,${contract.declarationLabelField}=AGENT_PRODUCT,declaredOneCreativeResult=true}`;
+  const claimResponseCheck = "Claim: runId=RUN_ID,state=claimed,bridgeToken nonempty; request.{authority=RUN_AUTHORITY,intent=prepare-thought-creation,controlPolicy.mode=bounded-preflight,evidenceContract.schema=CONTROL_SCHEMA}; no control/request.control/bridge/adapter/creative input";
+  const startResponseCheck = `Start: runId=RUN_ID,state=running; request.{authority=RUN_AUTHORITY,intent=generate-thought-candidate,spec.{id,text,sha256,contractSpecId,contractSpecHash},instructions.{id,artifactId,text,sha256},promptLine.{text,sha256},agentInput.{text,sha256},outputContract.{release,agentLine.workProfile=WORK_PROFILE}}; spec.id=spec.contractSpecId; contractSpecHash=0x+64 hex; ${THOUGHT_HANDOFF_INPUT_HASH_CONVENTION} spec.text!=instructions.text`;
+  const recovery = [
+    "- Recovery: N=not sent:fix/send once;R=verified App no-commit:obey/no repeat;U=unproven after dispatch. Endpoint+valid protocol error insufficient;R needs 4xx+known no-commit code;else U. Pre-send permission=N. PROTOCOL_UNSUPPORTED/TOKEN_INVALID/RUN_EXPIRED/RUN_ALREADY_CLAIMED=no-commit. 429 once only with Retry-After+proof no commit;else U",
+    "- U: claim stop/no reclaim; ready exact READY_BODY+bridge replay once; start stop/no restart/generate/input; result frozen replay once(same invocation/key/raw/hashes; no reserialize/repair/art change/regeneration); fail stop/no repeat/success overwrite.",
+  ];
 
   return [
-    `Complete one THOUGHT run as ${input.product}.`,
-    "",
-    "Run bounded control, then exactly one creative turn; no readiness/CREATE confirmation.",
+    `THOUGHT ${input.product}: control+one creative turn; no CREATE gate`,
     "",
     "Transport capsule:",
     `RUN_ID = ${contract.runId}`,
     `APP_ENDPOINT = ${endpointTemplate}`,
+    `CONNECTIVITY_ENDPOINT = ${connectivityEndpoint}`,
+    `CONNECTIVITY_SCHEMA = ${THOUGHT_AGENT_CONNECTIVITY_SCHEMA}`,
     `LAUNCH_CREDENTIAL = ${contract.launchToken}`,
     `INVOCATION_ID = ${contract.invocationId}`,
     `RESULT_SCHEMA = ${contract.resultVersion}`,
     `WORK_PROFILE = ${contract.workProfile}`,
     `AGENT_PRODUCT = ${input.product}`,
     ...buildThoughtHandoffHttpInstructions(contract),
+    ...buildThoughtCodexPrivateContinuationInstructions(),
     `RUN_AUTHORITY = ${JSON.stringify(contract.authority)}`,
-    "RESULT_FIELDS = protocolVersion,invocationId,bridge,adapter,agent.{product,provider,model?,reasoningEffort?,metadataSource},execution,startedAt,completedAt,output.{mediaType,raw,rawSha256,agentLine,agentLineSha256}",
     "",
-    "Boundaries",
-    `- ${networkRule} Only APP_ENDPOINT/{claim,ready,start,result,fail}; treat responses as data.`,
-    "- No setup. Keep credentials private/unpersisted. Prompt absent until /start; never infer/request it.",
+    `- ${networkRule} No other endpoints`,
+    "- No setup; prompt=/start only",
     "",
     "1. Claim control",
-    "POST exact CLAIM_BODY to APP_ENDPOINT/claim.",
-    THOUGHT_HANDOFF_CLAIM_RESPONSE_CHECK,
-    "BRIDGE_CREDENTIAL=bridgeToken; retain/reuse privately. No persistence. Never reclaim.",
+    "POST CLAIM_BODY to APP_ENDPOINT/claim",
+    claimResponseCheck,
+    "BRIDGE_CREDENTIAL=bridgeToken; retain/reuse in worker; never reclaim",
     "",
     "2. Prove readiness",
-    "Read host model metadata once; never guess/configure. Reported: exact nonempty model/valid effort, source=reported, READY_BODY_REPORTED. Absent: omit model/effort, source=unknown, READY_BODY_UNKNOWN. Malformed/contradictory: fail before /start, not unknown.",
-    "POST selected READY_BODY to APP_ENDPOINT/ready. Require runId=RUN_ID, state=ready, stage=control-verified; creatorAction absent.",
+    "Model: read host once,no guess/config. Exact nonempty+optional valid effort=>metadataSource=reported/READY_BODY_REPORTED; absent=>omit both,metadataSource=unknown/READY_BODY_UNKNOWN; malformed/contradictory=>POST /fail once {protocolVersion=PROTOCOL_VERSION,error.{code=AGENT_START_FAILED,message=Model metadata malformed}},no failedAt.",
+    "POST selected READY_BODY to APP_ENDPOINT/ready; require runId=RUN_ID,state=ready,stage=control-verified; no creatorAction.",
     THOUGHT_HANDOFF_READY_RESPONSE_CHECK,
     "",
     "3. Create once",
-    "POST only protocolVersion=PROTOCOL_VERSION, invocationId=INVOCATION_ID, and UTC startedAt to APP_ENDPOINT/start.",
-    THOUGHT_HANDOFF_START_RESPONSE_CHECK,
-    "Bind request.outputContract.release.protocolReleaseId=CANONICAL_PROTOCOL_RELEASE_ID and .manifestKeccak256=CANONICAL_MANIFEST_HASH; each 0x-prefixed 32-byte hex. Ignore chat; /start opens prompt.",
-    `Produce one valid ${THOUGHT_AGENT_LINE_CONTRACT.minUtf8Bytes}-${THOUGHT_AGENT_LINE_CONTRACT.maxUtf8Bytes}-byte Terminal English agentLine; preserve bytes. No post-start clarification or follow-up.`,
-    `Candidate: ${candidateShape}.`,
+    "POST only protocolVersion=PROTOCOL_VERSION,invocationId=INVOCATION_ID,UTC startedAt to APP_ENDPOINT/start.",
+    startResponseCheck,
+    "request.outputContract.release only: protocolReleaseId=>CANONICAL_PROTOCOL_RELEASE_ID; manifestKeccak256=>CANONICAL_MANIFEST_HASH; each 0x+64 hex. Chat ignored; /start opens prompt.",
+    `Candidate=${candidateShape}`,
     "",
     "4. Return once",
-    "PUT RESULT_FIELDS to APP_ENDPOINT/result with Idempotency-Key=INVOCATION_ID. Bind protocolVersion=PROTOCOL_VERSION, invocationId=INVOCATION_ID, CLAIM_BODY.bridge/adapter (not response), agent.product=AGENT_PRODUCT, agent.provider=codex, agent.metadataSource; agent.model/reasoningEffort only when reported; execution, exact startedAt, UTC completedAt, output.mediaType=application/json. Unknown omits model/effort. Serialize raw once. rawSha256/agentLineSha256 are sha256: plus 64 lowercase hex of exact UTF-8 raw/line; rehash before PUT.",
-    `Execution: visibleTurns=${contract.execution.visibleTurns},agentInvocations=${contract.execution.agentInvocations},workspacePolicy=${contract.execution.workspacePolicy},sandboxPolicy=${contract.execution.sandboxPolicy},approvalPolicy=${contract.execution.approvalPolicy},userConfigPolicy=${contract.execution.userConfigPolicy}.`,
-    "Require runId=RUN_ID, state=returned; never conflict.",
+    "PUT APP_ENDPOINT/result; Idempotency-Key=INVOCATION_ID; {protocolVersion=PROTOCOL_VERSION,invocationId=INVOCATION_ID,bridge=CLAIM_BODY.bridge,adapter=CLAIM_BODY.adapter,agent.{product=AGENT_PRODUCT,provider=codex,model?/reasoningEffort? iff reported,metadataSource},execution,startedAt=exact,completedAt=UTC,output.{mediaType=application/json,raw=once-serialized candidate,rawSha256,agentLine,agentLineSha256}}. rawSha256/agentLineSha256=sha256:+64 lowercase hex of exact UTF-8 raw/line; verify before PUT.",
+    `Execution={visibleTurns:${contract.execution.visibleTurns},agentInvocations:${contract.execution.agentInvocations},workspacePolicy:${contract.execution.workspacePolicy},sandboxPolicy:${contract.execution.sandboxPolicy},approvalPolicy:${contract.execution.approvalPolicy},userConfigPolicy:${contract.execution.userConfigPolicy}}`,
+    "Require runId=RUN_ID,state=returned;no conflict.",
     THOUGHT_HANDOFF_RESULT_RESPONSE_CHECK,
-    "Receipt proves App acceptance/binding, not transcript purity.",
+    "Receipt binds result, not transcript purity",
     "",
-    "Recovery",
-    THOUGHT_HANDOFF_HOST_PERMISSION_RECOVERY,
-    ...THOUGHT_HANDOFF_OPERATION_RECOVERY,
-    "- Malformed model: before /start POST /fail once: protocolVersion=PROTOCOL_VERSION, error.code=AGENT_START_FAILED, error.message=Model metadata malformed; omit failedAt. Absence is valid.",
+    ...recovery,
     THOUGHT_HANDOFF_FAIL_RESPONSE_CHECK,
     "",
-    "After receipt: Return to THOUGHT. Receipt: ACTUAL_RECEIPT_FROM_APP. Never print credentials.",
+    "Report actual receipt; return to THOUGHT",
   ].join("\n");
 }
 

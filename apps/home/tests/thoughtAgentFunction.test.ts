@@ -575,16 +575,36 @@ describe("THOUGHT Agent Pages API", () => {
     expect(readyUnknown.protocolVersion).toBe(THOUGHT_AGENT_PROTOCOL_VERSION);
     expect(readyUnknown.control.schema).toBe(THOUGHT_AGENT_CONTROL_VERSION);
     expect(readyUnknown.control.runtimeModel).toBe("unknown");
-    expect(transported).toContain("request.authority=RUN_AUTHORITY");
-    expect(transported).toContain("request.intent=prepare-thought-creation");
-    expect(transported).toContain("request.controlPolicy.mode=bounded-preflight");
-    expect(transported).toContain("request.evidenceContract.schema=CONTROL_SCHEMA");
-    expect(transported).toContain("request.intent=generate-thought-candidate");
-    expect(transported).toContain("request.spec.{id,text,sha256,contractSpecId,contractSpecHash}");
-    expect(transported).toContain("request.promptLine.{text,sha256}");
-    expect(transported).toContain("request.agentInput.{text,sha256}");
-    expect(transported).toContain("request.outputContract.agentLine.workProfile=WORK_PROFILE");
-    expect(transported).toContain("result.receipt.receiptSha256 must begin sha256:");
+    if (adapterId === "codex") {
+      const claimRequirements = transported
+        .split("\n")
+        .find((line) => line.startsWith("Claim: runId=RUN_ID"));
+      expect(claimRequirements).toContain("request.{authority=RUN_AUTHORITY");
+      expect(claimRequirements).toContain("intent=prepare-thought-creation");
+      expect(claimRequirements).toContain("controlPolicy.mode=bounded-preflight");
+      expect(claimRequirements).toContain("evidenceContract.schema=CONTROL_SCHEMA");
+      expect(transported).toContain("intent=generate-thought-candidate");
+      const requestRequirements = transported
+        .split("\n")
+        .find((line) => line.startsWith("Start: runId=RUN_ID"));
+      expect(requestRequirements).toContain("spec.{id,text,sha256,contractSpecId,contractSpecHash}");
+      expect(requestRequirements).toContain("promptLine.{text,sha256},agentInput.{text,sha256}");
+      expect(requestRequirements).toContain("outputContract.{release,agentLine.workProfile=WORK_PROFILE}");
+    } else {
+      expect(transported).toContain("request.authority=RUN_AUTHORITY");
+      expect(transported).toContain("request.intent=prepare-thought-creation");
+      expect(transported).toContain("request.controlPolicy.mode=bounded-preflight");
+      expect(transported).toContain("request.evidenceContract.schema=CONTROL_SCHEMA");
+      expect(transported).toContain("request.intent=generate-thought-candidate");
+      const requestRequirements = transported
+        .split("\n")
+        .find((line) => line.includes("Under request require:"));
+      expect(requestRequirements).toContain("Under request require: spec.{id,text,sha256,contractSpecId,contractSpecHash}");
+      expect(requestRequirements).toContain("promptLine/agentInput objects with text,sha256");
+      expect(requestRequirements).toContain("outputContract.release");
+      expect(requestRequirements).toContain("outputContract.agentLine.workProfile=WORK_PROFILE");
+    }
+    expect(transported).toContain("result.receipt.receiptSha256 begins sha256:");
     expect(transported).toContain("root error.code and error.message");
     const before = { ...d1.rows.get(runId)! };
 

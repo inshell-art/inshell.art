@@ -75,6 +75,8 @@ test("the canonical Claude Code handoff is an ordinary purpose-first task with e
   assert.match(task, /Continue immediately on success/);
   assert.match(task, /Once the creative phase begins, complete exactly this one result/);
   assert.match(task, /This task requires no installation or local configuration/);
+  assert.doesNotMatch(task, /PRIVATE_CONTINUATION|THOUGHT_CONTINUATION_READY|THOUGHT_CONTINUATION_OK|send PROCEED/);
+  assert.doesNotMatch(task, /run_in_background|TaskOutput|mkfifo|mode-600|mode-700|temporary directory/i);
   assert.match(task, /If the host supplies a non-empty exact model, retain it as RUNTIME_MODEL/);
   assert.match(task, /If the host supplies no exact model metadata, omit model and reasoningEffort/);
   assert.match(task, /Missing model metadata does not block creation/);
@@ -126,17 +128,20 @@ for (const networkAuthorization of ["managed", "preauthorized"] as const) {
     assert.equal(decoded, task);
     assert.match(task, /^Please complete one THOUGHT run with Claude\./);
     assert.match(task, /No repository files are needed\. Do not read, change, or execute them for this task\./);
-    assert.match(task, /With proven App provenance, PROTOCOL_UNSUPPORTED\/TOKEN_INVALID\/RUN_EXPIRED\/RUN_ALREADY_CLAIMED are R/);
+    assert.match(task, /PROTOCOL_UNSUPPORTED\/TOKEN_INVALID\/RUN_EXPIRED\/RUN_ALREADY_CLAIMED are no-commit codes/);
     assert.match(task, /Sign-in redirect or network refusal: report the observed response and stop/);
-    assert.match(task, /Pre-dispatch Agent-app permission refusal is N\./);
-    assert.match(task, /R=trusted App rejection proving no commit/);
-    assert.match(task, /U=uncertain after dispatch \(gateway\/proxy\/malformed\/timeout; body alone proves nothing\)/);
-    assert.match(task, /claim—stop\/reconcile in THOUGHT \(credential spent; token returned once; never reclaim\)/);
-    assert.match(task, /ready—replay exact READY_BODY\+bridge once/);
-    assert.match(task, /start—stop\/reconcile \(never restart\/generate/);
-    assert.match(task, /result—replay frozen request once/);
+    assert.match(task, /Pre-send permission=N/);
+    assert.match(task, /N=not sent: fix\/send once/);
+    assert.match(task, /R=verified App no-commit: obey\/no repeat/);
+    assert.match(task, /U=unproven after dispatch/);
+    assert.match(task, /Exact endpoint\+parsed protocol error is insufficient/);
+    assert.match(task, /R also needs 4xx\+known no-commit code; else U/);
+    assert.match(task, /claim stop\/reconcile \(credential spent\/token once\/no reclaim\)/);
+    assert.match(task, /ready replay exact READY_BODY\+bridge once/);
+    assert.match(task, /start stop\/reconcile \(no restart\/generate/);
+    assert.match(task, /result replay frozen request once/);
     assert.match(task, /no reserialize\/hash repair\/art change\/regeneration/);
-    assert.match(task, /fail—stop\/reconcile \(never repeat; terminal cannot overwrite success\)/);
+    assert.match(task, /fail stop\/reconcile \(no repeat\/success overwrite\)/);
     assert.doesNotMatch(task, /RETRY repeats only the failed operation|After permission\/network recovery/);
     assert.doesNotMatch(
       task,
@@ -307,11 +312,10 @@ test("Cowork remains an explicit legacy deep-link surface", () => {
   assert.match(task, /request\.controlPolicy\.mode=bounded-preflight/);
   assert.match(task, /request\.evidenceContract\.schema=<control_schema>/);
   assert.match(task, /request\.intent=generate-thought-candidate/);
-  assert.match(task, /request\.spec\.\{id,text,sha256,contractSpecId,contractSpecHash\}/);
-  assert.match(task, /request\.promptLine\.\{text,sha256\}/);
-  assert.match(task, /request\.agentInput\.\{text,sha256\}/);
-  assert.match(task, /request\.outputContract\.agentLine\.workProfile=<work_profile>/);
-  assert.match(task, /result\.receipt\.receiptSha256 must begin sha256:/);
+  assert.match(task, /Under request require: spec\.\{id,text,sha256,contractSpecId,contractSpecHash\}/);
+  assert.match(task, /Under request require:[^\n]*promptLine\/agentInput objects with text,sha256/);
+  assert.match(task, /Under request require:[^\n]*outputContract\.agentLine\.workProfile=<work_profile>/);
+  assert.match(task, /result\.receipt\.receiptSha256 begins sha256:/);
   assert.match(task, /root error\.code and error\.message/);
   assert.match(task, /<agent_surface> = cowork/);
   assert.match(task, /Run this task set to On your computer/);
