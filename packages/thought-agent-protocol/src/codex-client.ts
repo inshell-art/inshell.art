@@ -149,12 +149,12 @@ export function buildThoughtCodexTask(input: ThoughtCodexTaskInput) {
     "/api/thought-agent/v2/connectivity",
     new URL(contract.baseUrl).origin,
   ).toString();
-  const networkRule = "Network: use grant; else exec_command sandbox_permissions=require_escalated once for App origin if requestable; else stop preclaim. Labels never bypass host.";
+  const networkRule = "Network: use grant; else exec_command sandbox_permissions=require_escalated once for origin if possible; else stop. Labels never bypass host.";
   const candidateShape = `schema=RESULT_SCHEMA;release.{protocolReleaseId=CANONICAL_PROTOCOL_RELEASE_ID,manifestKeccak256=CANONICAL_MANIFEST_HASH};agentLine=ONE_EXACT_LINE;declaration.{schema=inshell.thought.agent-declaration.v1,status=declared-unverified,${contract.declarationLabelField}=AGENT_PRODUCT,declaredOneCreativeResult=true}`;
   const claimResponseCheck = "Claim: runId=RUN_ID,state=claimed,bridgeToken nonempty; request.{authority=RUN_AUTHORITY,intent=prepare-thought-creation,controlPolicy.mode=bounded-preflight,evidenceContract.schema=CONTROL_SCHEMA}; no control/request.control/bridge/adapter/creative input";
   const startResponseCheck = `Start: runId=RUN_ID,state=running; request.{authority=RUN_AUTHORITY,intent=generate-thought-candidate,spec.{id,text,sha256,contractSpecId,contractSpecHash},instructions.{id,artifactId,text,sha256},promptLine.{text,sha256},agentInput.{text,sha256},outputContract.{release,agentLine.workProfile=WORK_PROFILE}}; spec.id=spec.contractSpecId; contractSpecHash=0x+64 hex; ${THOUGHT_HANDOFF_INPUT_HASH_CONVENTION} spec.text!=instructions.text`;
   const recovery = [
-    "- Recovery: N=not sent;R=trusted App rejection proving no commit;U=uncertain after unproven dispatch. Permission refusal pre-dispatch=N. N fix/send once;R no repeat. Proven-App PROTOCOL_UNSUPPORTED/TOKEN_INVALID/RUN_EXPIRED/RUN_ALREADY_CLAIMED=R. 429 once only with usable Retry-After+proof no commit; else U",
+    "- Recovery: N=not sent:fix/send once;R=verified App no-commit:obey/no repeat;U=unproven after dispatch. Endpoint+valid protocol error insufficient;R needs 4xx+known no-commit code;else U. Pre-send permission=N. PROTOCOL_UNSUPPORTED/TOKEN_INVALID/RUN_EXPIRED/RUN_ALREADY_CLAIMED=no-commit. 429 once only with Retry-After+proof no commit;else U",
     "- U: claim stop/no reclaim; ready exact READY_BODY+bridge replay once; start stop/no restart/generate/input; result frozen replay once(same invocation/key/raw/hashes; no reserialize/repair/art change/regeneration); fail stop/no repeat/success overwrite.",
   ];
 
@@ -179,7 +179,7 @@ export function buildThoughtCodexTask(input: ThoughtCodexTaskInput) {
     "- No setup; prompt=/start only",
     "",
     "1. Claim control",
-    "POST CLAIM_BODY to APP_ENDPOINT/claim.",
+    "POST CLAIM_BODY to APP_ENDPOINT/claim",
     claimResponseCheck,
     "BRIDGE_CREDENTIAL=bridgeToken; retain/reuse in worker; never reclaim",
     "",
@@ -197,14 +197,14 @@ export function buildThoughtCodexTask(input: ThoughtCodexTaskInput) {
     "4. Return once",
     "PUT APP_ENDPOINT/result; Idempotency-Key=INVOCATION_ID; {protocolVersion=PROTOCOL_VERSION,invocationId=INVOCATION_ID,bridge=CLAIM_BODY.bridge,adapter=CLAIM_BODY.adapter,agent.{product=AGENT_PRODUCT,provider=codex,model?/reasoningEffort? iff reported,metadataSource},execution,startedAt=exact,completedAt=UTC,output.{mediaType=application/json,raw=once-serialized candidate,rawSha256,agentLine,agentLineSha256}}. rawSha256/agentLineSha256=sha256:+64 lowercase hex of exact UTF-8 raw/line; verify before PUT.",
     `Execution={visibleTurns:${contract.execution.visibleTurns},agentInvocations:${contract.execution.agentInvocations},workspacePolicy:${contract.execution.workspacePolicy},sandboxPolicy:${contract.execution.sandboxPolicy},approvalPolicy:${contract.execution.approvalPolicy},userConfigPolicy:${contract.execution.userConfigPolicy}}`,
-    "Require runId=RUN_ID,state=returned; no conflict.",
+    "Require runId=RUN_ID,state=returned;no conflict.",
     THOUGHT_HANDOFF_RESULT_RESPONSE_CHECK,
-    "Receipt proves binding, not transcript purity",
+    "Receipt binds result, not transcript purity",
     "",
     ...recovery,
     THOUGHT_HANDOFF_FAIL_RESPONSE_CHECK,
     "",
-    "Report actual App receipt; return to THOUGHT",
+    "Report actual receipt; return to THOUGHT",
   ].join("\n");
 }
 
