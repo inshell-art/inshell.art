@@ -7,11 +7,15 @@ import test from "node:test";
 import {
   buildThoughtClaudeTask,
   buildThoughtCodexTask,
+  THOUGHT_HANDOFF_OPERATION_DIAGNOSTICS,
+  THOUGHT_HANDOFF_OPERATION_RECOVERY,
 } from "../packages/thought-agent-protocol/src/index";
 
 const LAUNCH_TOKEN = "synthetic-launch-token-never-print";
 const BRIDGE_TOKEN = "synthetic-bridge-token-never-print";
 const PTY_SENTINEL = "synthetic-pty-echo-sentinel-never-print";
+const PTY_LAUNCH_TOKEN = "synthetic-pty-launch-token-never-print";
+const PTY_TRANSITION_SECRET = "synthetic-transition-secret-never-print";
 
 // Synthetic only: this worker proves the process/input lifetime contract. It
 // does not contact THOUGHT, exercise an Agent desktop app, or count as canary
@@ -37,7 +41,7 @@ const take = async (stage) => {
     input.close();
     return;
   }
-  if (!process.env.SYNTHETIC_LAUNCH_TOKEN || !process.env.SYNTHETIC_BRIDGE_TOKEN) {
+  if (!process.env.SYNTHETIC_BRIDGE_TOKEN) {
     emit("TERMINAL_PRIVATE_STATE_MISSING");
     process.exitCode = 2;
     input.close();
@@ -53,17 +57,17 @@ const take = async (stage) => {
     return;
   }
   emit("THOUGHT_CONTINUATION_OK");
-  const proceed = await take("proceed");
-  if (proceed === null) return;
-  if (proceed !== "PROCEED") {
-    emit("PRECLAIM_ABORT:no_proceed");
+  const launchInput = await take("launch");
+  if (launchInput === null) return;
+  if (!launchInput.startsWith("LAUNCH:")) {
+    emit("PRECLAIM_ABORT:bad_launch");
     input.close();
     return;
   }
 
   // Tokens remain process-private. Only stage markers and validated creative
   // fields cross stdout.
-  const launchToken = process.env.SYNTHETIC_LAUNCH_TOKEN;
+  const launchToken = launchInput.slice("LAUNCH:".length);
   const bridgeToken = process.env.SYNTHETIC_BRIDGE_TOKEN;
   if (launchToken.length === 0 || bridgeToken.length === 0) return;
   emit("STAGE:claim");
@@ -107,11 +111,26 @@ const take = async () => {
   emit("ECHO_READY");
   const nonce = await take();
   if (nonce !== "NONCE:${PTY_SENTINEL}") process.exit(4);
-  emit("THOUGHT_CONTINUATION_OK");
-  if (await take() !== "PROCEED") process.exit(5);
-  emit("PRECLAIM_CONTINUATION_PROVED");
+  emit("ECHO_OK");
+  if (await take() !== "LAUNCH:${PTY_LAUNCH_TOKEN}") process.exit(5);
+  emit("FINAL_WORKER_ACCEPTED_LAUNCH");
   input.close();
 })().catch(() => process.exit(6));
+`;
+
+// Fake-only reproduction of the Codex-48 failure mode. The parent proves
+// no-echo, then replaces itself with an interactive zsh; its later prompt
+// redraw/echo exposes write_stdin data.
+const PTY_TRANSITION_SOURCE = String.raw`
+stty -echo -echonl || exit 3
+printf 'ECHO_READY\n'
+IFS= read -r nonce || exit 2
+[ "$nonce" = 'NONCE:${PTY_SENTINEL}' ] || exit 4
+printf 'ECHO_OK\n'
+IFS= read -r proceed || exit 2
+[ "$proceed" = 'PROCEED' ] || exit 5
+printf 'UNSAFE_REPLACEMENT\n'
+exec zsh -f
 `;
 
 const PTY_RELAY_SOURCE = String.raw`
@@ -148,6 +167,7 @@ type SyntheticWorker = {
   write: (value: string) => void;
   closeInput: () => void;
   waitFor: (value: string) => Promise<void>;
+  waitForContains: (value: string) => Promise<void>;
   exited: Promise<{ code: number | null; signal: string | null }>;
   cleanup: () => Promise<void>;
 };
@@ -157,7 +177,6 @@ const startWorker = (available = true): SyntheticWorker => {
     env: {
       PATH: process.env.PATH,
       SYNTHETIC_CONTINUATION_AVAILABLE: available ? "1" : "0",
-      SYNTHETIC_LAUNCH_TOKEN: LAUNCH_TOKEN,
       SYNTHETIC_BRIDGE_TOKEN: BRIDGE_TOKEN,
     },
     stdio: ["pipe", "pipe", "pipe"],
@@ -201,6 +220,15 @@ const startWorker = (available = true): SyntheticWorker => {
       });
     }
   };
+  const waitForContains = async (value: string) => {
+    const deadline = Date.now() + 5_000;
+    while (![...lines, ...stderr].some((line) => line.includes(value))) {
+      if (Date.now() >= deadline) {
+        throw new Error(`Timed out waiting for text ${value}. stdout=${JSON.stringify(lines)} stderr=${JSON.stringify(stderr)}`);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+  };
   return {
     child,
     lines,
@@ -208,6 +236,7 @@ const startWorker = (available = true): SyntheticWorker => {
     write: (value) => child.stdin.write(`${value}\n`),
     closeInput: () => child.stdin.end(),
     waitFor,
+    waitForContains,
     exited,
     cleanup: async () => {
       if (!settled) child.kill("SIGKILL");
@@ -216,13 +245,12 @@ const startWorker = (available = true): SyntheticWorker => {
   };
 };
 
-const startPtyWorker = (): SyntheticWorker => {
+const startPtyProcess = (command: string, args: string[]): SyntheticWorker => {
   const child = spawn("python3", [
     "-c",
     PTY_RELAY_SOURCE,
-    process.execPath,
-    "-e",
-    PTY_WORKER_SOURCE,
+    command,
+    ...args,
   ], {
     env: { PATH: process.env.PATH },
     stdio: ["pipe", "pipe", "pipe"],
@@ -266,6 +294,15 @@ const startPtyWorker = (): SyntheticWorker => {
       });
     }
   };
+  const waitForContains = async (value: string) => {
+    const deadline = Date.now() + 5_000;
+    while (![...lines, ...stderr].some((line) => line.includes(value))) {
+      if (Date.now() >= deadline) {
+        throw new Error(`Timed out waiting for text ${value}. stdout=${JSON.stringify(lines)} stderr=${JSON.stringify(stderr)}`);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+  };
   return {
     child,
     lines,
@@ -273,6 +310,7 @@ const startPtyWorker = (): SyntheticWorker => {
     write: (value) => child.stdin.write(`${value}\n`),
     closeInput: () => child.stdin.end(),
     waitFor,
+    waitForContains,
     exited,
     cleanup: async () => {
       if (!settled) child.kill("SIGKILL");
@@ -281,10 +319,62 @@ const startPtyWorker = (): SyntheticWorker => {
   };
 };
 
+const startPtyWorker = () =>
+  startPtyProcess(process.execPath, ["-e", PTY_WORKER_SOURCE]);
+
+const startLeakyTransitionWorker = () =>
+  startPtyProcess("zsh", ["-c", PTY_TRANSITION_SOURCE]);
+
 const assertPrivateDiagnostics = (worker: SyntheticWorker) => {
   const diagnostics = [...worker.lines, ...worker.stderr].join("\n");
   assert.doesNotMatch(diagnostics, new RegExp(LAUNCH_TOKEN));
   assert.doesNotMatch(diagnostics, new RegExp(BRIDGE_TOKEN));
+};
+
+type FakeFailure = {
+  operation: "preflight" | "claim" | "ready" | "start" | "result";
+  dispatched: boolean;
+  exactEndpoint?: boolean;
+  status?: number;
+  parsed?: boolean;
+  protocolEnvelope?: boolean;
+  code?: string;
+};
+
+const KNOWN_NO_COMMIT_CODES = new Set([
+  "PROTOCOL_UNSUPPORTED",
+  "TOKEN_INVALID",
+  "RUN_EXPIRED",
+  "RUN_ALREADY_CLAIMED",
+]);
+
+const diagnoseFakeFailure = (failure: FakeFailure) => {
+  if (!failure.dispatched) {
+    return { stage: failure.operation, certainty: "N", marker: "THOUGHT_STOP", className: "permission" };
+  }
+  const className = !failure.status
+    ? "transport"
+    : !failure.parsed
+      ? "parse"
+      : !failure.protocolEnvelope
+        ? "schema"
+        : "http";
+  const verifiedNoCommit = Boolean(
+    failure.exactEndpoint &&
+    failure.status &&
+    failure.status >= 400 &&
+    failure.status < 500 &&
+    failure.parsed &&
+    failure.protocolEnvelope &&
+    failure.code &&
+    KNOWN_NO_COMMIT_CODES.has(failure.code),
+  );
+  return {
+    stage: failure.operation,
+    certainty: verifiedNoCommit ? "R" : "U",
+    marker: verifiedNoCommit ? "THOUGHT_STOP" : "THOUGHT_UNCERTAIN",
+    className,
+  };
 };
 
 test("synthetic private continuation completes prompt-to-answer in one live worker", async (context) => {
@@ -295,7 +385,7 @@ test("synthetic private continuation completes prompt-to-answer in one live work
   worker.write("NONCE:synthetic");
   await worker.waitFor("THOUGHT_CONTINUATION_OK");
   assert.equal(worker.lines.includes("STAGE:claim"), false);
-  worker.write("PROCEED");
+  worker.write(`LAUNCH:${LAUNCH_TOKEN}`);
   await worker.waitFor("VERIFIED_CREATIVE_INPUT:{\"promptLine\":\"One synthetic line\"}");
   worker.write("CANDIDATE:{\"agentLine\":\"One.\"}");
   await worker.waitFor("RECEIPT:synthetic-accepted");
@@ -308,17 +398,66 @@ test("synthetic private continuation completes prompt-to-answer in one live work
   assertPrivateDiagnostics(worker);
 });
 
-test("synthetic PTY disables input echo before accepting its fake nonce", async (context) => {
+test("final synthetic PTY worker accepts fake nonce then fake credential without echo", async (context) => {
   const worker = startPtyWorker();
   context.after(() => worker.cleanup());
   await worker.waitFor("ECHO_READY");
   worker.write(`NONCE:${PTY_SENTINEL}`);
-  await worker.waitFor("THOUGHT_CONTINUATION_OK");
+  await worker.waitFor("ECHO_OK");
   assert.doesNotMatch([...worker.lines, ...worker.stderr].join("\n"), new RegExp(PTY_SENTINEL));
-  worker.write("PROCEED");
-  await worker.waitFor("PRECLAIM_CONTINUATION_PROVED");
+  worker.write(`LAUNCH:${PTY_LAUNCH_TOKEN}`);
+  await worker.waitFor("FINAL_WORKER_ACCEPTED_LAUNCH");
   const outcome = await worker.exited;
   assert.equal(outcome.code, 0);
+  const output = [...worker.lines, ...worker.stderr].join("\n");
+  assert.doesNotMatch(output, new RegExp(PTY_LAUNCH_TOKEN));
+});
+
+test("fake oracle detects the observed no-echo to interactive-shell transition leak", async (context) => {
+  const worker = startLeakyTransitionWorker();
+  context.after(() => worker.cleanup());
+  await worker.waitFor("ECHO_READY");
+  worker.write(`NONCE:${PTY_SENTINEL}`);
+  await worker.waitFor("ECHO_OK");
+  assert.doesNotMatch([...worker.lines, ...worker.stderr].join("\n"), new RegExp(PTY_SENTINEL));
+  worker.write("PROCEED");
+  await worker.waitFor("UNSAFE_REPLACEMENT");
+  worker.write(`: '${PTY_TRANSITION_SECRET}'`);
+  await worker.waitForContains(PTY_TRANSITION_SECRET);
+  worker.write("exit");
+  const outcome = await worker.exited;
+  assert.equal(outcome.code, 0);
+});
+
+test("fake diagnostics do not trust JSON, unknown codes, or 5xx as no-commit", () => {
+  assert.deepEqual(
+    diagnoseFakeFailure({ operation: "preflight", dispatched: false }),
+    { stage: "preflight", certainty: "N", marker: "THOUGHT_STOP", className: "permission" },
+  );
+  const uncertainCases: FakeFailure[] = [
+    { operation: "claim", dispatched: true },
+    { operation: "ready", dispatched: true, exactEndpoint: true, status: 502, parsed: false },
+    { operation: "start", dispatched: true, exactEndpoint: true, status: 400, parsed: true, protocolEnvelope: false },
+    { operation: "result", dispatched: true, exactEndpoint: true, status: 503, parsed: true, protocolEnvelope: true, code: "RUN_EXPIRED" },
+    { operation: "claim", dispatched: true, exactEndpoint: true, status: 409, parsed: true, protocolEnvelope: true, code: "SERVER_UNAVAILABLE" },
+    { operation: "ready", dispatched: true, exactEndpoint: true, status: 200, parsed: true, protocolEnvelope: true, code: "RUN_EXPIRED" },
+    { operation: "start", dispatched: true, exactEndpoint: true, status: 302, parsed: true, protocolEnvelope: true, code: "RUN_EXPIRED" },
+    { operation: "result", dispatched: true, exactEndpoint: false, status: 409, parsed: true, protocolEnvelope: true, code: "RUN_EXPIRED" },
+  ];
+  for (const failure of uncertainCases) {
+    const diagnostic = diagnoseFakeFailure(failure);
+    assert.equal(diagnostic.stage, failure.operation);
+    assert.equal(diagnostic.certainty, "U");
+    assert.equal(diagnostic.marker, "THOUGHT_UNCERTAIN");
+  }
+  assert.equal(diagnoseFakeFailure(uncertainCases[0]!).className, "transport");
+  assert.equal(diagnoseFakeFailure(uncertainCases[1]!).className, "parse");
+  assert.equal(diagnoseFakeFailure(uncertainCases[2]!).className, "schema");
+  assert.equal(diagnoseFakeFailure(uncertainCases[3]!).className, "http");
+  assert.deepEqual(
+    diagnoseFakeFailure({ operation: "claim", dispatched: true, exactEndpoint: true, status: 409, parsed: true, protocolEnvelope: true, code: "RUN_ALREADY_CLAIMED" }),
+    { stage: "claim", certainty: "R", marker: "THOUGHT_STOP", className: "http" },
+  );
 });
 
 test("Codex handoff binds composition to verified post-start input", () => {
@@ -328,8 +467,8 @@ test("Codex handoff binds composition to verified post-start input", () => {
     runUrl: `https://preview.inshell.art/api/thought-agent/v2/runs/tar_${"p".repeat(24)}`,
     launchToken: "q".repeat(43),
   });
-  assert.match(task, /no agentLine\/candidate before verified \/start/);
-  assert.match(task, /Same worker displays verified brief\/input\/rules then waits for CANDIDATE via write_stdin/);
+  assert.match(task, /only after valid \/start/);
+  assert.match(task, /same worker shows input\/rules; CANDIDATE via write_stdin/);
   assert.match(task, /validate\/hash\/PUT/);
   assert.match(task, /promptLine\.\{text,sha256\},agentInput\.\{text,sha256\}/);
   assert.match(task, /promptLine=agentInput text\+hash/);
@@ -365,7 +504,7 @@ test("synthetic EOF after creative input is terminal without a result", async (c
   await worker.waitFor("THOUGHT_CONTINUATION_READY");
   worker.write("NONCE:synthetic");
   await worker.waitFor("THOUGHT_CONTINUATION_OK");
-  worker.write("PROCEED");
+  worker.write(`LAUNCH:${LAUNCH_TOKEN}`);
   await worker.waitFor("VERIFIED_CREATIVE_INPUT:{\"promptLine\":\"One synthetic line\"}");
   worker.closeInput();
   await worker.waitFor("TERMINAL_INPUT_CLOSED:candidate");
@@ -382,7 +521,7 @@ test("synthetic child loss after claim cannot replay or return", async (context)
   await worker.waitFor("THOUGHT_CONTINUATION_READY");
   worker.write("NONCE:synthetic");
   await worker.waitFor("THOUGHT_CONTINUATION_OK");
-  worker.write("PROCEED");
+  worker.write(`LAUNCH:${LAUNCH_TOKEN}`);
   await worker.waitFor("VERIFIED_CREATIVE_INPUT:{\"promptLine\":\"One synthetic line\"}");
   worker.child.kill("SIGKILL");
   const outcome = await worker.exited;
@@ -412,29 +551,37 @@ test("Codex keeps its executable continuation boundary without inventing one for
         Buffer.byteLength(codex) <= 7_000,
         `Codex ${networkAuthorization}/${declarationLabelField} handoff is ${Buffer.byteLength(codex)} bytes`,
       );
-      assert.match(codex, /one exec_command\(tty:true\) -c/);
-      assert.match(codex, /disable ECHO\+ECHONL before markers or stop/);
-      assert.match(codex, /write fake nonce; assert absent in output/);
-      assert.match(codex, /launch may enter once via write_stdin/);
-      assert.match(codex, /Bridge private in worker/);
-      assert.match(codex, /same-worker credential-free GET CONNECTIVITY_ENDPOINT/);
-      assert.match(codex, /permission fix permits fresh worker/);
-      assert.match(codex, /Possible claim dispatch forbids replacement\/reclaim/);
-      assert.match(codex, /sandbox_permissions=require_escalated once for App origin/);
+      assert.match(codex, /one exec_command\(tty:true\) starts final noninteractive worker/);
+      assert.match(codex, /all source secret-free in initial cmd/);
+      assert.match(codex, /ECHO\+ECHONL off before ECHO_READY/);
+      assert.match(codex, /No child\/replacement after proof/);
+      assert.match(codex, /never write_stdin code\/command/);
+      assert.match(codex, /After fake nonce absent\+ECHO_OK, send LAUNCH_CREDENTIAL once/);
+      assert.match(codex, /Bridge stays in worker/);
+      assert.match(codex, /worker GET CONNECTIVITY_ENDPOINT unauthenticated/);
+      assert.match(codex, /permission fix may fresh worker/);
+      assert.match(codex, /Possible claim dispatch=>no replace\/reclaim/);
+      assert.match(codex, /sandbox_permissions=require_escalated once for origin/);
       assert.match(codex, /Labels never bypass host/);
-      assert.match(codex, /no agentLine\/candidate before verified \/start/);
-      assert.match(codex, /Same worker displays verified brief\/input\/rules then waits for CANDIDATE via write_stdin/);
+      assert.match(codex, /only after valid \/start/);
+      assert.match(codex, /same worker shows input\/rules; CANDIDATE via write_stdin/);
       assert.match(codex, /validate\/hash\/PUT/);
       assert.match(codex, /Candidate=.*release\.\{protocolReleaseId=.*manifestKeccak256=/);
       assert.match(codex, /declaration\.\{schema=.*status=.*(?:label|agentLabel)=AGENT_PRODUCT,declaredOneCreativeResult=true\}/);
-      assert.match(codex, /THOUGHT_STOP pre-dispatch or for trusted App rejection/);
-      assert.match(codex, /THOUGHT_UNCERTAIN only after possible unproven dispatch/);
-      assert.match(codex, /Report actual App receipt/);
-      assert.match(codex, /never raw exception\/reason\/body\/headers\/URL\/credential/);
+      assert.equal(codex.split(THOUGHT_HANDOFF_OPERATION_DIAGNOSTICS).length - 1, 1);
+      assert.match(codex, /THOUGHT_STOP\(N\/R\) or THOUGHT_UNCERTAIN\(U\)/);
+      assert.match(codex, /Endpoint\+valid protocol error insufficient/);
+      assert.match(codex, /R needs 4xx\+known no-commit code;else U/);
+      assert.match(codex, /Report actual receipt/);
+      assert.match(codex, /Never raw error\/body\/headers\/URL\/credential/);
       assert.doesNotMatch(codex, /precomputed agentLine|hardcoded agentLine/i);
     }
   }
   assert.ok(Buffer.byteLength(claude) <= 14_000, `Claude handoff is ${Buffer.byteLength(claude)} bytes`);
+  assert.equal(claude.split(THOUGHT_HANDOFF_OPERATION_DIAGNOSTICS).length - 1, 1);
+  for (const line of THOUGHT_HANDOFF_OPERATION_RECOVERY) {
+    assert.equal(claude.split(line).length - 1, 1);
+  }
   assert.doesNotMatch(claude, /PRIVATE_CONTINUATION|THOUGHT_CONTINUATION_READY|THOUGHT_CONTINUATION_OK|send PROCEED/);
   assert.doesNotMatch(claude, /run_in_background|TaskOutput|mkfifo|mode-600|mode-700/i);
 });

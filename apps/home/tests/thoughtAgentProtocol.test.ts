@@ -361,7 +361,9 @@ describe("THOUGHT Agent V2 protocol helpers", () => {
       launchToken: "launch-token",
     });
 
-    expect(task).toContain("compose valid 1-64-byte Terminal English");
+    expect(task).toContain(
+      "validate/hash/PUT one 1-64-byte Terminal English line",
+    );
     expect(task).toContain(
       `WORK_PROFILE = ${THOUGHT_V2_PROTOCOL_RELEASE.identifiers.workProfile}`,
     );

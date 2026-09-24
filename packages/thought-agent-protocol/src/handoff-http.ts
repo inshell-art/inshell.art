@@ -6,6 +6,9 @@ export const THOUGHT_HANDOFF_HTTP_IDENTIFICATION =
 export const THOUGHT_HANDOFF_INPUT_HASH_CONVENTION =
   "INPUT_HASH: spec/instructions/promptLine/agentInput sha256=\"sha256:\"+64 lowercase hex SHA-256(exact decoded .text UTF-8 bytes); no trim/normalize/JSON-hash; promptLine=agentInput text+hash.";
 
+export const THOUGHT_HANDOFF_OPERATION_DIAGNOSTICS =
+  "DIAG each preflight/claim/ready/start/result: emit OK:name only after HTTP+JSON+schema validation; failure only stage=name,class=permission|transport|http|parse|schema plus THOUGHT_STOP(N/R) or THOUGHT_UNCERTAIN(U). Never raw error/body/headers/URL/credential.";
+
 /**
  * Codex returns the bridge token once, so the process that receives it must
  * remain alive until result submission. Bind the supported Codex host to its
@@ -13,11 +16,11 @@ export const THOUGHT_HANDOFF_INPUT_HASH_CONVENTION =
  * claim when that channel is unavailable.
  */
 export const buildThoughtCodexPrivateContinuationInstructions = () => [
-  "WORKER: one exec_command(tty:true) -c; disable ECHO+ECHONL before markers or stop. Emit ECHO_READY; write fake nonce; assert absent in output; await OK; write PROCEED. No heredoc.",
-  "After no-echo proof, launch may enter once via write_stdin; never terminal/stdout/stderr/file/log. Bridge private in worker; no relay/storage.",
-  "PRECLAIM: same-worker credential-free GET CONNECTIVITY_ENDPOINT; require schema=CONNECTIVITY_SCHEMA,status=reachable,protocolVersion=PROTOCOL_VERSION. Failure=no claim; permission fix permits fresh worker. Possible claim dispatch forbids replacement/reclaim.",
-  "DIAGNOSTICS: stage+class only; THOUGHT_STOP pre-dispatch or for trusted App rejection; THOUGHT_UNCERTAIN only after possible unproven dispatch; never raw exception/reason/body/headers/URL/credential. Worker loss after claim=>stop/reconcile.",
-  "CREATIVE: no agentLine/candidate before verified /start. Same worker displays verified brief/input/rules then waits for CANDIDATE via write_stdin; compose valid 1-64-byte Terminal English; validate/hash/PUT; no creator clarification.",
+  "WORKER: one exec_command(tty:true) starts final noninteractive worker; all source secret-free in initial cmd; ECHO+ECHONL off before ECHO_READY. No child/replacement after proof; never write_stdin code/command.",
+  "After fake nonce absent+ECHO_OK, send LAUNCH_CREDENTIAL once. Never output/store it. Then write_stdin only candidate. Bridge stays in worker; no file/storage/log/relay.",
+  "PRECLAIM: worker GET CONNECTIVITY_ENDPOINT unauthenticated; require schema=CONNECTIVITY_SCHEMA,status=reachable,protocolVersion=PROTOCOL_VERSION. Failure=no claim; permission fix may fresh worker. Possible claim dispatch=>no replace/reclaim.",
+  THOUGHT_HANDOFF_OPERATION_DIAGNOSTICS,
+  "CREATIVE: only after valid /start, same worker shows input/rules; CANDIDATE via write_stdin; validate/hash/PUT one 1-64-byte Terminal English line; no clarification.",
 ];
 
 export const THOUGHT_HANDOFF_RESPONSE_PATHS = {
@@ -117,6 +120,6 @@ export const THOUGHT_HANDOFF_CONNECTION_RECOVERY = [
 ];
 
 export const THOUGHT_HANDOFF_OPERATION_RECOVERY = [
-  "- Recovery: N=not sent; R=trusted App rejection proving no commit; U=uncertain after dispatch (gateway/proxy/malformed/timeout; body alone proves nothing). Pre-dispatch permission refusal=N. N: fix/send once; R: obey/no repeat. Proven-App PROTOCOL_UNSUPPORTED/TOKEN_INVALID/RUN_EXPIRED/RUN_ALREADY_CLAIMED=R. 429: retry once only with usable Retry-After+proven no commit; else U.",
+  "- Recovery: N=not sent: fix/send once; R=verified App no-commit: obey/no repeat; U=unproven after dispatch. Exact endpoint+parsed protocol error is insufficient; R also needs 4xx+known no-commit code; else U. Pre-send permission=N. PROTOCOL_UNSUPPORTED/TOKEN_INVALID/RUN_EXPIRED/RUN_ALREADY_CLAIMED are no-commit codes. 429 replay once only with usable Retry-After+proof no commit; else U.",
   "- U rules: claim stop/reconcile (credential spent/token once/no reclaim); ready replay exact READY_BODY+bridge once (sole control replay); start stop/reconcile (no restart/generate/input replay); result replay frozen request once (same invocation/key/raw/hashes; no reserialize/hash repair/art change/regeneration); fail stop/reconcile (no repeat/success overwrite).",
 ] as const;

@@ -800,27 +800,27 @@ const staticHandoffAssertions = (
   check("operation-specific-recovery",
     (profile.id === "claude"
       ? THOUGHT_HANDOFF_OPERATION_RECOVERY.every((line) => task.includes(line)) &&
-        task.includes("body alone proves nothing") &&
-        task.includes("429: retry once only with usable Retry-After+proven no commit; else U")
-      : task.includes("R=trusted App rejection proving no commit") &&
-        task.includes("U=uncertain after unproven dispatch") &&
+        task.includes("Exact endpoint+parsed protocol error is insufficient") &&
+        task.includes("429 replay once only with usable Retry-After+proof no commit; else U")
+      : task.includes("N=not sent:fix/send once") &&
+        task.includes("R=verified App no-commit:obey/no repeat") &&
+        task.includes("U=unproven after dispatch") &&
         task.includes("claim stop/no reclaim") &&
         task.includes("ready exact READY_BODY+bridge replay once") &&
         task.includes("start stop/no restart/generate/input") &&
         task.includes("result frozen replay once(same invocation/key/raw/hashes") &&
         task.includes("fail stop/no repeat/success overwrite") &&
-        task.includes("429 once only with usable Retry-After+proof no commit; else U")) &&
-      task.includes("Proven-App PROTOCOL_UNSUPPORTED/TOKEN_INVALID/RUN_EXPIRED/RUN_ALREADY_CLAIMED=R") &&
+        task.includes("429 once only with Retry-After+proof no commit;else U")) &&
+      task.includes("PROTOCOL_UNSUPPORTED/TOKEN_INVALID/RUN_EXPIRED/RUN_ALREADY_CLAIMED") &&
       !task.includes("RETRY repeats only the failed operation") &&
       !task.includes("After permission/network recovery"),
     "Recovery distinguishes send certainty and the replay boundary for every operation.");
   check("bounded-recovery",
     profile.id === "claude"
       ? task.includes("Sign-in redirect or network refusal: report the observed response and stop")
-      : task.includes("THOUGHT_STOP pre-dispatch or for trusted App rejection") &&
-        task.includes("THOUGHT_UNCERTAIN only after possible unproven dispatch") &&
+      : task.includes("THOUGHT_STOP(N/R) or THOUGHT_UNCERTAIN(U)") &&
         task.includes("Network: use grant") &&
-        task.includes("sandbox_permissions=require_escalated once for App origin") &&
+        task.includes("sandbox_permissions=require_escalated once for origin") &&
         task.includes("Labels never bypass host"),
     "Recovery is status-specific and bounded without repeating accepted work.");
   const creatorMessages = task.split("\n")

@@ -118,22 +118,27 @@ for (const [agent, candidate, deepLink, buildTask, buildContract] of [
   test(`${agent} keeps protocol/authentication recovery bounded`, () => {
     const task = candidate();
     if (agent === "Codex") {
-      assert.match(task, /R=trusted App rejection proving no commit/);
-      assert.match(task, /U=uncertain after unproven dispatch/);
+      assert.match(task, /N=not sent:fix\/send once/);
+      assert.match(task, /R=verified App no-commit:obey\/no repeat/);
+      assert.match(task, /U=unproven after dispatch/);
       assert.match(task, /claim stop\/no reclaim/);
       assert.match(task, /ready exact READY_BODY\+bridge replay once/);
       assert.match(task, /start stop\/no restart\/generate\/input/);
       assert.match(task, /result frozen replay once\(same invocation\/key\/raw\/hashes/);
       assert.match(task, /no reserialize\/repair\/art change\/regeneration/);
       assert.match(task, /fail stop\/no repeat\/success overwrite/);
-      assert.match(task, /THOUGHT_STOP pre-dispatch or for trusted App rejection/);
-      assert.match(task, /THOUGHT_UNCERTAIN only after possible unproven dispatch/);
+      assert.match(task, /THOUGHT_STOP\(N\/R\) or THOUGHT_UNCERTAIN\(U\)/);
+      assert.match(task, /Endpoint\+valid protocol error insufficient/);
+      assert.match(task, /R needs 4xx\+known no-commit code;else U/);
     } else {
       for (const line of THOUGHT_HANDOFF_OPERATION_RECOVERY) {
         assert.equal(task.split(line).length - 1, 1, `${agent} must include shared recovery line`);
       }
-      assert.match(task, /R=trusted App rejection proving no commit/);
-      assert.match(task, /U=uncertain after dispatch \(gateway\/proxy\/malformed\/timeout; body alone proves nothing\)/);
+      assert.match(task, /N=not sent: fix\/send once/);
+      assert.match(task, /R=verified App no-commit: obey\/no repeat/);
+      assert.match(task, /U=unproven after dispatch/);
+      assert.match(task, /Exact endpoint\+parsed protocol error is insufficient/);
+      assert.match(task, /R also needs 4xx\+known no-commit code; else U/);
       assert.match(task, /claim stop\/reconcile \(credential spent\/token once\/no reclaim\)/);
       assert.match(task, /ready replay exact READY_BODY\+bridge once \(sole control replay\)/);
       assert.match(task, /start stop\/reconcile \(no restart\/generate\/input replay\)/);
@@ -144,10 +149,10 @@ for (const [agent, candidate, deepLink, buildTask, buildContract] of [
       assert.doesNotMatch(task, /permission denial|connection approval|host permission|chat approval/i);
     }
     assert.doesNotMatch(task, /RETRY repeats only the failed operation|After permission\/network recovery/);
-    assert.match(task, /Proven-App PROTOCOL_UNSUPPORTED\/TOKEN_INVALID\/RUN_EXPIRED\/RUN_ALREADY_CLAIMED=R/);
+    assert.match(task, /PROTOCOL_UNSUPPORTED\/TOKEN_INVALID\/RUN_EXPIRED\/RUN_ALREADY_CLAIMED/);
     assert.match(task, agent === "Codex"
-      ? /429 once only with usable Retry-After\+proof no commit; else U/
-      : /429: retry once only with usable Retry-After\+proven no commit; else U/);
+      ? /429 once only with Retry-After\+proof no commit;else U/
+      : /429 replay once only with usable Retry-After\+proof no commit; else U/);
     assert.doesNotMatch(task, /If the first App exchange is denied/);
   });
 }
@@ -376,8 +381,8 @@ test("the handoff retains one private bridge credential in task context without 
   assert.match(task, /BRIDGE_CREDENTIAL=bridgeToken/);
   assert.match(task, /retain\/reuse in worker/);
   assert.match(task, /Credentials only in Authorization/);
-  assert.match(task, /Bridge private in worker/);
-  assert.match(task, /Same worker displays verified brief\/input\/rules/);
+  assert.match(task, /Bridge stays in worker; no file\/storage\/log\/relay/);
+  assert.match(task, /same worker shows input\/rules/);
   assert.match(task, /never reclaim/);
 });
 
@@ -401,7 +406,7 @@ test("the handoff is declarative, bootstrap-only, release-bound, and human-sized
   assert.doesNotMatch(task, /<protocol_release_id> = /);
   assert.doesNotMatch(task, /<manifest_hash> = /);
   assert.match(task, /not transcript purity/);
-  assert.match(task, /Report actual App receipt/);
+  assert.match(task, /Report actual receipt/);
   const authorityLine = task.split("\n").find((line) => line.startsWith("RUN_AUTHORITY = "));
   assert.ok(authorityLine);
   assert.deepEqual(
@@ -411,7 +416,7 @@ test("the handoff is declarative, bootstrap-only, release-bound, and human-sized
   assert.match(task, /request\.\{authority=RUN_AUTHORITY/);
   assert.ok(task.split("runId=RUN_ID").length - 1 >= 3);
   assert.match(task, /workProfile=WORK_PROFILE/);
-  assert.match(task, /no creator clarification/);
+  assert.match(task, /no clarification/);
   assert.match(task, /protocolVersion=PROTOCOL_VERSION,invocationId=INVOCATION_ID/);
   assert.match(task, /startedAt=exact,completedAt=UTC,output\.\{mediaType=application\/json/);
   assert.match(task, /visibleTurns:/);

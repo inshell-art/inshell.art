@@ -128,11 +128,14 @@ for (const networkAuthorization of ["managed", "preauthorized"] as const) {
     assert.equal(decoded, task);
     assert.match(task, /^Please complete one THOUGHT run with Claude\./);
     assert.match(task, /No repository files are needed\. Do not read, change, or execute them for this task\./);
-    assert.match(task, /Proven-App PROTOCOL_UNSUPPORTED\/TOKEN_INVALID\/RUN_EXPIRED\/RUN_ALREADY_CLAIMED=R/);
+    assert.match(task, /PROTOCOL_UNSUPPORTED\/TOKEN_INVALID\/RUN_EXPIRED\/RUN_ALREADY_CLAIMED are no-commit codes/);
     assert.match(task, /Sign-in redirect or network refusal: report the observed response and stop/);
-    assert.match(task, /Pre-dispatch permission refusal=N/);
-    assert.match(task, /R=trusted App rejection proving no commit/);
-    assert.match(task, /U=uncertain after dispatch \(gateway\/proxy\/malformed\/timeout; body alone proves nothing\)/);
+    assert.match(task, /Pre-send permission=N/);
+    assert.match(task, /N=not sent: fix\/send once/);
+    assert.match(task, /R=verified App no-commit: obey\/no repeat/);
+    assert.match(task, /U=unproven after dispatch/);
+    assert.match(task, /Exact endpoint\+parsed protocol error is insufficient/);
+    assert.match(task, /R also needs 4xx\+known no-commit code; else U/);
     assert.match(task, /claim stop\/reconcile \(credential spent\/token once\/no reclaim\)/);
     assert.match(task, /ready replay exact READY_BODY\+bridge once/);
     assert.match(task, /start stop\/reconcile \(no restart\/generate/);
