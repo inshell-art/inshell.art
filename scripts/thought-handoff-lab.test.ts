@@ -366,7 +366,7 @@ test("the handoff runs bounded control before one automatic creative turn", () =
 
   assert.ok(positions.every((position) => position >= 0));
   assert.deepEqual([...positions].sort((a, b) => a - b), positions);
-  assert.match(task, /control\+one creative turn; no CREATE gate\./);
+  assert.match(task, /control\+one creative turn; no CREATE gate/);
   assert.doesNotMatch(task, /reply CREATE/i);
 });
 
@@ -376,7 +376,7 @@ test("the handoff retains one private bridge credential in task context without 
   assert.match(task, /BRIDGE_CREDENTIAL=bridgeToken/);
   assert.match(task, /retain\/reuse in worker/);
   assert.match(task, /Credentials only in Authorization/);
-  assert.match(task, /Bridge remains worker-private/);
+  assert.match(task, /Bridge private in worker/);
   assert.match(task, /Same worker displays verified brief\/input\/rules/);
   assert.match(task, /never reclaim/);
 });
@@ -386,11 +386,11 @@ test("the handoff is declarative, bootstrap-only, release-bound, and human-sized
 
   assert.match(task, /Transport capsule:/);
   assert.match(task, /APP_ENDPOINT = .*RUN_ID/);
-  assert.match(task, /prompt=\/start only\./);
+  assert.match(task, /prompt=\/start only/);
   assert.match(task, /No setup;/);
   assert.match(task, /spec\.\{id,text,sha256,contractSpecId,contractSpecHash\}/);
   assert.match(task, /instructions\.\{id,artifactId,text,sha256\}/);
-  assert.match(task, /spec\.text!=instructions\.text\./);
+  assert.match(task, /spec\.text!=instructions\.text/);
   assert.match(task, /protocolReleaseId=CANONICAL_PROTOCOL_RELEASE_ID/);
   assert.match(task, /manifestKeccak256=CANONICAL_MANIFEST_HASH/);
   assert.match(
@@ -408,7 +408,7 @@ test("the handoff is declarative, bootstrap-only, release-bound, and human-sized
     JSON.parse(authorityLine.slice("RUN_AUTHORITY = ".length)),
     THOUGHT_AGENT_RUN_AUTHORITY,
   );
-  assert.match(task, /request\.authority=RUN_AUTHORITY/);
+  assert.match(task, /request\.\{authority=RUN_AUTHORITY/);
   assert.ok(task.split("runId=RUN_ID").length - 1 >= 3);
   assert.match(task, /workProfile=WORK_PROFILE/);
   assert.match(task, /no creator clarification/);

@@ -58,6 +58,7 @@ export { THOUGHT_V2_PROTOCOL_RELEASE } from "./release.generated";
 export { THOUGHT_AGENT_CREATIVE_BRIEF } from "./creative-brief.generated";
 export {
   THOUGHT_AGENT_HTTP_USER_AGENT,
+  THOUGHT_HANDOFF_INPUT_HASH_CONVENTION,
   THOUGHT_HANDOFF_OPERATION_RECOVERY,
 } from "./handoff-http";
 export {

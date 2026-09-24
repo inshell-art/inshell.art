@@ -819,9 +819,9 @@ const staticHandoffAssertions = (
       ? task.includes("Sign-in redirect or network refusal: report the observed response and stop")
       : task.includes("THOUGHT_STOP pre-dispatch or for trusted App rejection") &&
         task.includes("THOUGHT_UNCERTAIN only after possible unproven dispatch") &&
-        task.includes("Network granted: use it") &&
+        task.includes("Network: use grant") &&
         task.includes("sandbox_permissions=require_escalated once for App origin") &&
-        task.includes("Labels cannot bypass host"),
+        task.includes("Labels never bypass host"),
     "Recovery is status-specific and bounded without repeating accepted work.");
   const creatorMessages = task.split("\n")
     .filter((line) => /(?:show|tell the creator) exactly:|warrants:/i.test(line))

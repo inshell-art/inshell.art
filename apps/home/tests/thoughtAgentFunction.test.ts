@@ -575,19 +575,26 @@ describe("THOUGHT Agent Pages API", () => {
     expect(readyUnknown.protocolVersion).toBe(THOUGHT_AGENT_PROTOCOL_VERSION);
     expect(readyUnknown.control.schema).toBe(THOUGHT_AGENT_CONTROL_VERSION);
     expect(readyUnknown.control.runtimeModel).toBe("unknown");
-    expect(transported).toContain("request.authority=RUN_AUTHORITY");
-    expect(transported).toContain("request.intent=prepare-thought-creation");
-    expect(transported).toContain("request.controlPolicy.mode=bounded-preflight");
-    expect(transported).toContain("request.evidenceContract.schema=CONTROL_SCHEMA");
     if (adapterId === "codex") {
+      const claimRequirements = transported
+        .split("\n")
+        .find((line) => line.startsWith("Claim: runId=RUN_ID"));
+      expect(claimRequirements).toContain("request.{authority=RUN_AUTHORITY");
+      expect(claimRequirements).toContain("intent=prepare-thought-creation");
+      expect(claimRequirements).toContain("controlPolicy.mode=bounded-preflight");
+      expect(claimRequirements).toContain("evidenceContract.schema=CONTROL_SCHEMA");
       expect(transported).toContain("intent=generate-thought-candidate");
       const requestRequirements = transported
         .split("\n")
-        .find((line) => line.includes("request.{authority=RUN_AUTHORITY"));
+        .find((line) => line.startsWith("Start: runId=RUN_ID"));
       expect(requestRequirements).toContain("spec.{id,text,sha256,contractSpecId,contractSpecHash}");
       expect(requestRequirements).toContain("promptLine.{text,sha256},agentInput.{text,sha256}");
       expect(requestRequirements).toContain("outputContract.{release,agentLine.workProfile=WORK_PROFILE}");
     } else {
+      expect(transported).toContain("request.authority=RUN_AUTHORITY");
+      expect(transported).toContain("request.intent=prepare-thought-creation");
+      expect(transported).toContain("request.controlPolicy.mode=bounded-preflight");
+      expect(transported).toContain("request.evidenceContract.schema=CONTROL_SCHEMA");
       expect(transported).toContain("request.intent=generate-thought-candidate");
       const requestRequirements = transported
         .split("\n")

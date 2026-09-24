@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "d2c3c90db82ee91b6142bc504d16bc2efca39a04ab8b6ffdae9a2f1d048b8925",
+  "sourceTreeSha256": "7c68111fd104f5fb6068a82330bd1bcd1d69ae0931e4191029bc3a327e3f4dee",
   "groups": [
     {
       "id": "public-docs",
@@ -708,7 +708,7 @@
       "title": "Shared product runtime",
       "owner": "inshell.art shared App infrastructure",
       "reason": "Shared Ethereum, surface, utility, and Agent-protocol code used by public routes.",
-      "groupSha256": "0a24622e86b5308d0a998fb601005f3725397976c76ed829fbd62f68a008737b",
+      "groupSha256": "d85eb8c6e88a13c67595795b676b92e585c9161fc497897d8cdd0b74fd4f9e42",
       "files": [
         {
           "path": "packages/ethereum/src/abi.ts",
@@ -807,8 +807,8 @@
         },
         {
           "path": "packages/thought-agent-protocol/src/codex-client.ts",
-          "byteLength": 29307,
-          "sha256": "fb760f6b8648d80dea1f459123231966e3214fd930c43231cc5ca279019f642c"
+          "byteLength": 29269,
+          "sha256": "ca97e6762553bc49d889538414a85aaa295f5853c66b947affdd1875f5d7423f"
         },
         {
           "path": "packages/thought-agent-protocol/src/creative-brief.generated.ts",
@@ -822,13 +822,13 @@
         },
         {
           "path": "packages/thought-agent-protocol/src/handoff-http.ts",
-          "byteLength": 7474,
-          "sha256": "0de1991bb997f91ba24f67a52e1eb8abc099af73b858a5dace6bb1423c5f77aa"
+          "byteLength": 7680,
+          "sha256": "cd22d998f2a56e469afba69248b7f4753980d1870bb6962f77a0e821704e6404"
         },
         {
           "path": "packages/thought-agent-protocol/src/index.ts",
-          "byteLength": 28103,
-          "sha256": "f752b592f586b51d70e064b184c1d14ea95b95d8b87d80328bbd985caa670813"
+          "byteLength": 28144,
+          "sha256": "576ad9c5287329b345732fc6f72fb11367b29adde40a4723b8487e7073ec7660"
         },
         {
           "path": "packages/thought-agent-protocol/src/release.generated.ts",

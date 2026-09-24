@@ -4,6 +4,7 @@ import { removeTrailingSlashes } from "./run-url";
 import {
   buildThoughtHandoffHttpInstructions,
   THOUGHT_HANDOFF_FAIL_RESPONSE_CHECK,
+  THOUGHT_HANDOFF_INPUT_HASH_CONVENTION,
   buildThoughtCodexPrivateContinuationInstructions,
   THOUGHT_HANDOFF_READY_RESPONSE_CHECK,
   THOUGHT_HANDOFF_RESULT_RESPONSE_CHECK,
@@ -148,17 +149,17 @@ export function buildThoughtCodexTask(input: ThoughtCodexTaskInput) {
     "/api/thought-agent/v2/connectivity",
     new URL(contract.baseUrl).origin,
   ).toString();
-  const networkRule = "Network granted: use it. Otherwise if requestable, exec_command uses sandbox_permissions=require_escalated once for App origin; else stop preclaim. Labels cannot bypass host.";
+  const networkRule = "Network: use grant; else exec_command sandbox_permissions=require_escalated once for App origin if requestable; else stop preclaim. Labels never bypass host.";
   const candidateShape = `schema=RESULT_SCHEMA;release.{protocolReleaseId=CANONICAL_PROTOCOL_RELEASE_ID,manifestKeccak256=CANONICAL_MANIFEST_HASH};agentLine=ONE_EXACT_LINE;declaration.{schema=inshell.thought.agent-declaration.v1,status=declared-unverified,${contract.declarationLabelField}=AGENT_PRODUCT,declaredOneCreativeResult=true}`;
-  const claimResponseCheck = "Claim: runId=RUN_ID,state=claimed,bridgeToken nonempty; request.authority=RUN_AUTHORITY; request.intent=prepare-thought-creation; request.controlPolicy.mode=bounded-preflight; request.evidenceContract.schema=CONTROL_SCHEMA; no control/request.control/bridge/adapter/creative input.";
-  const startResponseCheck = "Start: runId=RUN_ID,state=running; request.{authority=RUN_AUTHORITY,intent=generate-thought-candidate,spec.{id,text,sha256,contractSpecId,contractSpecHash},instructions.{id,artifactId,text,sha256},promptLine.{text,sha256},agentInput.{text,sha256},outputContract.{release,agentLine.workProfile=WORK_PROFILE}}; spec.id=spec.contractSpecId; contractSpecHash=0x+64 hex; exact text hashes; promptLine.text/sha256=agentInput.text/sha256; spec.text!=instructions.text.";
+  const claimResponseCheck = "Claim: runId=RUN_ID,state=claimed,bridgeToken nonempty; request.{authority=RUN_AUTHORITY,intent=prepare-thought-creation,controlPolicy.mode=bounded-preflight,evidenceContract.schema=CONTROL_SCHEMA}; no control/request.control/bridge/adapter/creative input";
+  const startResponseCheck = `Start: runId=RUN_ID,state=running; request.{authority=RUN_AUTHORITY,intent=generate-thought-candidate,spec.{id,text,sha256,contractSpecId,contractSpecHash},instructions.{id,artifactId,text,sha256},promptLine.{text,sha256},agentInput.{text,sha256},outputContract.{release,agentLine.workProfile=WORK_PROFILE}}; spec.id=spec.contractSpecId; contractSpecHash=0x+64 hex; ${THOUGHT_HANDOFF_INPUT_HASH_CONVENTION} spec.text!=instructions.text`;
   const recovery = [
-    "- Recovery: N=not sent;R=trusted App rejection proving no commit;U=uncertain after unproven dispatch. Permission refusal pre-dispatch=N. N fix/send once;R no repeat. Proven-App PROTOCOL_UNSUPPORTED/TOKEN_INVALID/RUN_EXPIRED/RUN_ALREADY_CLAIMED=R. 429 once only with usable Retry-After+proof no commit; else U.",
+    "- Recovery: N=not sent;R=trusted App rejection proving no commit;U=uncertain after unproven dispatch. Permission refusal pre-dispatch=N. N fix/send once;R no repeat. Proven-App PROTOCOL_UNSUPPORTED/TOKEN_INVALID/RUN_EXPIRED/RUN_ALREADY_CLAIMED=R. 429 once only with usable Retry-After+proof no commit; else U",
     "- U: claim stop/no reclaim; ready exact READY_BODY+bridge replay once; start stop/no restart/generate/input; result frozen replay once(same invocation/key/raw/hashes; no reserialize/repair/art change/regeneration); fail stop/no repeat/success overwrite.",
   ];
 
   return [
-    `THOUGHT as ${input.product}: control+one creative turn; no CREATE gate.`,
+    `THOUGHT ${input.product}: control+one creative turn; no CREATE gate`,
     "",
     "Transport capsule:",
     `RUN_ID = ${contract.runId}`,
@@ -174,13 +175,13 @@ export function buildThoughtCodexTask(input: ThoughtCodexTaskInput) {
     ...buildThoughtCodexPrivateContinuationInstructions(),
     `RUN_AUTHORITY = ${JSON.stringify(contract.authority)}`,
     "",
-    `- ${networkRule} No other endpoints.`,
-    "- No setup; prompt=/start only.",
+    `- ${networkRule} No other endpoints`,
+    "- No setup; prompt=/start only",
     "",
     "1. Claim control",
     "POST CLAIM_BODY to APP_ENDPOINT/claim.",
     claimResponseCheck,
-    "BRIDGE_CREDENTIAL=bridgeToken; retain/reuse in worker; never reclaim.",
+    "BRIDGE_CREDENTIAL=bridgeToken; retain/reuse in worker; never reclaim",
     "",
     "2. Prove readiness",
     "Model: read host once,no guess/config. Exact nonempty+optional valid effort=>metadataSource=reported/READY_BODY_REPORTED; absent=>omit both,metadataSource=unknown/READY_BODY_UNKNOWN; malformed/contradictory=>POST /fail once {protocolVersion=PROTOCOL_VERSION,error.{code=AGENT_START_FAILED,message=Model metadata malformed}},no failedAt.",
@@ -198,12 +199,12 @@ export function buildThoughtCodexTask(input: ThoughtCodexTaskInput) {
     `Execution={visibleTurns:${contract.execution.visibleTurns},agentInvocations:${contract.execution.agentInvocations},workspacePolicy:${contract.execution.workspacePolicy},sandboxPolicy:${contract.execution.sandboxPolicy},approvalPolicy:${contract.execution.approvalPolicy},userConfigPolicy:${contract.execution.userConfigPolicy}}`,
     "Require runId=RUN_ID,state=returned; no conflict.",
     THOUGHT_HANDOFF_RESULT_RESPONSE_CHECK,
-    "Receipt proves binding, not transcript purity.",
+    "Receipt proves binding, not transcript purity",
     "",
     ...recovery,
     THOUGHT_HANDOFF_FAIL_RESPONSE_CHECK,
     "",
-    "Report actual App receipt; return to THOUGHT.",
+    "Report actual App receipt; return to THOUGHT",
   ].join("\n");
 }
 

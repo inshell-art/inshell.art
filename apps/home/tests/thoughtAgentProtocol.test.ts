@@ -1,14 +1,17 @@
 import { afterEach, beforeEach, describe, expect, test } from "@jest/globals";
 import { webcrypto } from "node:crypto";
 import {
+  THOUGHT_AGENT_CREATIVE_BRIEF,
   THOUGHT_AGENT_DECLARATION_VERSION,
   THOUGHT_AGENT_PROTOCOL_VERSION,
   THOUGHT_AGENT_RESULT_VERSION,
   THOUGHT_SHA256_PREFIX,
+  THOUGHT_HANDOFF_INPUT_HASH_CONVENTION,
   THOUGHT_V2_PROTOCOL_RELEASE,
   buildThoughtAgentInput,
   buildThoughtAgentReceipt,
   buildThoughtCodexTask,
+  buildThoughtClaudeTask,
   canTransitionThoughtAgentState,
   parseAgentOutput,
   parseCreateRunRequest,
@@ -25,6 +28,60 @@ const releasedAgentResult = (
   agentLine,
   ...(declaration ? { declaration } : {}),
 });
+
+type StartInputHashCheckId =
+  | "START_INPUT_HASHES_OK"
+  | "START_SPEC_TEXT_HASH"
+  | "START_INSTRUCTIONS_TEXT_HASH"
+  | "START_PROMPT_TEXT_HASH"
+  | "START_AGENT_INPUT_TEXT_HASH"
+  | "START_PROMPT_AGENT_TEXT_MATCH"
+  | "START_PROMPT_AGENT_HASH_MATCH";
+
+const checkStartInputHashes = async (
+  value: unknown,
+): Promise<{ ok: boolean; checkId: StartInputHashCheckId }> => {
+  const asObject = (candidate: unknown) =>
+    candidate !== null && typeof candidate === "object" && !Array.isArray(candidate)
+      ? candidate as Record<string, unknown>
+      : undefined;
+  const request = asObject(asObject(value)?.request);
+  const entries = [
+    ["spec", "START_SPEC_TEXT_HASH"],
+    ["instructions", "START_INSTRUCTIONS_TEXT_HASH"],
+    ["promptLine", "START_PROMPT_TEXT_HASH"],
+    ["agentInput", "START_AGENT_INPUT_TEXT_HASH"],
+  ] as const;
+  const pairs = new Map<string, { text: string; sha256: string }>();
+
+  for (const [field, checkId] of entries) {
+    const pair = asObject(request?.[field]);
+    if (
+      typeof pair?.text !== "string" ||
+      typeof pair.sha256 !== "string" ||
+      !/^sha256:[a-f0-9]{64}$/.test(pair.sha256)
+    ) {
+      return { ok: false, checkId };
+    }
+    pairs.set(field, { text: pair.text, sha256: pair.sha256 });
+  }
+
+  const promptLine = pairs.get("promptLine")!;
+  const agentInput = pairs.get("agentInput")!;
+  if (promptLine.text !== agentInput.text) {
+    return { ok: false, checkId: "START_PROMPT_AGENT_TEXT_MATCH" };
+  }
+  if (promptLine.sha256 !== agentInput.sha256) {
+    return { ok: false, checkId: "START_PROMPT_AGENT_HASH_MATCH" };
+  }
+  for (const [field, checkId] of entries) {
+    const pair = pairs.get(field)!;
+    if (await sha256Hex(pair.text) !== pair.sha256) {
+      return { ok: false, checkId };
+    }
+  }
+  return { ok: true, checkId: "START_INPUT_HASHES_OK" };
+};
 
 describe("THOUGHT Agent V2 protocol helpers", () => {
   const originalCrypto = globalThis.crypto;
@@ -69,6 +126,142 @@ describe("THOUGHT Agent V2 protocol helpers", () => {
     expect(input.text).toBe(promptLine);
     expect(input.sha256).toBe(await sha256Hex(promptLine));
     expect(input.sha256).toMatch(/^sha256:[0-9a-f]{64}$/);
+  });
+
+  test("checks App-shaped start input hashes with the shared prefixed convention", async () => {
+    const promptLine = await buildThoughtAgentInput({ promptLine: "quiet signal" });
+    const startResponse = {
+      runId: "tar_input_hash_fixture",
+      state: "running",
+      request: {
+        spec: {
+          id: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
+          contractSpecId: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
+          contractSpecHash: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecHash,
+          text: THOUGHT_V2_PROTOCOL_RELEASE.spec.text,
+          sha256: `sha256:${THOUGHT_V2_PROTOCOL_RELEASE.spec.sha256}`,
+        },
+        instructions: {
+          id: THOUGHT_AGENT_CREATIVE_BRIEF.id,
+          artifactId: THOUGHT_AGENT_CREATIVE_BRIEF.artifactId,
+          text: THOUGHT_AGENT_CREATIVE_BRIEF.text,
+          sha256: `sha256:${THOUGHT_AGENT_CREATIVE_BRIEF.sha256}`,
+        },
+        promptLine,
+        agentInput: { text: promptLine.text, sha256: promptLine.sha256 },
+      },
+    };
+    const clone = () => JSON.parse(JSON.stringify(startResponse)) as typeof startResponse;
+
+    await expect(checkStartInputHashes(startResponse)).resolves.toEqual({
+      ok: true,
+      checkId: "START_INPUT_HASHES_OK",
+    });
+
+    const observedBareDigest = startResponse.request.spec.sha256.slice(
+      THOUGHT_SHA256_PREFIX.length,
+    );
+    expect(observedBareDigest).not.toBe(startResponse.request.spec.sha256);
+    expect(`${THOUGHT_SHA256_PREFIX}${observedBareDigest}`).toBe(
+      startResponse.request.spec.sha256,
+    );
+
+    const decodedTextFixture = clone();
+    decodedTextFixture.request.instructions.text = ' "quoted"\\path\nCafé ';
+    decodedTextFixture.request.instructions.sha256 = await sha256Hex(
+      decodedTextFixture.request.instructions.text,
+    );
+    await expect(checkStartInputHashes(decodedTextFixture)).resolves.toEqual({
+      ok: true,
+      checkId: "START_INPUT_HASHES_OK",
+    });
+    expect(decodedTextFixture.request.instructions.sha256).not.toBe(
+      await sha256Hex(JSON.stringify(decodedTextFixture.request.instructions.text)),
+    );
+    expect(decodedTextFixture.request.instructions.sha256).not.toBe(
+      await sha256Hex(decodedTextFixture.request.instructions.text.trim()),
+    );
+    expect(decodedTextFixture.request.instructions.sha256).not.toBe(
+      await sha256Hex(decodedTextFixture.request.instructions.text.normalize("NFD")),
+    );
+
+    const missingPrefix = clone();
+    missingPrefix.request.spec.sha256 = observedBareDigest;
+    await expect(checkStartInputHashes(missingPrefix)).resolves.toEqual({
+      ok: false,
+      checkId: "START_SPEC_TEXT_HASH",
+    });
+
+    const malformedPrefix = clone();
+    malformedPrefix.request.instructions.sha256 =
+      `sha-256:${"a".repeat(64)}`;
+    await expect(checkStartInputHashes(malformedPrefix)).resolves.toEqual({
+      ok: false,
+      checkId: "START_INSTRUCTIONS_TEXT_HASH",
+    });
+
+    const changedSpecText = clone();
+    changedSpecText.request.spec.text += " ";
+    await expect(checkStartInputHashes(changedSpecText)).resolves.toEqual({
+      ok: false,
+      checkId: "START_SPEC_TEXT_HASH",
+    });
+
+    const changedInstructionsText = clone();
+    changedInstructionsText.request.instructions.text += " ";
+    await expect(checkStartInputHashes(changedInstructionsText)).resolves.toEqual({
+      ok: false,
+      checkId: "START_INSTRUCTIONS_TEXT_HASH",
+    });
+
+    const changedPromptText = clone();
+    changedPromptText.request.promptLine.text = "quiet signal?";
+    changedPromptText.request.agentInput.text = "quiet signal?";
+    await expect(checkStartInputHashes(changedPromptText)).resolves.toEqual({
+      ok: false,
+      checkId: "START_PROMPT_TEXT_HASH",
+    });
+
+    const malformedAgentInputHash = clone();
+    malformedAgentInputHash.request.agentInput.sha256 = observedBareDigest;
+    await expect(checkStartInputHashes(malformedAgentInputHash)).resolves.toEqual({
+      ok: false,
+      checkId: "START_AGENT_INPUT_TEXT_HASH",
+    });
+
+    const mismatchedInputText = clone();
+    mismatchedInputText.request.agentInput.text = "different signal";
+    mismatchedInputText.request.agentInput.sha256 = await sha256Hex("different signal");
+    await expect(checkStartInputHashes(mismatchedInputText)).resolves.toEqual({
+      ok: false,
+      checkId: "START_PROMPT_AGENT_TEXT_MATCH",
+    });
+
+    const mismatchedInputHash = clone();
+    mismatchedInputHash.request.agentInput.sha256 = `sha256:${"0".repeat(64)}`;
+    await expect(checkStartInputHashes(mismatchedInputHash)).resolves.toEqual({
+      ok: false,
+      checkId: "START_PROMPT_AGENT_HASH_MATCH",
+    });
+  });
+
+  test("emits one shared start input hash convention for Codex and Claude", () => {
+    const input = {
+      product: "Agent",
+      runId: "tar_input_hash_instructions",
+      runUrl:
+        "https://preview.inshell.art/api/thought-agent/v2/runs/tar_input_hash_instructions",
+      launchToken: "fixture-launch-token",
+    };
+    const tasks = [
+      buildThoughtCodexTask(input),
+      buildThoughtClaudeTask({ ...input, surface: "code" }),
+      buildThoughtClaudeTask({ ...input, surface: "cowork" }),
+    ];
+    for (const task of tasks) {
+      expect(task.split(THOUGHT_HANDOFF_INPUT_HASH_CONVENTION)).toHaveLength(2);
+      expect(task).toMatch(/contractSpecHash=(?:0x\+64 hex|32-byte 0x hex)/);
+    }
   });
 
   test("accepts promptLine and rejects the removed V1 prompt field", () => {

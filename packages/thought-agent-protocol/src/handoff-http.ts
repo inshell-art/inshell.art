@@ -3,6 +3,9 @@ export const THOUGHT_AGENT_HTTP_USER_AGENT = "Inshell-THOUGHT-Agent/2" as const;
 export const THOUGHT_HANDOFF_HTTP_IDENTIFICATION =
   `All requests: User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}; identifies THOUGHT, never a browser/model.`;
 
+export const THOUGHT_HANDOFF_INPUT_HASH_CONVENTION =
+  "INPUT_HASH: spec/instructions/promptLine/agentInput sha256=\"sha256:\"+64 lowercase hex SHA-256(exact decoded .text UTF-8 bytes); no trim/normalize/JSON-hash; promptLine=agentInput text+hash.";
+
 /**
  * Codex returns the bridge token once, so the process that receives it must
  * remain alive until result submission. Bind the supported Codex host to its
@@ -11,7 +14,7 @@ export const THOUGHT_HANDOFF_HTTP_IDENTIFICATION =
  */
 export const buildThoughtCodexPrivateContinuationInstructions = () => [
   "WORKER: one exec_command(tty:true) -c; disable ECHO+ECHONL before markers or stop. Emit ECHO_READY; write fake nonce; assert absent in output; await OK; write PROCEED. No heredoc.",
-  "CREDENTIALS: after no-echo proof, launch may enter once via write_stdin if needed; never terminal output/stdout/stderr/files/logs. Bridge remains worker-private; no relay/storage.",
+  "After no-echo proof, launch may enter once via write_stdin; never terminal/stdout/stderr/file/log. Bridge private in worker; no relay/storage.",
   "PRECLAIM: same-worker credential-free GET CONNECTIVITY_ENDPOINT; require schema=CONNECTIVITY_SCHEMA,status=reachable,protocolVersion=PROTOCOL_VERSION. Failure=no claim; permission fix permits fresh worker. Possible claim dispatch forbids replacement/reclaim.",
   "DIAGNOSTICS: stage+class only; THOUGHT_STOP pre-dispatch or for trusted App rejection; THOUGHT_UNCERTAIN only after possible unproven dispatch; never raw exception/reason/body/headers/URL/credential. Worker loss after claim=>stop/reconcile.",
   "CREATIVE: no agentLine/candidate before verified /start. Same worker displays verified brief/input/rules then waits for CANDIDATE via write_stdin; compose valid 1-64-byte Terminal English; validate/hash/PUT; no creator clarification.",
@@ -65,7 +68,7 @@ export const buildThoughtHandoffResponseChecks = (input: {
     claim:
       `Claim: runId=${runId},state=claimed; nonempty top-level ${responsePath.claim.bridgeToken}; ${responsePath.claim.authority}=${authority}; ${responsePath.claim.intent}=prepare-thought-creation; ${responsePath.claim.controlMode}=bounded-preflight; ${responsePath.claim.controlSchema}=${controlSchema}; no control/request.control/bridge/adapter/creative input.`,
     start:
-      `Start: runId=${runId},state=running; ${responsePath.start.authority}=${authority}; ${responsePath.start.intent}=generate-thought-candidate. Under request require: spec.{id,text,sha256,contractSpecId,contractSpecHash}; instructions.{id,artifactId,text,sha256}; promptLine/agentInput objects with text,sha256; outputContract.release; outputContract.agentLine.workProfile=${workProfile}; spec.id=spec.contractSpecId; contractSpecHash=32-byte 0x hex; exact text hashes; prompt/input text+hash equal; spec/instructions differ.`,
+      `Start: runId=${runId},state=running; ${responsePath.start.authority}=${authority}; ${responsePath.start.intent}=generate-thought-candidate. Under request require: spec.{id,text,sha256,contractSpecId,contractSpecHash}; instructions.{id,artifactId,text,sha256}; promptLine/agentInput objects with text,sha256; outputContract.release; outputContract.agentLine.workProfile=${workProfile}; spec.id=spec.contractSpecId; contractSpecHash=32-byte 0x hex; ${THOUGHT_HANDOFF_INPUT_HASH_CONVENTION} spec/instructions differ.`,
   } as const;
 };
 

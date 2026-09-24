@@ -332,7 +332,7 @@ test("Codex handoff binds composition to verified post-start input", () => {
   assert.match(task, /Same worker displays verified brief\/input\/rules then waits for CANDIDATE via write_stdin/);
   assert.match(task, /validate\/hash\/PUT/);
   assert.match(task, /promptLine\.\{text,sha256\},agentInput\.\{text,sha256\}/);
-  assert.match(task, /promptLine\.text\/sha256=agentInput\.text\/sha256/);
+  assert.match(task, /promptLine=agentInput text\+hash/);
   assert.match(task, /Candidate=.*agentLine=ONE_EXACT_LINE/);
   assert.doesNotMatch(task, /agentLine=(?!ONE_EXACT_LINE)[^;\n]+/);
 });
@@ -416,12 +416,12 @@ test("Codex keeps its executable continuation boundary without inventing one for
       assert.match(codex, /disable ECHO\+ECHONL before markers or stop/);
       assert.match(codex, /write fake nonce; assert absent in output/);
       assert.match(codex, /launch may enter once via write_stdin/);
-      assert.match(codex, /Bridge remains worker-private/);
+      assert.match(codex, /Bridge private in worker/);
       assert.match(codex, /same-worker credential-free GET CONNECTIVITY_ENDPOINT/);
       assert.match(codex, /permission fix permits fresh worker/);
       assert.match(codex, /Possible claim dispatch forbids replacement\/reclaim/);
       assert.match(codex, /sandbox_permissions=require_escalated once for App origin/);
-      assert.match(codex, /Labels cannot bypass host/);
+      assert.match(codex, /Labels never bypass host/);
       assert.match(codex, /no agentLine\/candidate before verified \/start/);
       assert.match(codex, /Same worker displays verified brief\/input\/rules then waits for CANDIDATE via write_stdin/);
       assert.match(codex, /validate\/hash\/PUT/);
