@@ -8,6 +8,7 @@ import { thoughtAgentCanaryLaunchTransport } from "./thought-agent-canary-endpoi
 
 import {
   THOUGHT_AGENT_PROTOCOL_VERSION,
+  THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
   buildThoughtCodexTask,
 } from "../packages/thought-agent-protocol/src/index";
 import {
@@ -45,6 +46,11 @@ const created = await requestJson<{
   browserToken: string;
   statusUrl: string;
   launchUri: string;
+  codexBootstrap: {
+    url: string;
+    workerSha256: `sha256:${string}`;
+    configSha256: `sha256:${string}`;
+  };
 }>(`${apiBase}/runs`, {
   method: "POST",
   headers: {
@@ -56,7 +62,11 @@ const created = await requestJson<{
     promptLine,
     specId: liveRelease.spec.evmSpecId,
     requestedAgent: { adapterId: "codex", model: null },
-    client: { surface: "thought-codex-live-test", appVersion: "test" },
+    client: {
+      surface: "thought-codex-live-test",
+      appVersion: "test",
+      agentApiOrigin: expectedApiOrigin,
+    },
     devAutoRun: false,
   }),
 });
@@ -67,11 +77,20 @@ const { runUrl, launchToken } = thoughtAgentCanaryLaunchTransport(
 );
 // Status polling uses the browser route; only Agent operations use the public origin.
 const browserStatusUrl = new URL(created.statusUrl, origin).toString().replace(/\/+$/g, "");
+const bootstrapUrl = new URL(created.codexBootstrap.url, expectedApiOrigin).toString();
+assert.equal(bootstrapUrl, `${runUrl}/bootstrap`);
+assert.equal(created.codexBootstrap.workerSha256, THOUGHT_CODEX_TRANSPORT_WORKER_SHA256);
+assert.match(created.codexBootstrap.configSha256, /^sha256:[0-9a-f]{64}$/);
 const task = buildThoughtCodexTask({
   product: "Codex",
   runId: created.runId,
   runUrl,
   launchToken,
+  bootstrap: {
+    url: bootstrapUrl,
+    workerSha256: created.codexBootstrap.workerSha256,
+    configSha256: created.codexBootstrap.configSha256,
+  },
   networkAuthorization:
     codexNetworkMode === "preauthorized" ? "preauthorized" : "managed",
   release: {

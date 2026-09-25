@@ -4,19 +4,23 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import { createServer, type ServerResponse } from "node:http";
+import type { Socket } from "node:net";
 import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
-import { brotliDecompressSync } from "node:zlib";
 import test from "node:test";
 
 import {
   THOUGHT_AGENT_RUN_AUTHORITY,
-  THOUGHT_CODEX_TRANSPORT_WORKER_BROTLI_BASE64,
+  THOUGHT_CODEX_BOOTSTRAP_MAX_BYTES,
+  THOUGHT_CODEX_BOOTSTRAP_SCHEMA,
+  THOUGHT_CODEX_BOOTSTRAP_TIMEOUT_MS,
   THOUGHT_CODEX_TRANSPORT_WORKER_READABLE_SOURCE,
   THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
   THOUGHT_CODEX_TRANSPORT_WORKER_SOURCE,
   THOUGHT_V2_PROTOCOL_RELEASE,
+  buildThoughtCodexTransportWorkerConfigText,
   buildThoughtCodexTransportWorkerCommand,
+  type ThoughtCodexBootstrapBinding,
 } from "../packages/thought-agent-protocol/src/index";
 
 const PROTOCOL = THOUGHT_V2_PROTOCOL_RELEASE.agentRunId;
@@ -73,6 +77,23 @@ type EndpointOptions = {
   resultBodyDropOnce?: boolean;
   claimAuthority?: Record<string, unknown>;
   readyControlMutation?: (control: Record<string, unknown>) => Record<string, unknown>;
+  bootstrap?: BootstrapOptions;
+};
+
+type BootstrapOptions = {
+  status?: number;
+  redirect?: boolean;
+  mediaType?: string;
+  declaredLength?: number;
+  omitContentLength?: boolean;
+  stalledBody?: boolean;
+  workerSource?: string;
+  workerSha256?: string;
+  configText?: string;
+  configMutation?: (configText: string) => string;
+  configSha256?: string;
+  bindingConfigSha256?: string;
+  bindResponseConfig?: boolean;
 };
 
 type RecordedRequest = {
@@ -94,9 +115,27 @@ const json = (response: ServerResponse, status: number, value: unknown, headers?
 
 async function startEndpoint(options: EndpointOptions = {}) {
   const requests: RecordedRequest[] = [];
+  const sockets = new Set<Socket>();
   let resultAgentLine = "";
   let readyDrops = 0;
   let resultDrops = 0;
+  let runUrl = "";
+  let bootstrapBinding: ThoughtCodexBootstrapBinding | null = null;
+  const canonicalConfigText = () => buildThoughtCodexTransportWorkerConfigText({
+    product: "Codex",
+    runId: RUN_ID,
+    runUrl,
+    protocolVersion: PROTOCOL,
+    controlVersion: CONTROL,
+    resultVersion: RESULT,
+    workProfile: THOUGHT_V2_PROTOCOL_RELEASE.identifiers.workProfile,
+    declarationLabelField: "label",
+    release: THOUGHT_V2_PROTOCOL_RELEASE.release,
+  });
+  const responseConfigText = () => {
+    const canonical = canonicalConfigText();
+    return options.bootstrap?.configMutation?.(canonical) ?? options.bootstrap?.configText ?? canonical;
+  };
   const server = createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     const operation = url.pathname.endsWith("/connectivity")
@@ -110,6 +149,48 @@ async function startEndpoint(options: EndpointOptions = {}) {
       idempotencyKey: String(request.headers["idempotency-key"] ?? ""),
       body,
     });
+    if (operation === "bootstrap") {
+      const bootstrap = options.bootstrap ?? {};
+      if (bootstrap.redirect) {
+        response.writeHead(302, {
+          location: `${runUrl}/bootstrap-elsewhere`,
+          "content-type": "application/json",
+        });
+        if (bootstrap.stalledBody) {
+          response.write("{");
+          return;
+        }
+        return response.end("{}");
+      }
+      const configText = responseConfigText();
+      const workerSource = bootstrap.workerSource ?? THOUGHT_CODEX_TRANSPORT_WORKER_SOURCE;
+      const responseBody = JSON.stringify({
+        schema: THOUGHT_CODEX_BOOTSTRAP_SCHEMA,
+        worker: {
+          mediaType: "application/javascript",
+          sha256: bootstrap.workerSha256 ?? THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
+          source: workerSource,
+        },
+        config: {
+          mediaType: "application/json",
+          sha256: bootstrap.configSha256 ?? sha256(configText),
+          text: configText,
+        },
+      });
+      response.writeHead(bootstrap.status ?? 200, {
+        "content-type": bootstrap.mediaType ?? "application/json",
+        ...(bootstrap.declaredLength === undefined
+          ? (bootstrap.stalledBody || bootstrap.omitContentLength
+              ? {}
+              : { "content-length": Buffer.byteLength(responseBody).toString() })
+          : { "content-length": bootstrap.declaredLength.toString() }),
+      });
+      if (bootstrap.stalledBody) {
+        response.write(responseBody.slice(0, 16));
+        return;
+      }
+      return response.end(responseBody);
+    }
     if (options.nullOperation === operation) return json(response, 200, null);
     if (operation === "connectivity") {
       return json(response, 200, {
@@ -244,14 +325,30 @@ async function startEndpoint(options: EndpointOptions = {}) {
     }
     return json(response, 404, { protocolVersion: PROTOCOL, error: { code: "ROUTE_NOT_FOUND" } });
   });
+  server.on("connection", (socket) => {
+    sockets.add(socket);
+    socket.once("close", () => sockets.delete(socket));
+  });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   assert(address && typeof address === "object");
+  runUrl = `http://127.0.0.1:${address.port}/api/thought-agent/v2/runs/${RUN_ID}`;
+  bootstrapBinding = {
+    url: `${runUrl}/bootstrap`,
+    workerSha256: THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
+    configSha256: options.bootstrap?.bindingConfigSha256 ?? sha256(
+      options.bootstrap?.bindResponseConfig ? responseConfigText() : canonicalConfigText(),
+    ),
+  };
   return {
-    runUrl: `http://127.0.0.1:${address.port}/api/thought-agent/v2/runs/${RUN_ID}`,
+    runUrl,
+    bootstrap: bootstrapBinding,
     requests,
     result: () => resultAgentLine,
-    close: () => new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())),
+    close: () => new Promise<void>((resolve, reject) => {
+      for (const socket of sockets) socket.destroy();
+      server.close((error) => error ? reject(error) : resolve());
+    }),
   };
 }
 
@@ -266,18 +363,8 @@ type Worker = {
   cleanup: () => Promise<void>;
 };
 
-function startWorker(runUrl: string): Worker {
-  const command = buildThoughtCodexTransportWorkerCommand({
-    product: "Codex",
-    runId: RUN_ID,
-    runUrl,
-    protocolVersion: PROTOCOL,
-    controlVersion: CONTROL,
-    resultVersion: RESULT,
-    workProfile: THOUGHT_V2_PROTOCOL_RELEASE.identifiers.workProfile,
-    declarationLabelField: "label",
-    release: THOUGHT_V2_PROTOCOL_RELEASE.release,
-  });
+function startWorker(bootstrap: ThoughtCodexBootstrapBinding): Worker {
+  const command = buildThoughtCodexTransportWorkerCommand(bootstrap);
   const child = spawn("python3", ["-c", PTY_RELAY, "zsh", "-f", "-c", command], {
     env: { PATH: process.env.PATH },
     stdio: ["pipe", "pipe", "pipe"],
@@ -327,6 +414,43 @@ function startWorker(runUrl: string): Worker {
   };
 }
 
+const waitForExitWithin = async (worker: Worker, timeoutMs: number) =>
+  new Promise<{ code: number | null; signal: string | null }>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`Worker remained alive after ${timeoutMs}ms: ${worker.raw()}`)),
+      timeoutMs,
+    );
+    worker.exited.then(
+      (outcome) => {
+        clearTimeout(timer);
+        resolve(outcome);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+
+async function expectBootstrapStop(
+  bootstrap: BootstrapOptions,
+  className: string,
+  exitTimeoutMs = 2_000,
+) {
+  const endpoint = await startEndpoint({ bootstrap });
+  const worker = startWorker(endpoint.bootstrap);
+  try {
+    const outcome = await waitForExitWithin(worker, exitTimeoutMs);
+    assert.equal(outcome.code, 2);
+    assert.match(worker.lines.join("\n"), new RegExp(`stage=bootstrap,class=${className} THOUGHT_STOP\\(N\\)`));
+    assert.deepEqual(endpoint.requests.map((request) => request.operation), ["bootstrap"]);
+    assert.equal(endpoint.requests[0]?.authorization, "");
+  } finally {
+    await worker.cleanup();
+    await endpoint.close();
+  }
+}
+
 async function reachInput(worker: Worker, metadata: "reported" | "unknown" = "reported") {
   await worker.waitFor("ECHO_READY");
   worker.write(`${NONCE}\n`);
@@ -349,7 +473,7 @@ async function reachInput(worker: Worker, metadata: "reported" | "unknown" = "re
 
 async function runCandidate(candidateFrame: string | Buffer, options: EndpointOptions = {}) {
   const endpoint = await startEndpoint(options);
-  const worker = startWorker(endpoint.runUrl);
+  const worker = startWorker(endpoint.bootstrap);
   try {
     await reachInput(worker);
     worker.write(candidateFrame);
@@ -362,7 +486,7 @@ async function runCandidate(candidateFrame: string | Buffer, options: EndpointOp
   }
 }
 
-test("delivered worker bytes match readable source, hash, and Brotli payload", async () => {
+test("fetched worker bytes match the readable source and approved hash", async () => {
   const require = createRequire(import.meta.url);
   const viteEntry = require.resolve("vite", { paths: [`${process.cwd()}/apps/home`] });
   const { transformWithEsbuild } = await import(pathToFileURL(viteEntry).href) as typeof import("vite");
@@ -373,15 +497,82 @@ test("delivered worker bytes match readable source, hash, and Brotli payload", a
   );
   assert.equal(transformed.code, THOUGHT_CODEX_TRANSPORT_WORKER_SOURCE);
   assert.equal(sha256(THOUGHT_CODEX_TRANSPORT_WORKER_SOURCE), THOUGHT_CODEX_TRANSPORT_WORKER_SHA256);
-  assert.equal(
-    brotliDecompressSync(Buffer.from(THOUGHT_CODEX_TRANSPORT_WORKER_BROTLI_BASE64, "base64")).toString(),
-    THOUGHT_CODEX_TRANSPORT_WORKER_SOURCE,
+});
+
+test("bootstrap command contains only the readable loader and pinned retrieval binding", async () => {
+  const endpoint = await startEndpoint();
+  try {
+    const command = buildThoughtCodexTransportWorkerCommand(endpoint.bootstrap);
+    assert.match(command, /node -e/);
+    assert.ok(command.includes(endpoint.bootstrap.url));
+    assert.ok(command.includes(endpoint.bootstrap.workerSha256));
+    assert.ok(command.includes(endpoint.bootstrap.configSha256));
+    assert.equal(command.includes(THOUGHT_CODEX_TRANSPORT_WORKER_SOURCE), false);
+    assert.equal(command.includes(buildThoughtCodexTransportWorkerConfigText({
+      product: "Codex",
+      runId: RUN_ID,
+      runUrl: endpoint.runUrl,
+      protocolVersion: PROTOCOL,
+      controlVersion: CONTROL,
+      resultVersion: RESULT,
+      workProfile: THOUGHT_V2_PROTOCOL_RELEASE.identifiers.workProfile,
+      declarationLabelField: "label",
+      release: THOUGHT_V2_PROTOCOL_RELEASE.release,
+    })), false);
+  } finally {
+    await endpoint.close();
+  }
+});
+
+test("bootstrap rejects stalled error, redirect, and invalid-media responses and exits", async () => {
+  await expectBootstrapStop({ status: 500, stalledBody: true }, "http");
+  await expectBootstrapStop({ redirect: true, stalledBody: true }, "redirect");
+  await expectBootstrapStop({ mediaType: "text/plain", stalledBody: true }, "media-type");
+});
+
+test("bootstrap enforces declared and streamed response size limits", async () => {
+  await expectBootstrapStop({ declaredLength: THOUGHT_CODEX_BOOTSTRAP_MAX_BYTES + 1, stalledBody: true }, "size");
+  await expectBootstrapStop({
+    workerSource: "x".repeat(THOUGHT_CODEX_BOOTSTRAP_MAX_BYTES),
+    omitContentLength: true,
+  }, "size");
+});
+
+test("bootstrap timeout remains active while the success body stalls", async () => {
+  const startedAt = Date.now();
+  await expectBootstrapStop(
+    { stalledBody: true },
+    "timeout",
+    THOUGHT_CODEX_BOOTSTRAP_TIMEOUT_MS + 3_000,
   );
+  assert.ok(Date.now() - startedAt >= THOUGHT_CODEX_BOOTSTRAP_TIMEOUT_MS - 250);
+});
+
+test("bootstrap rejects worker and config integrity drift before preflight", async () => {
+  await expectBootstrapStop({
+    workerSource: `${THOUGHT_CODEX_TRANSPORT_WORKER_SOURCE}\n`,
+  }, "integrity");
+  await expectBootstrapStop({
+    configMutation: (value) => `${value} `,
+  }, "integrity");
+});
+
+test("bootstrap rejects replayed run and origin config even with matching config hashes", async () => {
+  for (const field of ["i", "u"] as const) {
+    await expectBootstrapStop({
+      configMutation: (value) => {
+        const config = JSON.parse(value) as Record<string, unknown>;
+        config[field] = field === "i" ? `tar_${"z".repeat(24)}` : "https://example.invalid/api/thought-agent/v2/runs/tar_replayed";
+        return JSON.stringify(config);
+      },
+      bindResponseConfig: true,
+    }, "config");
+  }
 });
 
 test("exact worker accepts the observed 34-byte candidate only after start", async () => {
   const endpoint = await startEndpoint();
-  const worker = startWorker(endpoint.runUrl);
+  const worker = startWorker(endpoint.bootstrap);
   try {
     await reachInput(worker);
     assert.equal(endpoint.requests.some((entry) => entry.operation === "result"), false);
@@ -451,7 +642,7 @@ for (const [name, frame] of [
 
 test("missing echo proof stops before claim and never exposes secrets", async () => {
   const endpoint = await startEndpoint();
-  const worker = startWorker(endpoint.runUrl);
+  const worker = startWorker(endpoint.bootstrap);
   try {
     await worker.waitFor("ECHO_READY");
     worker.write(`${NONCE}\n`);
@@ -469,7 +660,7 @@ test("missing echo proof stops before claim and never exposes secrets", async ()
 
 test("candidate queued with bootstrap is rejected without a result", async () => {
   const endpoint = await startEndpoint();
-  const worker = startWorker(endpoint.runUrl);
+  const worker = startWorker(endpoint.bootstrap);
   try {
     await worker.waitFor("ECHO_READY");
     worker.write(`${NONCE}\n`);
@@ -488,7 +679,7 @@ test("candidate queued with bootstrap is rejected without a result", async () =>
 
 test("candidate arriving during a pending control request is rejected after verified start", async () => {
   const endpoint = await startEndpoint({ readyDelayMs: 150 });
-  const worker = startWorker(endpoint.runUrl);
+  const worker = startWorker(endpoint.bootstrap);
   try {
     await worker.waitFor("ECHO_READY");
     worker.write(`${NONCE}\n`);
@@ -509,7 +700,7 @@ test("candidate arriving during a pending control request is rejected after veri
 test("nonobject success bodies stop with stage-specific schema diagnostics", async () => {
   for (const operation of ["connectivity", "claim", "ready", "start", "result"] as const) {
     const endpoint = await startEndpoint({ nullOperation: operation });
-    const worker = startWorker(endpoint.runUrl);
+    const worker = startWorker(endpoint.bootstrap);
     try {
       await worker.waitFor("ECHO_READY");
       worker.write(`${NONCE}\n`);
@@ -542,7 +733,7 @@ test("ready creatorAction and control drift stop before start", async () => {
   ];
   for (const options of variants) {
     const endpoint = await startEndpoint(options);
-    const worker = startWorker(endpoint.runUrl);
+    const worker = startWorker(endpoint.bootstrap);
     try {
       await worker.waitFor("ECHO_READY");
       worker.write(`${NONCE}\n`);
@@ -560,7 +751,7 @@ test("ready creatorAction and control drift stop before start", async () => {
 
 test("EOF after verified start is uncertain and never submits a result", async () => {
   const endpoint = await startEndpoint();
-  const worker = startWorker(endpoint.runUrl);
+  const worker = startWorker(endpoint.bootstrap);
   try {
     await reachInput(worker);
     // VEOF on the real PTY, not pipe EOF in the relay process.
@@ -577,7 +768,7 @@ test("EOF after verified start is uncertain and never submits a result", async (
 test("claim and start remain one-shot under transport uncertainty", async () => {
   for (const options of [{ claimTransportFailure: true }, { startTransportFailure: true }]) {
     const endpoint = await startEndpoint(options);
-    const worker = startWorker(endpoint.runUrl);
+    const worker = startWorker(endpoint.bootstrap);
     try {
       await worker.waitFor("ECHO_READY");
       worker.write(`${NONCE}\n`);
@@ -597,7 +788,7 @@ test("claim and start remain one-shot under transport uncertainty", async () => 
 
 test("ready and frozen result replay exact bytes once after body transport loss", async () => {
   const endpoint = await startEndpoint({ readyBodyDropOnce: true, resultBodyDropOnce: true });
-  const worker = startWorker(endpoint.runUrl);
+  const worker = startWorker(endpoint.bootstrap);
   try {
     await reachInput(worker, "unknown");
     worker.write("One exact return.\nTHOUGHT_END\n");
@@ -618,7 +809,7 @@ test("ready and frozen result replay exact bytes once after body transport loss"
 
 test("plausible RATE_LIMITED response without operation proof is uncertain and not replayed", async () => {
   const endpoint = await startEndpoint({ readyRateLimit: true });
-  const worker = startWorker(endpoint.runUrl);
+  const worker = startWorker(endpoint.bootstrap);
   try {
     await worker.waitFor("ECHO_READY");
     worker.write(`${NONCE}\n`);
@@ -641,7 +832,7 @@ test("exact object validation ignores order but rejects missing, extra, and wron
     { ...THOUGHT_AGENT_RUN_AUTHORITY, transcriptPurityAttested: "false" },
   ]) {
     const endpoint = await startEndpoint({ claimAuthority: authority });
-    const worker = startWorker(endpoint.runUrl);
+    const worker = startWorker(endpoint.bootstrap);
     try {
       await worker.waitFor("ECHO_READY");
       worker.write(`${NONCE}\n`);

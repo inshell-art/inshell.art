@@ -76,12 +76,19 @@ export {
   type ThoughtCodexTaskInput,
 } from "./codex-client";
 export {
+  THOUGHT_CODEX_BOOTSTRAP_MAX_BYTES,
+  THOUGHT_CODEX_BOOTSTRAP_SCHEMA,
+  THOUGHT_CODEX_BOOTSTRAP_TIMEOUT_MS,
   THOUGHT_CODEX_TRANSPORT_WORKER_BROTLI_BASE64,
   THOUGHT_CODEX_TRANSPORT_WORKER_LOADER,
   THOUGHT_CODEX_TRANSPORT_WORKER_READABLE_SOURCE,
   THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
   THOUGHT_CODEX_TRANSPORT_WORKER_SOURCE,
+  buildThoughtCodexTransportWorkerConfig,
+  buildThoughtCodexTransportWorkerConfigText,
   buildThoughtCodexTransportWorkerCommand,
+  type ThoughtCodexBootstrapBinding,
+  type ThoughtCodexTransportWorkerConfig,
   type ThoughtCodexTransportWorkerInput,
 } from "./codex-transport-worker";
 export {
@@ -189,6 +196,7 @@ export type RequestedThoughtAgent = {
 export type ThoughtAgentClientInfo = {
   surface?: string;
   appVersion?: string;
+  agentApiOrigin?: string;
 };
 
 export type ThoughtAgentCreateRunRequest = {
@@ -938,6 +946,9 @@ function parseClientInfo(value: unknown): ThoughtAgentClientInfo {
     ...(optionalString(object.surface) ? { surface: String(object.surface) } : {}),
     ...(optionalString(object.appVersion)
       ? { appVersion: String(object.appVersion) }
+      : {}),
+    ...(optionalString(object.agentApiOrigin)
+      ? { agentApiOrigin: String(object.agentApiOrigin) }
       : {}),
   };
 }

@@ -1,27 +1,11 @@
-import { Buffer } from "node:buffer";
-import { createHash } from "node:crypto";
-import { brotliDecompressSync } from "node:zlib";
-
 import {
-  THOUGHT_CODEX_TRANSPORT_WORKER_BROTLI_BASE64,
   THOUGHT_CODEX_TRANSPORT_WORKER_LOADER,
   THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
-  THOUGHT_CODEX_TRANSPORT_WORKER_SOURCE,
 } from "../packages/thought-agent-protocol/src/index";
 
 const requireTransport = (condition: unknown, message: string): void => {
   // Never include transport values in failures: the capsule carries credentials.
   if (!condition) throw new Error(message);
-};
-
-type CodexWorkerConfig = {
-  i: string;
-  l: "agentLabel" | "label";
-  p: string;
-  r: [string, string];
-  u: string;
-  v: [string, string, string];
-  w: string;
 };
 
 export const inspectThoughtCodexFixedWorkerHandoff = (handoff: string) => {
@@ -37,41 +21,17 @@ export const inspectThoughtCodexFixedWorkerHandoff = (handoff: string) => {
   requireTransport(commandLines.length === 1, "Codex handoff must contain exactly one worker command.");
   const match = commandLines[0].match(/^node -e '([^']*)' -- '([^']*)' '([^']*)' '([^']*)'$/);
   requireTransport(match?.length === 5, "Codex handoff worker command is invalid.");
-  const [, loader, payload, workerHash, configJson] = match!;
+  const [, loader, bootstrapUrl, workerHash, configHash] = match!;
   requireTransport(loader === THOUGHT_CODEX_TRANSPORT_WORKER_LOADER, "Codex handoff worker loader differs from the fixed release.");
   requireTransport(
-    payload === THOUGHT_CODEX_TRANSPORT_WORKER_BROTLI_BASE64 &&
-      workerHash === THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
-    "Codex handoff worker artifact differs from the fixed release.",
+    workerHash === THOUGHT_CODEX_TRANSPORT_WORKER_SHA256 &&
+      /^sha256:[0-9a-f]{64}$/.test(configHash),
+    "Codex handoff bootstrap integrity binding differs from the fixed release.",
   );
-  let source: Buffer;
-  try {
-    source = brotliDecompressSync(Buffer.from(payload, "base64"));
-  } catch {
-    throw new Error("Codex handoff worker artifact is invalid.");
-  }
-  requireTransport(
-    source.toString("utf8") === THOUGHT_CODEX_TRANSPORT_WORKER_SOURCE &&
-      `sha256:${createHash("sha256").update(source).digest("hex")}` === workerHash,
-    "Codex handoff worker artifact failed integrity verification.",
-  );
-  let config: CodexWorkerConfig;
-  try {
-    config = JSON.parse(configJson) as CodexWorkerConfig;
-  } catch {
-    throw new Error("Codex handoff worker configuration is invalid.");
-  }
-  requireTransport(
-    config && typeof config === "object" && !Array.isArray(config) &&
-      Object.keys(config).sort().join(",") === "i,l,p,r,u,v,w" &&
-      typeof config.i === "string" && typeof config.u === "string" &&
-      typeof config.p === "string" && typeof config.w === "string" &&
-      (config.l === "label" || config.l === "agentLabel") &&
-      Array.isArray(config.v) && config.v.length === 3 && config.v.every((value) => typeof value === "string") &&
-      Array.isArray(config.r) && config.r.length === 2 && config.r.every((value) => typeof value === "string"),
-    "Codex handoff worker configuration is invalid.",
-  );
-  return { config, launchToken };
+  return {
+    bootstrap: { url: bootstrapUrl, workerSha256: workerHash, configSha256: configHash },
+    launchToken,
+  };
 };
 
 const parseTransportUrl = (value: string): URL => {
@@ -143,13 +103,16 @@ export const thoughtAgentCanaryHandoffTransport = (input: {
   if (handoff.startsWith("THOUGHT ") && handoff.includes(": fixed worker.\n")) {
     requireTransport(!input.explicitEndpoints, "Codex fixed-worker handoff cannot use explicit operation endpoints.");
     const delivered = inspectThoughtCodexFixedWorkerHandoff(handoff);
-    requireTransport(delivered.config.i === runId, "Agent handoff run ID differs from creation.");
     requireTransport(
       delivered.launchToken === launchToken,
       "Agent handoff launch credential differs from creation.",
     );
+    requireTransport(
+      delivered.bootstrap.url.endsWith("/bootstrap"),
+      "Codex handoff bootstrap URL is invalid.",
+    );
     const runUrl = validateThoughtAgentCanaryRunUrl(
-      delivered.config.u,
+      delivered.bootstrap.url.slice(0, -"/bootstrap".length),
       runId,
       expectedApiOrigin,
     );

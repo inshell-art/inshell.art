@@ -47,6 +47,7 @@ const knownRoutes: ReadonlyArray<readonly [string, string]> = [
   [`${api}/client`, "GET"],
   [`${api}/runs`, "POST"],
   [run, "GET"],
+  [`${run}/bootstrap`, "GET"],
   [`${run}/claim`, "POST"],
   [`${run}/ready`, "POST"],
   [`${run}/start`, "POST"],

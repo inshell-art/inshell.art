@@ -21,10 +21,14 @@ import {
   THOUGHT_AGENT_ERROR_CODES,
   THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
   THOUGHT_AGENT_CREATIVE_BRIEF,
+  THOUGHT_CODEX_BOOTSTRAP_SCHEMA,
+  THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
+  THOUGHT_CODEX_TRANSPORT_WORKER_SOURCE,
   ThoughtAgentProtocolError,
   assertThoughtAgentMetadataMatchesControl,
   assertProtocolVersion,
   buildThoughtAgentReceipt,
+  buildThoughtCodexTransportWorkerConfigText,
   formatThoughtAgentModelLabel,
   isThoughtSha256,
   parseAdapterInfo,
@@ -456,6 +460,17 @@ function protocolJson(res: ServerResponse, status: number, body: Record<string, 
   res.setHeader("cache-control", "no-store");
   res.setHeader("access-control-allow-origin", "*");
   res.end(JSON.stringify({ protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION, ...body }));
+}
+
+function exactJson(res: ServerResponse, status: number, body: Record<string, unknown>) {
+  const text = JSON.stringify(body);
+  res.statusCode = status;
+  res.setHeader("content-type", "application/json; charset=utf-8");
+  res.setHeader("content-length", Buffer.byteLength(text).toString());
+  res.setHeader("cache-control", "no-store");
+  res.setHeader("access-control-allow-origin", "*");
+  res.setHeader("x-content-type-options", "nosniff");
+  res.end(text);
 }
 
 function protocolError(
@@ -1311,6 +1326,36 @@ function createThoughtAgentDevApiPlugin(
           if (requestUrl.pathname === createPath && req.method === "POST") {
             const body = await readJson(req);
             const requestedAgent = body.requestedAgent as { adapterId?: unknown; model?: unknown } | undefined;
+            const browserOrigin = requestOrigin(req);
+            const configuredAgentApiOrigin = (body.client as { agentApiOrigin?: unknown } | undefined)
+              ?.agentApiOrigin;
+            let agentApiOrigin = browserOrigin;
+            if (configuredAgentApiOrigin !== undefined) {
+              if (typeof configuredAgentApiOrigin !== "string") {
+                protocolError(res, 400, "AGENT_OUTPUT_SCHEMA_INVALID", "Invalid Agent API origin.");
+                return;
+              }
+              let parsedAgentApiOrigin: URL;
+              try {
+                parsedAgentApiOrigin = new URL(configuredAgentApiOrigin);
+              } catch {
+                protocolError(res, 400, "AGENT_OUTPUT_SCHEMA_INVALID", "Invalid Agent API origin.");
+                return;
+              }
+              if (
+                !["http:", "https:"].includes(parsedAgentApiOrigin.protocol) ||
+                parsedAgentApiOrigin.username ||
+                parsedAgentApiOrigin.password ||
+                parsedAgentApiOrigin.pathname !== "/" ||
+                parsedAgentApiOrigin.search ||
+                parsedAgentApiOrigin.hash ||
+                parsedAgentApiOrigin.origin !== browserOrigin
+              ) {
+                protocolError(res, 400, "AGENT_OUTPUT_SCHEMA_INVALID", "Agent API origin does not match this App endpoint.");
+                return;
+              }
+              agentApiOrigin = parsedAgentApiOrigin.origin;
+            }
             const devAutoRun = requestedAgent?.adapterId === "codex" &&
               body.devAutoRun !== false &&
               DEV_AGENT_CODEX_AUTORUN;
@@ -1364,7 +1409,7 @@ function createThoughtAgentDevApiPlugin(
             const runExpiresAt = new Date(
               now.getTime() + THOUGHT_AGENT_RUN_TTL_MS,
             ).toISOString();
-            const webOrigin = requestOrigin(req);
+            const webOrigin = browserOrigin;
             const run: DevThoughtAgentRun = {
               runId: id,
               state: "created",
@@ -1414,12 +1459,25 @@ function createThoughtAgentDevApiPlugin(
             runs.set(id, run);
             persistRuns();
 
+            const taskBinding = buildThoughtV2LocalAgentTaskBinding(run.release);
+            const statusUrl = `${apiPrefix}/runs/${id}`;
+            const codexConfigText = buildThoughtCodexTransportWorkerConfigText({
+              product: "Codex",
+              runId: id,
+              runUrl: `${agentApiOrigin}${statusUrl}`,
+              protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+              controlVersion: THOUGHT_AGENT_CONTROL_VERSION,
+              resultVersion: THOUGHT_AGENT_RESULT_VERSION,
+              workProfile: taskBinding.resultContract.workProfile,
+              declarationLabelField: taskBinding.resultContract.declarationLabelField ?? "label",
+              release: taskBinding.release,
+            });
             protocolJson(res, 201, {
               runId: id,
               state: "created",
               launchUri: `thought://agent/run?run_id=${encodeURIComponent(id)}&token=${encodeURIComponent(launchToken)}&api_origin=${encodeURIComponent(webOrigin)}`,
               browserToken,
-              statusUrl: `${apiPrefix}/runs/${id}`,
+              statusUrl,
               createdAt,
               claimExpiresAt,
               devRuntime: "vite-local-durable-run-store",
@@ -1432,9 +1490,14 @@ function createThoughtAgentDevApiPlugin(
                       claimCreativeInput: "sealed-absent",
                       creativeInputEndpoint: "start",
                     },
+                    codexBootstrap: {
+                      url: `${statusUrl}/bootstrap`,
+                      workerSha256: THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
+                      configSha256: await sha256Hex(codexConfigText),
+                    },
                   }
                 : {}),
-              ...buildThoughtV2LocalAgentTaskBinding(run.release),
+              ...taskBinding,
             });
             if (devAutoRun) {
               void autoRunDevCodex(run, persistRuns).finally(persistRuns);
@@ -1453,6 +1516,36 @@ function createThoughtAgentDevApiPlugin(
             protocolError(res, 404, "RUN_NOT_FOUND", "THOUGHT Agent run not found.");
             return;
           }
+          if (action === "bootstrap" && req.method === "GET") {
+            const taskBinding = buildThoughtV2LocalAgentTaskBinding(run.release);
+            const runUrl = `${requestOrigin(req)}${apiPrefix}/runs/${id}`;
+            const configText = buildThoughtCodexTransportWorkerConfigText({
+              product: "Codex",
+              runId: id,
+              runUrl,
+              protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+              controlVersion: THOUGHT_AGENT_CONTROL_VERSION,
+              resultVersion: THOUGHT_AGENT_RESULT_VERSION,
+              workProfile: taskBinding.resultContract.workProfile,
+              declarationLabelField: taskBinding.resultContract.declarationLabelField ?? "label",
+              release: taskBinding.release,
+            });
+            exactJson(res, 200, {
+              schema: THOUGHT_CODEX_BOOTSTRAP_SCHEMA,
+              worker: {
+                mediaType: "application/javascript",
+                sha256: THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
+                source: THOUGHT_CODEX_TRANSPORT_WORKER_SOURCE,
+              },
+              config: {
+                mediaType: "application/json",
+                sha256: await sha256Hex(configText),
+                text: configText,
+              },
+            });
+            return;
+          }
+
           if (expireDevAgentRun(run)) persistRuns();
 
           if (!action && req.method === "GET") {

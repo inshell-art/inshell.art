@@ -4,6 +4,7 @@ import { describe, test } from "node:test";
 import { inspect } from "node:util";
 
 import { buildThoughtCodexOperationContract, buildThoughtCodexTask } from "../packages/thought-agent-protocol/src/codex-client";
+import { THOUGHT_CODEX_TRANSPORT_WORKER_SHA256 } from "../packages/thought-agent-protocol/src/codex-transport-worker";
 import { buildThoughtClaudeTask } from "../packages/thought-agent-protocol/src/claude-client";
 import {
   thoughtAgentCanaryHandoffTransport,
@@ -102,19 +103,27 @@ describe("THOUGHT Agent canary uses the delivered endpoint", () => {
   const expectedApiOrigin = "https://preview.inshell.art";
   const publicRunUrl = `${expectedApiOrigin}/api/thought-agent/v2/runs/${runId}`;
   const launchToken = "canary-fixture-launch-credential";
-  const taskInput = { ...buildInput(publicRunUrl), launchToken };
-  const mutateCodexConfig = (
+  const taskInput = {
+    ...buildInput(publicRunUrl),
+    launchToken,
+    bootstrap: {
+      url: `${publicRunUrl}/bootstrap`,
+      workerSha256: THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
+      configSha256: `sha256:${"b".repeat(64)}` as const,
+    },
+  };
+  const mutateCodexBootstrap = (
     handoff: string,
-    mutate: (config: Record<string, unknown>) => void,
+    mutate: (bootstrap: { url: string; workerSha256: string; configSha256: string }) => void,
   ) => {
     const lines = handoff.split("\n");
     const commandIndex = lines.findIndex((line) => line.startsWith("node -e "));
     assert.notEqual(commandIndex, -1);
-    const match = lines[commandIndex].match(/^(node -e '[^']*' -- '[^']*' '[^']*' )'([^']*)'$/);
+    const match = lines[commandIndex].match(/^(node -e '[^']*' -- )'([^']*)' '([^']*)' '([^']*)'$/);
     assert.ok(match);
-    const config = JSON.parse(match[2]) as Record<string, unknown>;
-    mutate(config);
-    lines[commandIndex] = `${match[1]}'${JSON.stringify(config)}'`;
+    const bootstrap = { url: match[2], workerSha256: match[3], configSha256: match[4] };
+    mutate(bootstrap);
+    lines[commandIndex] = `${match[1]}'${bootstrap.url}' '${bootstrap.workerSha256}' '${bootstrap.configSha256}'`;
     return lines.join("\n");
   };
   const agents = [
@@ -159,7 +168,9 @@ describe("THOUGHT Agent canary uses the delivered endpoint", () => {
         `not-a-url-${launchToken}`,
       ]) {
         const changed = agent.fixedWorker
-          ? mutateCodexConfig(agent.handoff, (config) => { config.u = endpoint.replaceAll("RUN_ID", runId); })
+          ? mutateCodexBootstrap(agent.handoff, (bootstrap) => {
+              bootstrap.url = `${endpoint.replaceAll("RUN_ID", runId)}/bootstrap`;
+            })
           : agent.handoff.replace(/^APP_ENDPOINT = .+$/m, `APP_ENDPOINT = ${endpoint}`);
         rejectsPrivately(() => transport(changed, agent.explicitEndpoints));
       }
@@ -168,9 +179,11 @@ describe("THOUGHT Agent canary uses the delivered endpoint", () => {
     test(`${agent.name} rejects missing, duplicated or mismatched capsule bindings without exposing credentials`, () => {
       const malformed = agent.fixedWorker
         ? [
-            mutateCodexConfig(agent.handoff, (config) => { delete config.u; }),
+            mutateCodexBootstrap(agent.handoff, (bootstrap) => { bootstrap.url = ""; }),
             `${agent.handoff}\nAPP_ENDPOINT = ${publicRunUrl}`,
-            mutateCodexConfig(agent.handoff, (config) => { config.i = "tar_other_run"; }),
+            mutateCodexBootstrap(agent.handoff, (bootstrap) => {
+              bootstrap.url = `${expectedApiOrigin}/api/thought-agent/v2/runs/tar_other_run/bootstrap`;
+            }),
             agent.handoff.replace(/^Credential=.+$/m, "Credential=different-fixture-credential"),
             `${agent.handoff}\nLAUNCH_CREDENTIAL = ${launchToken}`,
           ]

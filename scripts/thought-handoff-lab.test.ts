@@ -20,12 +20,19 @@ import {
   THOUGHT_AGENT_HTTP_USER_AGENT,
   THOUGHT_AGENT_RUN_AUTHORITY,
   THOUGHT_HANDOFF_OPERATION_RECOVERY,
+  THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
   THOUGHT_V2_PROTOCOL_RELEASE,
   buildThoughtCodexOperationContract,
   buildThoughtCodexTask,
   buildThoughtClaudeOperationContract,
   buildThoughtClaudeTask,
 } from "../packages/thought-agent-protocol/src/index";
+
+const codexBootstrapFor = (runUrl: string) => ({
+  url: `${runUrl.replace(/\/+$/g, "")}/bootstrap`,
+  workerSha256: THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
+  configSha256: `sha256:${"b".repeat(64)}` as const,
+});
 import {
   buildThoughtHandoffResponseChecks,
   THOUGHT_HANDOFF_CLAIM_RESPONSE_CHECK,
@@ -54,12 +61,15 @@ for (const [agent, candidate, deepLink, buildTask, buildContract] of [
   ["Claude", thoughtClaudeCanonicalCandidate, buildClaudeDeepLink, buildThoughtClaudeTask, buildThoughtClaudeOperationContract],
 ] as const) {
   test(`${agent} protocol labels and exact request bodies survive deep-link and plain-text transport`, () => {
-    const input = {
+    const baseInput = {
       product: agent,
       runId: "tar_handoff_transport_regression",
       runUrl: "https://staging.inshell-art.pages.dev/api/thought-agent/v2/runs/tar_handoff_transport_regression",
       launchToken: "fixture-only-launch-credential",
     };
+    const input = agent === "Codex"
+      ? { ...baseInput, bootstrap: codexBootstrapFor(baseInput.runUrl) }
+      : baseInput;
     const task = buildTask(input);
     const decoded = new URL(deepLink(task)).searchParams.get(agent === "Codex" ? "prompt" : "q")!;
     const transformed = decoded.replace(/\\([_*])/g, "$1").replace(/\r?\n/g, "\r\n");
@@ -69,13 +79,13 @@ for (const [agent, candidate, deepLink, buildTask, buildContract] of [
     if (agent === "Codex") {
       assert.match(task, /fixed worker/);
       assert.match(task, /exec_command\(tty:true\)/);
-      assert.match(task, /Read-only decode\/inspection allowed/);
+      assert.match(task, /pinned retrieval binding|sha256:/);
       assert.match(task, /OK:preflight\+CREDENTIAL_READY/);
       assert.match(task, /OK:start\+THOUGHT_INPUT_READY/);
       assert.match(task, /LINE\\nTHOUGHT_END\\n/);
       assert.match(task, /Only OK:result\+Receipt succeeds/);
       assert.equal(task.split(input.launchToken).length - 1, 1);
-      assert.ok(task.split(input.runId).length - 1 >= 2);
+      assert.equal(task.split(input.runId).length - 1, 1);
     } else {
       assert.doesNotMatch(task, /<[^>]+>/);
       assert.match(transformed, /^PROTOCOL_VERSION = inshell\.thought\.agent-run\.v2\r?$/m);
@@ -303,6 +313,7 @@ test("Codex and ChatGPT handoffs fit real run and credential lengths on staging 
         runId,
         runUrl: `${origin}/api/thought-agent/v2/runs/${runId}`,
         launchToken: "x".repeat(43),
+        bootstrap: codexBootstrapFor(`${origin}/api/thought-agent/v2/runs/${runId}`),
       });
       const bytes = Buffer.byteLength(task);
       assert.ok(bytes <= 7_000, `${product} ${origin} handoff is ${bytes} bytes`);
@@ -364,7 +375,7 @@ test("the handoff gives credentials only to the fixed worker without local persi
   const task = thoughtCodexCanonicalCandidate();
 
   assert.match(task, /^Credential=/m);
-  assert.match(task, /no edit\/reimplementation\/install\/files\/replacement\/manual HTTP/);
+  assert.match(task, /reconstruct\/edit\/save\/install\/fallback\/manual HTTP/);
   assert.match(task, /read host model\/effort once; never guess/);
   assert.match(task, /never reclaim\/restart\/manual replay/);
   assert.doesNotMatch(task, /\.launch-token|\/tmp\//);
@@ -373,8 +384,8 @@ test("the handoff gives credentials only to the fixed worker without local persi
 test("the fixed-worker handoff is inspectable, start-bound, and human-sized", () => {
   const task = thoughtCodexCanonicalCandidate();
 
-  assert.match(task, /Read-only decode\/inspection allowed/);
-  assert.match(task, /Execute exact verified bytes/);
+  assert.match(task, /request one origin\/network escalation on that first call/);
+  assert.match(task, /sha256:[0-9a-f]{64}/);
   assert.match(task, /OK:start\+THOUGHT_INPUT_READY/);
   assert.match(task, /LINE\\nTHOUGHT_END\\n/);
   assert.match(task, /No CR\/extra line\/JSON\/trim\/repair\/retry\/replacement/);
@@ -403,11 +414,17 @@ test("an oversized real canary is cancelled before the qualification error escap
     const url = String(input);
     requests.push({ url, init });
     if (requests.length === 1) {
+      const statusUrl = `https://staging.example/${"x".repeat(2_000)}`;
       return Response.json({
         runId: "tar_oversized_canary",
-        statusUrl: `https://staging.example/${"x".repeat(2_000)}`,
+        statusUrl,
         browserToken: "browser-token",
         launchUri: "codex://run?token=launch-token",
+        codexBootstrap: {
+          url: `${statusUrl}/bootstrap`,
+          workerSha256: THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
+          configSha256: `sha256:${"b".repeat(64)}`,
+        },
       });
     }
     return Response.json({ state: "cancelled" });

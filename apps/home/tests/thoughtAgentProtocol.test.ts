@@ -32,6 +32,12 @@ const releasedAgentResult = (
   ...(declaration ? { declaration } : {}),
 });
 
+const codexBootstrapFor = (runUrl: string) => ({
+  url: `${runUrl.replace(/\/+$/g, "")}/bootstrap`,
+  workerSha256: THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
+  configSha256: `sha256:${"b".repeat(64)}` as const,
+});
+
 type StartInputHashCheckId =
   | "START_INPUT_HASHES_OK"
   | "START_SPEC_TEXT_HASH"
@@ -256,7 +262,7 @@ describe("THOUGHT Agent V2 protocol helpers", () => {
         "https://preview.inshell.art/api/thought-agent/v2/runs/tar_input_hash_instructions",
       launchToken: "fixture-launch-token",
     };
-    const codexTask = buildThoughtCodexTask(input);
+    const codexTask = buildThoughtCodexTask({ ...input, bootstrap: codexBootstrapFor(input.runUrl) });
     const claudeTasks = [
       buildThoughtClaudeTask({ ...input, surface: "code" }),
       buildThoughtClaudeTask({ ...input, surface: "cowork" }),
@@ -368,17 +374,18 @@ describe("THOUGHT Agent V2 protocol helpers", () => {
   });
 
   test("builds Agent tasks from the active byte-based V2 contract", () => {
-    const task = buildThoughtCodexTask({
+    const taskInput = {
       product: "Codex",
       runId: "tar_protocol_test",
       runUrl: "http://127.0.0.1:5173/api/thought-agent/v2/runs/tar_protocol_test",
       launchToken: "launch-token",
+    };
+    const task = buildThoughtCodexTask({
+      ...taskInput,
+      bootstrap: codexBootstrapFor(taskInput.runUrl),
     });
     const operation = buildThoughtCodexOperationContract({
-      product: "Codex",
-      runId: "tar_protocol_test",
-      runUrl: "http://127.0.0.1:5173/api/thought-agent/v2/runs/tar_protocol_test",
-      launchToken: "launch-token",
+      ...taskInput,
     });
 
     expect(task).toContain("THOUGHT Codex: fixed worker.");

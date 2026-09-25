@@ -2,7 +2,9 @@ import { THOUGHT_V2_PROTOCOL_RELEASE } from "./release.generated";
 import { THOUGHT_AGENT_RUN_AUTHORITY } from "./run-authority";
 import { removeTrailingSlashes } from "./run-url";
 import {
+  THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
   buildThoughtCodexTransportWorkerCommand,
+  type ThoughtCodexBootstrapBinding,
 } from "./codex-transport-worker";
 
 const THOUGHT_AGENT_PROTOCOL_VERSION = THOUGHT_V2_PROTOCOL_RELEASE.agentRunId;
@@ -34,6 +36,7 @@ export type ThoughtCodexTaskInput = {
   runId: string;
   runUrl: string;
   launchToken: string;
+  bootstrap: ThoughtCodexBootstrapBinding;
   networkAuthorization?: "managed" | "preauthorized";
   release?: ThoughtCodexReleaseBinding;
   resultContract?: ThoughtCodexResultContractBinding;
@@ -41,7 +44,9 @@ export type ThoughtCodexTaskInput = {
 
 const shellQuote = (value: string) => `'${value.replace(/'/g, `'"'"'`)}'`;
 
-export function buildThoughtCodexOperationContract(input: ThoughtCodexTaskInput) {
+export function buildThoughtCodexOperationContract(
+  input: Omit<ThoughtCodexTaskInput, "bootstrap">,
+) {
   if (!/^tar_[A-Za-z0-9_-]{8,}$/.test(input.runId)) {
     throw new Error("THOUGHT run ID is invalid.");
   }
@@ -137,25 +142,26 @@ export function buildThoughtCodexOperationContract(input: ThoughtCodexTaskInput)
 
 export function buildThoughtCodexTask(input: ThoughtCodexTaskInput) {
   const contract = buildThoughtCodexOperationContract(input);
-  const command = buildThoughtCodexTransportWorkerCommand({
-    product: input.product,
-    runId: contract.runId,
-    runUrl: contract.baseUrl,
-    protocolVersion: contract.protocolVersion,
-    controlVersion: contract.controlVersion,
-    resultVersion: contract.resultVersion,
-    workProfile: contract.workProfile,
-    declarationLabelField: contract.declarationLabelField,
-    release: contract.release,
-  });
+  const expectedBootstrapUrl = `${contract.baseUrl}/bootstrap`;
+  if (input.bootstrap.url !== expectedBootstrapUrl) {
+    throw new Error("THOUGHT Codex bootstrap URL differs from the run origin.");
+  }
+  if (input.bootstrap.workerSha256 !== THOUGHT_CODEX_TRANSPORT_WORKER_SHA256) {
+    throw new Error("THOUGHT Codex bootstrap worker hash is not approved.");
+  }
+  if (!/^sha256:[0-9a-f]{64}$/.test(input.bootstrap.configSha256)) {
+    throw new Error("THOUGHT Codex bootstrap config hash is invalid.");
+  }
+  const command = buildThoughtCodexTransportWorkerCommand(input.bootstrap);
 
   return [
     `THOUGHT ${input.product}: fixed worker.`,
-    `Credential=${contract.launchToken}`,
-    "Run once with exec_command(tty:true); grant or one origin escalation. Read-only decode/inspection allowed. Execute exact verified bytes; no edit/reimplementation/install/files/replacement/manual HTTP:",
+    `Use the task title “THOUGHT ${input.product} run”. Keep private handoff fields out of titles and workspace names. This reduces metadata exposure; task history is not a secret store.`,
+    "Host network permission is required before start. Run the exact command below once with exec_command(tty:true) and request one origin/network escalation on that first call. Do not first run it in a restricted sandbox or reconstruct/edit/save/install/fallback/manual HTTP:",
     command,
     "ECHO_READY: send NONCE:+16-128 safe chars. ECHO_OK: nonce must be absent onscreen; if seen, kill before credential.",
-    "After OK:preflight+CREDENTIAL_READY read host model/effort once; never guess. Send JSON: credential, exact echoProbe, metadataSource=reported+model(+valid effort), or unknown without model/effort.",
+    "After OK:preflight+CREDENTIAL_READY read host model/effort once; never guess. Send private JSON using the one-time credential below, exact echoProbe, metadataSource=reported+model(+valid effort), or unknown without model/effort. Never put the credential in a command or output.",
+    `Credential=${contract.launchToken}`,
     "Wait OK:start+THOUGHT_INPUT_READY. Only then compose from displayed verified input. One write: `LINE\\nTHOUGHT_END\\n`. No CR/extra line/JSON/trim/repair/retry/replacement.",
     "Only OK:result+Receipt succeeds. Else report safe marker; never reclaim/restart/manual replay. Worker may exact-replay ready/frozen result once after transport uncertainty; unproven 429=U.",
   ].join("\n");
