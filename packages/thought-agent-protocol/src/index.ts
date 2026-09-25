@@ -76,6 +76,15 @@ export {
   type ThoughtCodexTaskInput,
 } from "./codex-client";
 export {
+  THOUGHT_CODEX_TRANSPORT_WORKER_BROTLI_BASE64,
+  THOUGHT_CODEX_TRANSPORT_WORKER_LOADER,
+  THOUGHT_CODEX_TRANSPORT_WORKER_READABLE_SOURCE,
+  THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
+  THOUGHT_CODEX_TRANSPORT_WORKER_SOURCE,
+  buildThoughtCodexTransportWorkerCommand,
+  type ThoughtCodexTransportWorkerInput,
+} from "./codex-transport-worker";
+export {
   THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION,
   buildThoughtClaudeOperationContract,
   buildThoughtClaudeTask,

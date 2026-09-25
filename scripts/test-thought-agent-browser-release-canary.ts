@@ -5,7 +5,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { thoughtAgentCanaryHandoffTransport } from "./thought-agent-canary-endpoints";
+import {
+  inspectThoughtCodexFixedWorkerHandoff,
+  thoughtAgentCanaryHandoffTransport,
+} from "./thought-agent-canary-endpoints";
 
 import {
   THOUGHT_AGENT_HTTP_USER_AGENT,
@@ -582,7 +585,10 @@ try {
     pattern.test(handoff) === matches, `browser handoff ${matches ? "must match" : "must not match"} ${pattern}`,
   );
   if (adapterId === "codex") {
-    assertHandoff(/visible launch handoff is an editable bootstrap, not creative authority/);
+    assertHandoff(/^THOUGHT Codex: fixed worker\./);
+    assertHandoff(/Execute exact verified bytes; no edit\/reimplementation\/install\/files\/replacement\/manual HTTP/);
+    assertHandoff(/Wait OK:start\+THOUGHT_INPUT_READY\. Only then compose from displayed verified input\./);
+    assertHandoff(/never reclaim\/restart\/manual replay/);
   } else {
     assertHandoff(/^Please complete one THOUGHT run with Claude\./);
     assertHandoff(
@@ -608,18 +614,23 @@ try {
       "Claude handoff RUN_AUTHORITY must match the shared protocol constant",
     );
   }
-  assertHandoff(/Use only request\.outputContract\.release from this \/start response[.:]/);
   if (adapterId === "codex") {
-    assertHandoff(/Ignore release values from chat or any other source\./);
+    const fixedWorker = inspectThoughtCodexFixedWorkerHandoff(handoff);
+    assert.deepEqual(fixedWorker.config.r, [
+      created.release.protocolReleaseId,
+      created.release.manifestKeccak256,
+    ]);
+    assert.equal(fixedWorker.config.w, created.resultContract.workProfile);
   } else {
+    assertHandoff(/Use only request\.outputContract\.release from this \/start response[.:]/);
     assertHandoff(/The \/start response is the sole source for release fields\./);
+    assert.ok(!handoff.includes(created.release.protocolReleaseId));
+    assert.ok(!handoff.includes(created.release.manifestKeccak256));
   }
   assertHandoff(/<protocol_release_id> = /, false);
   assertHandoff(/<manifest_hash> = /, false);
-  assert.ok(!handoff.includes(created.release.protocolReleaseId));
-  assert.ok(!handoff.includes(created.release.manifestKeccak256));
   if (adapterId === "codex") {
-    assertHandoff(/A successful \/start opens the prompt; never call it sealed\./);
+    assertHandoff(/Only then compose from displayed verified input\./);
   } else {
     assertHandoff(/The creative prompt is not included\./);
     assertHandoff(/Retrieve it only from a successful \/start response/);
@@ -648,13 +659,19 @@ try {
 
   // Exercise the bytes delivered by the UI, not just independently rebuilt data.
   assertHandoff(/<[^>]+>/, false);
-  const claimBody = JSON.parse(capsuleValue(handoff, "claim_body"));
-  const readyBody = JSON.parse(capsuleValue(handoff, "ready_body"));
+  const claimBody = adapterId === "codex"
+    ? operation.claim
+    : JSON.parse(capsuleValue(handoff, "claim_body"));
+  const readyBody = adapterId === "codex"
+    ? operation.ready
+    : JSON.parse(capsuleValue(handoff, "ready_body"));
   assert.deepEqual(claimBody, operation.claim);
   assert.deepEqual(readyBody, operation.ready);
-  assertHandoff(/Claim header: Authorization: Bearer LAUNCH_CREDENTIAL/);
-  assertHandoff(/Remaining headers: Authorization: Bearer BRIDGE_CREDENTIAL/);
-  assert.ok(handoff.includes(`User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}`));
+  if (adapterId === "claude") {
+    assertHandoff(/Claim header: Authorization: Bearer LAUNCH_CREDENTIAL/);
+    assertHandoff(/Remaining headers: Authorization: Bearer BRIDGE_CREDENTIAL/);
+    assert.ok(handoff.includes(`User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}`));
+  }
 
   // Use this existing fresh run: a nonexistent fixture's 404 proves no auth boundary.
   const expectTokenRejection = async (url: string, body: unknown, token?: string) => {
@@ -770,7 +787,7 @@ try {
   assert.notEqual(started.request?.spec?.sha256, started.request?.instructions?.sha256);
   assert.equal(
     started.request?.outputContract?.agentLine?.workProfile,
-    capsuleValue(handoff, "work_profile"),
+    adapterId === "codex" ? operation.workProfile : capsuleValue(handoff, "work_profile"),
   );
   assert.deepEqual(
     started.request?.outputContract?.release,

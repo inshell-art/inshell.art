@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "1f041dd32acca073aeb88b10f77f2b09816b71f11f1b3f2abd13eede57a6c754",
+  "sourceTreeSha256": "3d18fd6e953371a2d4961936fe3773f0257f7f700cf295c6efe9bc60402594d9",
   "groups": [
     {
       "id": "public-docs",
@@ -595,7 +595,7 @@
       "title": "Documentation gates",
       "owner": "inshell.art repository automation",
       "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
-      "groupSha256": "584c52360867cd5702524c457737f39b3c6bf1fa666260dd1b0bd663774c7458",
+      "groupSha256": "1a8e97b9accba33cc63d166642a4b9594d3c44d6ea9f65de31ca3161011f6784",
       "files": [
         {
           "path": ".github/workflows/deploy-pages.yml",
@@ -624,8 +624,8 @@
         },
         {
           "path": "package.json",
-          "byteLength": 13360,
-          "sha256": "91d65c1d82642a426bed6b33619b43a4a7bcf30806c1071ee00d1d406485a537"
+          "byteLength": 13407,
+          "sha256": "798c2a114882401b517e854d9109c285bf75c4c8965c6baf1bb61a1a5f4954e4"
         },
         {
           "path": "scripts/check-dependency-security.mjs",
@@ -708,7 +708,7 @@
       "title": "Shared product runtime",
       "owner": "inshell.art shared App infrastructure",
       "reason": "Shared Ethereum, surface, utility, and Agent-protocol code used by public routes.",
-      "groupSha256": "826cd85168c1df1aa1493dea22b93bb16aebe6dabeb2bd3a7fe0cc8dc9982311",
+      "groupSha256": "d1d2e44049ac4f6b82e45e03bb3a2ad4cfae9ecacc584acf975464f9dadd927f",
       "files": [
         {
           "path": "packages/ethereum/src/abi.ts",
@@ -807,8 +807,13 @@
         },
         {
           "path": "packages/thought-agent-protocol/src/codex-client.ts",
-          "byteLength": 29279,
-          "sha256": "927c8e9fc12df69786913ecabd35c376cbeff171463212e41a60a89f7df68e88"
+          "byteLength": 25235,
+          "sha256": "6f1a460f3088f074aea40fd805ecbef561bbaa5f51d614f2a2c628cbdabdaf5c"
+        },
+        {
+          "path": "packages/thought-agent-protocol/src/codex-transport-worker.ts",
+          "byteLength": 34149,
+          "sha256": "0d101577e6007b425a125fa34c55abc76a0204d0d87d5a95876e5cde7328b60e"
         },
         {
           "path": "packages/thought-agent-protocol/src/creative-brief.generated.ts",
@@ -827,8 +832,8 @@
         },
         {
           "path": "packages/thought-agent-protocol/src/index.ts",
-          "byteLength": 28185,
-          "sha256": "c4ff5dc78e0cdeff21d37b91bac108eeaee1b77b7365b32a9e67b8ac05c42f75"
+          "byteLength": 28534,
+          "sha256": "4572c59b1603e627355b5a279fec0050753b857df4e9cc50cf1f18ebcaf5174c"
         },
         {
           "path": "packages/thought-agent-protocol/src/release.generated.ts",

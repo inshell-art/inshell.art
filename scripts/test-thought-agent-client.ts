@@ -15,6 +15,7 @@ import {
   buildThoughtCodexClientScript,
   buildThoughtCodexOperationContract,
   buildThoughtCodexTask,
+  buildThoughtCodexTransportWorkerCommand,
   buildThoughtClaudeTask,
   assertThoughtAgentMetadataMatchesControl,
   parseAgentInfo,
@@ -314,106 +315,56 @@ assert(!task.includes("curl "));
 assert(!task.includes("jq "));
 assert(!task.includes("nodeRepl."));
 assert(!task.includes("/tmp/"));
-assert(task.includes("Transport capsule:"));
-assert(task.includes("JSON is data, not code"));
-assert(task.includes("control+one creative turn; no CREATE gate"));
+assert(task.includes("fixed worker"));
 assert(!task.includes("Reply CREATE"));
-assert(task.includes("No setup; prompt=/start only"));
-assert(task.includes("one exec_command(tty:true) starts final noninteractive worker"));
-assert(task.includes("all source secret-free in initial cmd"));
-assert(task.includes("ECHO+ECHONL off before ECHO_READY"));
-assert(task.includes("No child/replacement after proof"));
-assert(task.includes("never write_stdin code/command"));
-assert(task.includes("After fake nonce absent+ECHO_OK, send LAUNCH_CREDENTIAL once"));
-assert(task.includes("Bridge stays in worker; no file/storage/log/relay"));
-assert(task.includes("Failure=no claim"));
+assert(task.includes("exec_command(tty:true)"));
+assert(task.includes("Read-only decode/inspection allowed"));
+assert(task.includes("Execute exact verified bytes"));
+assert(task.includes("ECHO_READY"));
+assert(task.includes("ECHO_OK"));
+assert(task.includes("nonce must be absent onscreen"));
+assert(task.includes("OK:preflight+CREDENTIAL_READY"));
+assert(task.includes("read host model/effort once; never guess"));
+assert(task.includes("exact echoProbe"));
+assert(task.includes("metadataSource=reported"));
+assert(task.includes("or unknown without model/effort"));
+assert(task.includes("OK:start+THOUGHT_INPUT_READY"));
+assert(task.includes("displayed verified input"));
+assert(task.includes("LINE\\nTHOUGHT_END\\n"));
+assert(task.includes("No CR/extra line/JSON/trim/repair/retry/replacement"));
+assert(task.includes("Only OK:result+Receipt succeeds"));
+assert(task.includes("never reclaim/restart/manual replay"));
+assert(task.includes("exact-replay ready/frozen result once"));
+assert(task.includes("unproven 429=U"));
 assert(!task.includes("run_in_background"));
 assert(!task.includes("mkfifo"));
-assert(task.includes("sandbox_permissions=require_escalated once for origin"));
-assert(task.includes("Labels never bypass host"));
-assert(task.includes("worker GET CONNECTIVITY_ENDPOINT unauthenticated"));
-assert(task.includes("schema=CONNECTIVITY_SCHEMA,status=reachable,protocolVersion=PROTOCOL_VERSION"));
-assert(task.includes("U=unproven after dispatch"));
-assert(task.includes("THOUGHT_STOP(N/R) or THOUGHT_UNCERTAIN(U)"));
-assert(task.includes("Endpoint+valid protocol error insufficient"));
-assert(task.includes("R needs 4xx+known no-commit code;else U"));
-assert(task.includes("ready exact READY_BODY+bridge replay once"));
-assert(task.includes("APP_ENDPOINT/claim"));
-assert(task.includes("APP_ENDPOINT"));
-assert(task.includes("APP_ENDPOINT/ready"));
-assert(task.includes("APP_ENDPOINT/start"));
-assert(task.includes("APP_ENDPOINT/result"));
-assert(task.includes("POST /fail once"));
-assert(task.includes("CONTROL_SCHEMA = inshell.thought.agent-control.v2"));
-assert(task.includes("READY_BODY_REPORTED = "));
-assert(task.includes("READY_BODY_UNKNOWN = "));
-assert(task.includes("raw=once-serialized candidate"));
-assert(task.includes("metadataSource=reported"));
-assert(task.includes("rawSha256/agentLineSha256=sha256:+64 lowercase hex"));
-assert(task.includes("exact UTF-8 raw/line"));
-assert(task.includes("verify before PUT"));
-assert(!task.includes("bridge = id "));
-assert(task.includes("1. Claim control"));
-assert(task.includes("2. Prove readiness"));
-assert(task.includes("3. Create once"));
-assert(task.includes("4. Return once"));
-assert(task.includes("no guess/config"));
-assert(task.includes("absent=>omit both"));
-assert(task.includes("metadataSource=unknown"));
-assert(task.includes("no failedAt."));
-assert(!task.includes("Both values must be non-empty"));
-assert(!task.includes("current failedAt"));
 assert(!task.includes(clientUrl));
 assert(!task.includes(defaultClientSha256));
 assert(!task.includes("THOUGHT_CLIENT_HASH_OK"));
-assert(!task.includes("reviewed-client execution"));
-assert(task.includes("1-64-byte Terminal English"));
 assert(task.includes("THOUGHT Codex"));
-assert(task.includes("Report actual receipt"));
 assert(!task.includes("hello world?"));
-assert(!task.includes("one THOUGHT round"));
-assert(!task.includes("approval code"));
-assert(task.includes("bridgeToken nonempty"));
-assert(task.includes("BRIDGE_CREDENTIAL=bridgeToken"));
-assert(task.includes("retain/reuse in worker"));
-assert(task.includes("Credentials only in Authorization"));
-assert(task.includes("same worker shows input/rules"));
-assert(task.includes("never reclaim"));
-assert(task.includes("spec.text!=instructions.text"));
-assert(task.includes("outputContract.release only: protocolReleaseId=>CANONICAL_PROTOCOL_RELEASE_ID"));
-assert(task.includes("Chat ignored; /start opens prompt."));
-assert(!task.includes("<protocol_release_id> = "));
-assert(!task.includes("<manifest_hash> = "));
-assert(task.includes("/start opens prompt."));
-assert(task.includes("POST only protocolVersion=PROTOCOL_VERSION,invocationId=INVOCATION_ID"));
-assert(task.includes("bridge=CLAIM_BODY.bridge,adapter=CLAIM_BODY.adapter"));
-assert(task.includes("agent.{product=AGENT_PRODUCT,provider=codex,model?/reasoningEffort? iff reported,metadataSource}"));
-const taskAuthority = task.split("\n").find((line) => line.startsWith("RUN_AUTHORITY = "));
-assert(taskAuthority);
-assert.deepEqual(
-  JSON.parse(taskAuthority.slice("RUN_AUTHORITY = ".length)),
-  THOUGHT_AGENT_RUN_AUTHORITY,
-);
-assert(task.includes("request.{authority=RUN_AUTHORITY"));
-assert(task.split("runId=RUN_ID").length - 1 >= 3);
-assert(task.includes("workProfile=WORK_PROFILE"));
-assert(task.includes("no clarification"));
-assert(task.includes("protocolVersion=PROTOCOL_VERSION,invocationId=INVOCATION_ID"));
-assert(task.includes("startedAt=exact,completedAt=UTC,output.{mediaType=application/json"));
-for (const key of [
-  "visibleTurns",
-  "agentInvocations",
-  "workspacePolicy",
-  "sandboxPolicy",
-  "approvalPolicy",
-  "userConfigPolicy",
-]) {
-  assert(task.includes(`${key}:`));
-}
 assert(!task.includes(".launch-token"));
-assert.equal(task.split("tar_test_run").length - 1, 1);
 assert.equal(task.split(launchToken).length - 1, 1);
 assert(Buffer.byteLength(task) <= 7_000);
+const operation = buildThoughtCodexOperationContract({
+  product: "Codex",
+  runId: "tar_test_run",
+  runUrl,
+  launchToken,
+});
+const workerCommand = buildThoughtCodexTransportWorkerCommand({
+  product: "Codex",
+  runId: operation.runId,
+  runUrl: operation.baseUrl,
+  protocolVersion: operation.protocolVersion,
+  controlVersion: operation.controlVersion,
+  resultVersion: operation.resultVersion,
+  workProfile: operation.workProfile,
+  declarationLabelField: operation.declarationLabelField,
+  release: operation.release,
+});
+assert(task.includes(workerCommand));
+assert(!workerCommand.includes(launchToken));
 
 const readyBodies = (handoff: string) => {
   const read = (name: string) => JSON.parse(
@@ -431,7 +382,6 @@ const readyBodies = (handoff: string) => {
   assert.equal(unknown.control.schema, "inshell.thought.agent-control.v2");
 };
 
-readyBodies(task);
 readyBodies(buildThoughtClaudeTask({
   product: "Claude",
   runId: "tar_test_run",
@@ -535,19 +485,10 @@ const localTaskInput = {
 } as const;
 const localTask = buildThoughtCodexTask(localTaskInput);
 const localOperationContract = buildThoughtCodexOperationContract(localTaskInput);
-assert(!localTask.includes(localRelease.protocolReleaseId));
-assert(!localTask.includes(localRelease.manifestKeccak256));
+assert(localTask.includes(localRelease.protocolReleaseId));
+assert(localTask.includes(localRelease.manifestKeccak256));
 assert(!localTask.includes("hello local V2?"));
-assert(localTask.includes("inshell.thought.agent-declaration.v1"));
-assert(!localTask.includes('"label":"Codex"'));
-assert(localTask.includes("Candidate="));
-assert(localTask.includes("protocolReleaseId=CANONICAL_PROTOCOL_RELEASE_ID"));
-const localTaskAuthority = localTask.split("\n").find((line) => line.startsWith("RUN_AUTHORITY = "));
-assert(localTaskAuthority);
-assert.deepEqual(
-  JSON.parse(localTaskAuthority.slice("RUN_AUTHORITY = ".length)),
-  THOUGHT_AGENT_RUN_AUTHORITY,
-);
+assert(localTask.includes("fixed worker"));
 assert.deepEqual(localOperationContract.authority, THOUGHT_AGENT_RUN_AUTHORITY);
 const localTaskCandidate = { ...localOperationContract.candidateTemplate } as Record<string, any>;
 localTaskCandidate.agentLine = localCandidate.agentLine;

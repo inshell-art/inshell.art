@@ -2,21 +2,14 @@ import { THOUGHT_V2_PROTOCOL_RELEASE } from "./release.generated";
 import { THOUGHT_AGENT_RUN_AUTHORITY } from "./run-authority";
 import { removeTrailingSlashes } from "./run-url";
 import {
-  buildThoughtHandoffHttpInstructions,
-  THOUGHT_HANDOFF_FAIL_RESPONSE_CHECK,
-  THOUGHT_HANDOFF_INPUT_HASH_CONVENTION,
-  buildThoughtCodexPrivateContinuationInstructions,
-  THOUGHT_HANDOFF_READY_RESPONSE_CHECK,
-  THOUGHT_HANDOFF_RESULT_RESPONSE_CHECK,
-} from "./handoff-http";
+  buildThoughtCodexTransportWorkerCommand,
+} from "./codex-transport-worker";
 
 const THOUGHT_AGENT_PROTOCOL_VERSION = THOUGHT_V2_PROTOCOL_RELEASE.agentRunId;
 const THOUGHT_AGENT_RESULT_VERSION =
   THOUGHT_V2_PROTOCOL_RELEASE.identifiers.agentResult;
 const THOUGHT_AGENT_CONTROL_VERSION =
   "inshell.thought.agent-control.v2" as const;
-const THOUGHT_AGENT_CONNECTIVITY_SCHEMA =
-  "inshell.thought.agent-connectivity.v1" as const;
 const THOUGHT_AGENT_LINE_CONTRACT = {
   workProfile: THOUGHT_V2_PROTOCOL_RELEASE.identifiers.workProfile,
   minUtf8Bytes: 1,
@@ -68,12 +61,12 @@ export function buildThoughtCodexOperationContract(input: ThoughtCodexTaskInput)
   };
   const bridge = {
     bridgeId: "inshell-thought-agent-direct",
-    bridgeVersion: "0.0.3+direct",
+    bridgeVersion: "0.0.4+fixed-worker",
     platform: "codex-direct-http",
   } as const;
   const adapter = {
     adapterId: "codex",
-    adapterVersion: "direct-http",
+    adapterVersion: "fixed-worker-v1",
   } as const;
   const claim = {
     protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
@@ -144,67 +137,27 @@ export function buildThoughtCodexOperationContract(input: ThoughtCodexTaskInput)
 
 export function buildThoughtCodexTask(input: ThoughtCodexTaskInput) {
   const contract = buildThoughtCodexOperationContract(input);
-  const endpointTemplate = contract.baseUrl.replaceAll(contract.runId, "RUN_ID");
-  const connectivityEndpoint = new URL(
-    "/api/thought-agent/v2/connectivity",
-    new URL(contract.baseUrl).origin,
-  ).toString();
-  const networkRule = "Network: use grant; else exec_command sandbox_permissions=require_escalated once for origin if possible; else stop. Labels never bypass host.";
-  const candidateShape = `schema=RESULT_SCHEMA;release.{protocolReleaseId=CANONICAL_PROTOCOL_RELEASE_ID,manifestKeccak256=CANONICAL_MANIFEST_HASH};agentLine=ONE_EXACT_LINE;declaration.{schema=inshell.thought.agent-declaration.v1,status=declared-unverified,${contract.declarationLabelField}=AGENT_PRODUCT,declaredOneCreativeResult=true}`;
-  const claimResponseCheck = "Claim: runId=RUN_ID,state=claimed,bridgeToken nonempty; request.{authority=RUN_AUTHORITY,intent=prepare-thought-creation,controlPolicy.mode=bounded-preflight,evidenceContract.schema=CONTROL_SCHEMA}; no control/request.control/bridge/adapter/creative input";
-  const startResponseCheck = `Start: runId=RUN_ID,state=running; request.{authority=RUN_AUTHORITY,intent=generate-thought-candidate,spec.{id,text,sha256,contractSpecId,contractSpecHash},instructions.{id,artifactId,text,sha256},promptLine.{text,sha256},agentInput.{text,sha256},outputContract.{release,agentLine.workProfile=WORK_PROFILE}}; spec.id=spec.contractSpecId; contractSpecHash=0x+64 hex; ${THOUGHT_HANDOFF_INPUT_HASH_CONVENTION} spec.text!=instructions.text`;
-  const recovery = [
-    "- Recovery: N=not sent:fix/send once;R=verified App no-commit:obey/no repeat;U=unproven after dispatch. Endpoint+valid protocol error insufficient;R needs 4xx+known no-commit code;else U. Pre-send permission=N. PROTOCOL_UNSUPPORTED/TOKEN_INVALID/RUN_EXPIRED/RUN_ALREADY_CLAIMED=no-commit. 429 once only with Retry-After+proof no commit;else U",
-    "- U: claim stop/no reclaim; ready exact READY_BODY+bridge replay once; start stop/no restart/generate/input; result frozen replay once(same invocation/key/raw/hashes; no reserialize/repair/art change/regeneration); fail stop/no repeat/success overwrite.",
-  ];
+  const command = buildThoughtCodexTransportWorkerCommand({
+    product: input.product,
+    runId: contract.runId,
+    runUrl: contract.baseUrl,
+    protocolVersion: contract.protocolVersion,
+    controlVersion: contract.controlVersion,
+    resultVersion: contract.resultVersion,
+    workProfile: contract.workProfile,
+    declarationLabelField: contract.declarationLabelField,
+    release: contract.release,
+  });
 
   return [
-    `THOUGHT ${input.product}: control+one creative turn; no CREATE gate`,
-    "",
-    "Transport capsule:",
-    `RUN_ID = ${contract.runId}`,
-    `APP_ENDPOINT = ${endpointTemplate}`,
-    `CONNECTIVITY_ENDPOINT = ${connectivityEndpoint}`,
-    `CONNECTIVITY_SCHEMA = ${THOUGHT_AGENT_CONNECTIVITY_SCHEMA}`,
-    `LAUNCH_CREDENTIAL = ${contract.launchToken}`,
-    `INVOCATION_ID = ${contract.invocationId}`,
-    `RESULT_SCHEMA = ${contract.resultVersion}`,
-    `WORK_PROFILE = ${contract.workProfile}`,
-    `AGENT_PRODUCT = ${input.product}`,
-    ...buildThoughtHandoffHttpInstructions(contract),
-    ...buildThoughtCodexPrivateContinuationInstructions(),
-    `RUN_AUTHORITY = ${JSON.stringify(contract.authority)}`,
-    "",
-    `- ${networkRule} No other endpoints`,
-    "- No setup; prompt=/start only",
-    "",
-    "1. Claim control",
-    "POST CLAIM_BODY to APP_ENDPOINT/claim",
-    claimResponseCheck,
-    "BRIDGE_CREDENTIAL=bridgeToken; retain/reuse in worker; never reclaim",
-    "",
-    "2. Prove readiness",
-    "Model: read host once,no guess/config. Exact nonempty+optional valid effort=>metadataSource=reported/READY_BODY_REPORTED; absent=>omit both,metadataSource=unknown/READY_BODY_UNKNOWN; malformed/contradictory=>POST /fail once {protocolVersion=PROTOCOL_VERSION,error.{code=AGENT_START_FAILED,message=Model metadata malformed}},no failedAt.",
-    "POST selected READY_BODY to APP_ENDPOINT/ready; require runId=RUN_ID,state=ready,stage=control-verified; no creatorAction.",
-    THOUGHT_HANDOFF_READY_RESPONSE_CHECK,
-    "",
-    "3. Create once",
-    "POST only protocolVersion=PROTOCOL_VERSION,invocationId=INVOCATION_ID,UTC startedAt to APP_ENDPOINT/start.",
-    startResponseCheck,
-    "request.outputContract.release only: protocolReleaseId=>CANONICAL_PROTOCOL_RELEASE_ID; manifestKeccak256=>CANONICAL_MANIFEST_HASH; each 0x+64 hex. Chat ignored; /start opens prompt.",
-    `Candidate=${candidateShape}`,
-    "",
-    "4. Return once",
-    "PUT APP_ENDPOINT/result; Idempotency-Key=INVOCATION_ID; {protocolVersion=PROTOCOL_VERSION,invocationId=INVOCATION_ID,bridge=CLAIM_BODY.bridge,adapter=CLAIM_BODY.adapter,agent.{product=AGENT_PRODUCT,provider=codex,model?/reasoningEffort? iff reported,metadataSource},execution,startedAt=exact,completedAt=UTC,output.{mediaType=application/json,raw=once-serialized candidate,rawSha256,agentLine,agentLineSha256}}. rawSha256/agentLineSha256=sha256:+64 lowercase hex of exact UTF-8 raw/line; verify before PUT.",
-    `Execution={visibleTurns:${contract.execution.visibleTurns},agentInvocations:${contract.execution.agentInvocations},workspacePolicy:${contract.execution.workspacePolicy},sandboxPolicy:${contract.execution.sandboxPolicy},approvalPolicy:${contract.execution.approvalPolicy},userConfigPolicy:${contract.execution.userConfigPolicy}}`,
-    "Require runId=RUN_ID,state=returned;no conflict.",
-    THOUGHT_HANDOFF_RESULT_RESPONSE_CHECK,
-    "Receipt binds result, not transcript purity",
-    "",
-    ...recovery,
-    THOUGHT_HANDOFF_FAIL_RESPONSE_CHECK,
-    "",
-    "Report actual receipt; return to THOUGHT",
+    `THOUGHT ${input.product}: fixed worker.`,
+    `Credential=${contract.launchToken}`,
+    "Run once with exec_command(tty:true); grant or one origin escalation. Read-only decode/inspection allowed. Execute exact verified bytes; no edit/reimplementation/install/files/replacement/manual HTTP:",
+    command,
+    "ECHO_READY: send NONCE:+16-128 safe chars. ECHO_OK: nonce must be absent onscreen; if seen, kill before credential.",
+    "After OK:preflight+CREDENTIAL_READY read host model/effort once; never guess. Send JSON: credential, exact echoProbe, metadataSource=reported+model(+valid effort), or unknown without model/effort.",
+    "Wait OK:start+THOUGHT_INPUT_READY. Only then compose from displayed verified input. One write: `LINE\\nTHOUGHT_END\\n`. No CR/extra line/JSON/trim/repair/retry/replacement.",
+    "Only OK:result+Receipt succeeds. Else report safe marker; never reclaim/restart/manual replay. Worker may exact-replay ready/frozen result once after transport uncertainty; unproven 429=U.",
   ].join("\n");
 }
 

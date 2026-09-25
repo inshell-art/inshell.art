@@ -5,11 +5,14 @@ import {
   THOUGHT_AGENT_DECLARATION_VERSION,
   THOUGHT_AGENT_PROTOCOL_VERSION,
   THOUGHT_AGENT_RESULT_VERSION,
+  THOUGHT_CODEX_TRANSPORT_WORKER_READABLE_SOURCE,
+  THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
   THOUGHT_SHA256_PREFIX,
   THOUGHT_HANDOFF_INPUT_HASH_CONVENTION,
   THOUGHT_V2_PROTOCOL_RELEASE,
   buildThoughtAgentInput,
   buildThoughtAgentReceipt,
+  buildThoughtCodexOperationContract,
   buildThoughtCodexTask,
   buildThoughtClaudeTask,
   canTransitionThoughtAgentState,
@@ -253,12 +256,23 @@ describe("THOUGHT Agent V2 protocol helpers", () => {
         "https://preview.inshell.art/api/thought-agent/v2/runs/tar_input_hash_instructions",
       launchToken: "fixture-launch-token",
     };
-    const tasks = [
-      buildThoughtCodexTask(input),
+    const codexTask = buildThoughtCodexTask(input);
+    const claudeTasks = [
       buildThoughtClaudeTask({ ...input, surface: "code" }),
       buildThoughtClaudeTask({ ...input, surface: "cowork" }),
     ];
-    for (const task of tasks) {
+    expect(codexTask).toContain("THOUGHT Agent: fixed worker.");
+    expect(codexTask).toContain(THOUGHT_CODEX_TRANSPORT_WORKER_SHA256);
+    expect(THOUGHT_CODEX_TRANSPORT_WORKER_READABLE_SOURCE).toContain(
+      "spec?.id !== spec?.contractSpecId",
+    );
+    expect(THOUGHT_CODEX_TRANSPORT_WORKER_READABLE_SOURCE).toContain(
+      "prompt?.text !== agentInput?.text",
+    );
+    expect(THOUGHT_CODEX_TRANSPORT_WORKER_READABLE_SOURCE).toContain(
+      "prompt?.sha256 !== agentInput?.sha256",
+    );
+    for (const task of claudeTasks) {
       expect(task.split(THOUGHT_HANDOFF_INPUT_HASH_CONVENTION)).toHaveLength(2);
       expect(task).toMatch(/contractSpecHash=(?:0x\+64 hex|32-byte 0x hex)/);
     }
@@ -360,12 +374,21 @@ describe("THOUGHT Agent V2 protocol helpers", () => {
       runUrl: "http://127.0.0.1:5173/api/thought-agent/v2/runs/tar_protocol_test",
       launchToken: "launch-token",
     });
+    const operation = buildThoughtCodexOperationContract({
+      product: "Codex",
+      runId: "tar_protocol_test",
+      runUrl: "http://127.0.0.1:5173/api/thought-agent/v2/runs/tar_protocol_test",
+      launchToken: "launch-token",
+    });
 
-    expect(task).toContain(
-      "validate/hash/PUT one 1-64-byte Terminal English line",
+    expect(task).toContain("THOUGHT Codex: fixed worker.");
+    expect(task).toContain(THOUGHT_CODEX_TRANSPORT_WORKER_SHA256);
+    expect(task).toContain("One write: `LINE\\nTHOUGHT_END\\n`");
+    expect(operation.workProfile).toBe(
+      THOUGHT_V2_PROTOCOL_RELEASE.identifiers.workProfile,
     );
-    expect(task).toContain(
-      `WORK_PROFILE = ${THOUGHT_V2_PROTOCOL_RELEASE.identifiers.workProfile}`,
+    expect(THOUGHT_CODEX_TRANSPORT_WORKER_READABLE_SOURCE).toContain(
+      "exact one 1-64-byte Terminal English line followed by THOUGHT_END",
     );
     expect(task).not.toContain("162 display units");
     expect(task).not.toContain("approval code");

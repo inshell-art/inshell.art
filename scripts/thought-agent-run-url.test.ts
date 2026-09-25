@@ -103,9 +103,23 @@ describe("THOUGHT Agent canary uses the delivered endpoint", () => {
   const publicRunUrl = `${expectedApiOrigin}/api/thought-agent/v2/runs/${runId}`;
   const launchToken = "canary-fixture-launch-credential";
   const taskInput = { ...buildInput(publicRunUrl), launchToken };
+  const mutateCodexConfig = (
+    handoff: string,
+    mutate: (config: Record<string, unknown>) => void,
+  ) => {
+    const lines = handoff.split("\n");
+    const commandIndex = lines.findIndex((line) => line.startsWith("node -e "));
+    assert.notEqual(commandIndex, -1);
+    const match = lines[commandIndex].match(/^(node -e '[^']*' -- '[^']*' '[^']*' )'([^']*)'$/);
+    assert.ok(match);
+    const config = JSON.parse(match[2]) as Record<string, unknown>;
+    mutate(config);
+    lines[commandIndex] = `${match[1]}'${JSON.stringify(config)}'`;
+    return lines.join("\n");
+  };
   const agents = [
-    { name: "Codex", explicitEndpoints: false, handoff: buildThoughtCodexTask(taskInput) },
-    { name: "Claude", explicitEndpoints: true, handoff: buildThoughtClaudeTask({ ...taskInput, surface: "code" }) },
+    { name: "Codex", fixedWorker: true, explicitEndpoints: false, handoff: buildThoughtCodexTask(taskInput) },
+    { name: "Claude", fixedWorker: false, explicitEndpoints: true, handoff: buildThoughtClaudeTask({ ...taskInput, surface: "code" }) },
   ];
   const transport = (handoff: string, explicitEndpoints: boolean) => thoughtAgentCanaryHandoffTransport({
     handoff, explicitEndpoints, runId, launchToken, expectedApiOrigin,
@@ -144,18 +158,30 @@ describe("THOUGHT Agent canary uses the delivered endpoint", () => {
         `/api/thought-agent/v2/runs/RUN_ID`,
         `not-a-url-${launchToken}`,
       ]) {
-        rejectsPrivately(() => transport(agent.handoff.replace(/^APP_ENDPOINT = .+$/m, `APP_ENDPOINT = ${endpoint}`), agent.explicitEndpoints));
+        const changed = agent.fixedWorker
+          ? mutateCodexConfig(agent.handoff, (config) => { config.u = endpoint.replaceAll("RUN_ID", runId); })
+          : agent.handoff.replace(/^APP_ENDPOINT = .+$/m, `APP_ENDPOINT = ${endpoint}`);
+        rejectsPrivately(() => transport(changed, agent.explicitEndpoints));
       }
     });
 
     test(`${agent.name} rejects missing, duplicated or mismatched capsule bindings without exposing credentials`, () => {
-      for (const handoff of [
-        agent.handoff.replace(/^APP_ENDPOINT = .+\n/m, ""),
-        `${agent.handoff}\nAPP_ENDPOINT = ${publicRunUrl}`,
-        agent.handoff.replace(/^RUN_ID = .+$/m, "RUN_ID = tar_other_run"),
-        agent.handoff.replace(/^LAUNCH_CREDENTIAL = .+$/m, "LAUNCH_CREDENTIAL = different-fixture-credential"),
-        `${agent.handoff}\nLAUNCH_CREDENTIAL = ${launchToken}`,
-      ]) rejectsPrivately(() => transport(handoff, agent.explicitEndpoints));
+      const malformed = agent.fixedWorker
+        ? [
+            mutateCodexConfig(agent.handoff, (config) => { delete config.u; }),
+            `${agent.handoff}\nAPP_ENDPOINT = ${publicRunUrl}`,
+            mutateCodexConfig(agent.handoff, (config) => { config.i = "tar_other_run"; }),
+            agent.handoff.replace(/^Credential=.+$/m, "Credential=different-fixture-credential"),
+            `${agent.handoff}\nLAUNCH_CREDENTIAL = ${launchToken}`,
+          ]
+        : [
+            agent.handoff.replace(/^APP_ENDPOINT = .+\n/m, ""),
+            `${agent.handoff}\nAPP_ENDPOINT = ${publicRunUrl}`,
+            agent.handoff.replace(/^RUN_ID = .+$/m, "RUN_ID = tar_other_run"),
+            agent.handoff.replace(/^LAUNCH_CREDENTIAL = .+$/m, "LAUNCH_CREDENTIAL = different-fixture-credential"),
+            `${agent.handoff}\nLAUNCH_CREDENTIAL = ${launchToken}`,
+          ];
+      for (const handoff of malformed) rejectsPrivately(() => transport(handoff, agent.explicitEndpoints));
     });
 
     test(`${agent.name} rejects divergent explicit operation endpoints`, () => {
