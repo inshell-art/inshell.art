@@ -523,7 +523,7 @@ test("nonobject success bodies stop with stage-specific schema diagnostics", asy
       }
       const stage = operation === "connectivity" ? "preflight" : operation;
       const certainty = operation === "connectivity" ? "THOUGHT_STOP(N)" : "THOUGHT_UNCERTAIN(U)";
-      await worker.waitFor(new RegExp(`stage=${stage},class=schema ${certainty.replace(/[()]/g, "\\$&")}`));
+      await worker.waitFor(`stage=${stage},class=schema ${certainty}`);
       await worker.exited;
       assert.equal(endpoint.requests.filter((entry) => entry.operation === "result").length, operation === "result" ? 1 : 0);
     } finally {
