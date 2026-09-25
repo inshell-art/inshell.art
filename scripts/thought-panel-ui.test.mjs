@@ -2330,6 +2330,17 @@ test("local V2 Agent API accepts and binds the neutral chooser run", () => {
   );
 });
 
+test("local Codex bootstrap retrieval is nonmutating before credential exchange", () => {
+  const bootstrapStart = thoughtViteConfig.indexOf('if (action === "bootstrap" && req.method === "GET")');
+  const expiryStart = thoughtViteConfig.indexOf("if (expireDevAgentRun(run)) persistRuns();", bootstrapStart);
+  assert.ok(bootstrapStart >= 0, "the local API must expose the exact Codex bootstrap route");
+  assert.ok(expiryStart > bootstrapStart, "bootstrap retrieval must return before expiry persistence");
+  const bootstrapBranch = thoughtViteConfig.slice(bootstrapStart, expiryStart);
+  assert.doesNotMatch(bootstrapBranch, /persistRuns|runs\.set|run\.[A-Za-z]+\s*=/);
+  assert.match(bootstrapBranch, /THOUGHT_CODEX_TRANSPORT_WORKER_SOURCE/);
+  assert.match(bootstrapBranch, /buildThoughtCodexTransportWorkerConfigText/);
+});
+
 test("mobile moves Agent creation to desktop and keeps Studio Preview offchain", () => {
   assert.match(
     thoughtMain,
@@ -2419,7 +2430,7 @@ test("Agent retry is a Console-only control gated by terminal evidence", () => {
   assert.match(ruleBody(".thought-dock-status-screen__action"), /font:\s*inherit/);
 });
 
-test("Agent launch uses direct data-only protocol calls without a client binding", () => {
+test("Agent launch uses digest-bound direct protocol calls without a client binding", () => {
   assert.doesNotMatch(thoughtMain, /resolveThoughtAgentClientBinding/);
   assert.doesNotMatch(
     thoughtMain,
@@ -2428,8 +2439,8 @@ test("Agent launch uses direct data-only protocol calls without a client binding
   );
   assert.match(
     thoughtMain,
-    /const buildTask = adapterId === "claude"[\s\S]*?buildThoughtClaudeTask[\s\S]*?: buildThoughtCodexTask;[\s\S]*?return buildTask\(\{[\s\S]*?runUrl: absoluteStatusUrl,[\s\S]*?launchToken: run\.launchToken/,
-    "the sealed Agent task must bind direct calls to the exact run URL and one-time token",
+    /const common = \{[\s\S]*?runUrl: absoluteStatusUrl,[\s\S]*?launchToken: run\.launchToken[\s\S]*?if \(adapterId === "claude"\)[\s\S]*?return buildThoughtClaudeTask[\s\S]*?if \(!run\.codexBootstrap\)[\s\S]*?return buildThoughtCodexTask\(\{[\s\S]*?bootstrap: run\.codexBootstrap/,
+    "the sealed Agent task must bind the exact run URL, one-time token, and Codex bootstrap digest",
   );
   assert.match(thoughtMain, /const thoughtDockLaunchUrl = \(run: AgentDemoRun\) =>\s*run\.surface === "codex" \? run\.codexUrl : run\.claudeUrl/);
 });

@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from "@jest/globals";
+import { Buffer } from "node:buffer";
 import { webcrypto, randomFillSync } from "node:crypto";
 import { onRequestPost as onCreateRun } from "../../../functions/api/thought-agent/v1/runs";
 import { onRequestGet as onGetCodexClient } from "../../../functions/api/thought-agent/v2/client";
 import { onRequestPost as onCreateRunV2 } from "../../../functions/api/thought-agent/v2/runs";
 import { onRequestGet as onGetRunV2 } from "../../../functions/api/thought-agent/v2/runs/[runId]";
+import { onRequestGet as onGetCodexBootstrapV2 } from "../../../functions/api/thought-agent/v2/runs/[runId]/bootstrap";
 import { onRequestPost as onClaimRunV2 } from "../../../functions/api/thought-agent/v2/runs/[runId]/claim";
 import { onRequestPost as onFailRunV2 } from "../../../functions/api/thought-agent/v2/runs/[runId]/fail";
 import { onRequestPost as onReadyRunV2 } from "../../../functions/api/thought-agent/v2/runs/[runId]/ready";
@@ -23,12 +25,16 @@ import {
   THOUGHT_AGENT_RUN_AUTHORITY,
   THOUGHT_AGENT_RESULT_VERSION,
   THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
+  THOUGHT_CODEX_BOOTSTRAP_MAX_BYTES,
+  THOUGHT_CODEX_BOOTSTRAP_SCHEMA,
   THOUGHT_CODEX_TRANSPORT_WORKER_READABLE_SOURCE,
   THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
+  THOUGHT_CODEX_TRANSPORT_WORKER_SOURCE,
   THOUGHT_V2_PROTOCOL_RELEASE,
   parseThoughtAgentControlEvidence,
   sha256Hex,
   buildThoughtCodexOperationContract,
+  buildThoughtCodexTransportWorkerConfigText,
   buildThoughtCodexTask,
   buildThoughtClaudeTask,
   type ThoughtAgentControlEvidence,
@@ -551,7 +557,19 @@ describe("THOUGHT Agent Pages API", () => {
     const launchToken = launch.searchParams.get("token")!;
     const runUrl = `https://thought.inshell.art/api/thought-agent/v2/runs/${runId}`;
     const buildTask = adapterId === "codex" ? buildThoughtCodexTask : buildThoughtClaudeTask;
-    const handoff = buildTask({ product: adapterId === "codex" ? "Codex" : "Claude", runId, runUrl, launchToken });
+    const handoff = adapterId === "codex"
+      ? buildThoughtCodexTask({
+          product: "Codex",
+          runId,
+          runUrl,
+          launchToken,
+          bootstrap: {
+            url: `${runUrl}/bootstrap`,
+            workerSha256: THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
+            configSha256: `sha256:${"b".repeat(64)}`,
+          },
+        })
+      : buildThoughtClaudeTask({ product: "Claude", runId, runUrl, launchToken });
     const composer = document.createElement("div");
     composer.innerHTML = "<protocol> = inshell.thought.agent-run.v2";
     expect(composer.textContent).toBe(" = inshell.thought.agent-run.v2");
@@ -856,6 +874,111 @@ describe("THOUGHT Agent Pages API", () => {
     expect(response.status).toBe(201);
     await expect(response.json()).resolves.toMatchObject({
       statusUrl: expect.stringMatching(/^\/api\/thought-agent\/v2\/runs\/tar_/),
+      codexBootstrap: {
+        url: expect.stringMatching(/^\/api\/thought-agent\/v2\/runs\/tar_.+\/bootstrap$/),
+        workerSha256: THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
+        configSha256: expect.stringMatching(/^sha256:[0-9a-f]{64}$/),
+      },
+    });
+  });
+
+  test("serves one exact credential-free Codex worker and run-bound config", async () => {
+    const d1 = createD1Mock();
+    const env = { INSHELL_CHAIN_DATA_DB: d1.db };
+    const response = await onCreateRunV2({
+      request: request(
+        "https://thought.inshell.art/api/thought-agent/v2/runs",
+        {
+          protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+          promptLine: "bind the fetched worker",
+          specId: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
+          requestedAgent: { adapterId: "codex", model: null },
+          client: {
+            surface: "thought-web",
+            appVersion: "test",
+            agentApiOrigin: "https://thought.inshell.art",
+          },
+        },
+        {
+          origin: "http://127.0.0.1:5177",
+          cookie: "inshell_anon_visitor=visitor-bootstrap",
+        },
+      ),
+      env,
+    });
+    expect(response.status).toBe(201);
+    const created = await response.json();
+    const runId = String(created.runId);
+    const runUrl = `https://thought.inshell.art/api/thought-agent/v2/runs/${runId}`;
+    const bootstrapResponse = await onGetCodexBootstrapV2({
+      request: request(`${runUrl}/bootstrap`, null),
+      params: { runId },
+    });
+    expect(bootstrapResponse.status).toBe(200);
+    expect(bootstrapResponse.headers.get("cache-control")).toBe("no-store");
+    expect(bootstrapResponse.headers.get("x-content-type-options")).toBe("nosniff");
+    const bootstrapText = await bootstrapResponse.text();
+    expect(Buffer.byteLength(bootstrapText)).toBeLessThanOrEqual(THOUGHT_CODEX_BOOTSTRAP_MAX_BYTES);
+    const bootstrap = JSON.parse(bootstrapText);
+    expect(bootstrap).toEqual({
+      schema: THOUGHT_CODEX_BOOTSTRAP_SCHEMA,
+      worker: {
+        mediaType: "application/javascript",
+        sha256: THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
+        source: THOUGHT_CODEX_TRANSPORT_WORKER_SOURCE,
+      },
+      config: {
+        mediaType: "application/json",
+        sha256: created.codexBootstrap.configSha256,
+        text: buildThoughtCodexTransportWorkerConfigText({
+          product: "Codex",
+          runId,
+          runUrl,
+          protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+          controlVersion: THOUGHT_AGENT_CONTROL_VERSION,
+          resultVersion: THOUGHT_AGENT_RESULT_VERSION,
+          workProfile: THOUGHT_V2_PROTOCOL_RELEASE.identifiers.workProfile,
+          declarationLabelField: "label",
+          release: THOUGHT_V2_PROTOCOL_RELEASE.release,
+        }),
+      },
+    });
+    expect(bootstrapText).not.toContain(created.browserToken);
+    expect(bootstrapText).not.toContain(new URL(created.launchUri).searchParams.get("token"));
+    expect(bootstrapText).not.toContain("bind the fetched worker");
+  });
+
+  test.each([
+    "https://evil.example",
+    "https://thought.inshell.art/path",
+    "ftp://thought.inshell.art",
+  ])("rejects an unbound Agent API origin: %s", async (agentApiOrigin) => {
+    const d1 = createD1Mock();
+    const env = { INSHELL_CHAIN_DATA_DB: d1.db };
+    const response = await onCreateRunV2({
+      request: request(
+        "https://thought.inshell.art/api/thought-agent/v2/runs",
+        {
+          protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+          promptLine: "do not create this run",
+          specId: THOUGHT_V2_PROTOCOL_RELEASE.spec.evmSpecId,
+          requestedAgent: { adapterId: "codex", model: null },
+          client: {
+            surface: "thought-web",
+            appVersion: "test",
+            agentApiOrigin,
+          },
+        },
+        {
+          origin: "http://127.0.0.1:5177",
+          cookie: "inshell_anon_visitor=visitor-bootstrap-rejected",
+        },
+      ),
+      env,
+    });
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "AGENT_OUTPUT_SCHEMA_INVALID" },
     });
   });
 

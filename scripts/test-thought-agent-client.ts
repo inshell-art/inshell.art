@@ -11,6 +11,7 @@ import {
   THOUGHT_AGENT_PROTOCOL_VERSION,
   THOUGHT_AGENT_RUN_AUTHORITY,
   THOUGHT_AGENT_RESULT_VERSION,
+  THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
   THOUGHT_V2_PROTOCOL_RELEASE,
   buildThoughtCodexClientScript,
   buildThoughtCodexOperationContract,
@@ -303,12 +304,18 @@ assert(address && typeof address === "object");
 const runUrl = `http://127.0.0.1:${address.port}/run`;
 const clientUrl = `http://127.0.0.1:${address.port}/client`;
 const defaultClientSha256 = sha256(buildThoughtCodexClientScript());
+const bootstrap = {
+  url: `${runUrl}/bootstrap`,
+  workerSha256: THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
+  configSha256: `sha256:${"b".repeat(64)}` as const,
+};
 
 const task = buildThoughtCodexTask({
   product: "Codex",
   runId: "tar_test_run",
   runUrl,
   launchToken,
+  bootstrap,
 });
 assert(!task.includes("/bin/zsh"));
 assert(!task.includes("curl "));
@@ -318,8 +325,8 @@ assert(!task.includes("/tmp/"));
 assert(task.includes("fixed worker"));
 assert(!task.includes("Reply CREATE"));
 assert(task.includes("exec_command(tty:true)"));
-assert(task.includes("Read-only decode/inspection allowed"));
-assert(task.includes("Execute exact verified bytes"));
+assert(task.includes("Host network permission is required before start"));
+assert(task.includes("Do not first run it in a restricted sandbox"));
 assert(task.includes("ECHO_READY"));
 assert(task.includes("ECHO_OK"));
 assert(task.includes("nonce must be absent onscreen"));
@@ -352,17 +359,7 @@ const operation = buildThoughtCodexOperationContract({
   runUrl,
   launchToken,
 });
-const workerCommand = buildThoughtCodexTransportWorkerCommand({
-  product: "Codex",
-  runId: operation.runId,
-  runUrl: operation.baseUrl,
-  protocolVersion: operation.protocolVersion,
-  controlVersion: operation.controlVersion,
-  resultVersion: operation.resultVersion,
-  workProfile: operation.workProfile,
-  declarationLabelField: operation.declarationLabelField,
-  release: operation.release,
-});
+const workerCommand = buildThoughtCodexTransportWorkerCommand(bootstrap);
 assert(task.includes(workerCommand));
 assert(!workerCommand.includes(launchToken));
 
@@ -482,11 +479,15 @@ const localTaskInput = {
   launchToken,
   release: localRelease,
   resultContract: localResultContract,
+  bootstrap,
 } as const;
 const localTask = buildThoughtCodexTask(localTaskInput);
 const localOperationContract = buildThoughtCodexOperationContract(localTaskInput);
-assert(localTask.includes(localRelease.protocolReleaseId));
-assert(localTask.includes(localRelease.manifestKeccak256));
+assert(!localTask.includes(localRelease.protocolReleaseId));
+assert(!localTask.includes(localRelease.manifestKeccak256));
+assert(localTask.includes(bootstrap.url));
+assert(localTask.includes(bootstrap.workerSha256));
+assert(localTask.includes(bootstrap.configSha256));
 assert(!localTask.includes("hello local V2?"));
 assert(localTask.includes("fixed worker"));
 assert.deepEqual(localOperationContract.authority, THOUGHT_AGENT_RUN_AUTHORITY);

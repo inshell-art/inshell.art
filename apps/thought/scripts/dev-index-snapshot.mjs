@@ -602,7 +602,7 @@ const CURRENT_SINGLE_RUN_AGENT_CHOOSER_DELTAS = Object.freeze([
   [
     "single-run chooser protocol import",
     "  THOUGHT_AGENT_PROTOCOL_VERSION,\n  THOUGHT_SHA256_PREFIX,",
-    "  THOUGHT_AGENT_PROTOCOL_VERSION,\n  THOUGHT_AGENT_UNBOUND_ADAPTER_ID,\n  THOUGHT_SHA256_PREFIX,",
+    "  THOUGHT_AGENT_PROTOCOL_VERSION,\n  THOUGHT_AGENT_UNBOUND_ADAPTER_ID,\n  THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,\n  THOUGHT_SHA256_PREFIX,",
   ],
   [
     "single-run chooser prepared types",
@@ -761,6 +761,161 @@ const applyCurrentSingleRunAgentChooserDeltas = (source, direction) => {
       label,
       direction === "restore" ? currentValue : previous,
       direction === "restore" ? previous : currentValue,
+    );
+  }
+  return current;
+};
+
+const CURRENT_CODEX_BOOTSTRAP_MAIN_DELTAS = Object.freeze([
+  [
+    "Codex bootstrap type import",
+    "  type ThoughtClaudeSurface,\n  type ThoughtCodexReleaseBinding,",
+    "  type ThoughtClaudeSurface,\n  type ThoughtCodexBootstrapBinding,\n  type ThoughtCodexReleaseBinding,",
+  ],
+  [
+    "Codex bootstrap create response",
+    "  claimExpiresAt?: string;\n  devAutoRun?: boolean;",
+    "  claimExpiresAt?: string;\n  codexBootstrap?: ThoughtCodexBootstrapBinding;\n  devAutoRun?: boolean;",
+  ],
+  [
+    "Codex bootstrap run binding",
+    "  launchToken: string;\n  browserToken: string;",
+    "  launchToken: string;\n  codexBootstrap?: ThoughtCodexBootstrapBinding;\n  browserToken: string;",
+  ],
+  [
+    "Codex bootstrap create gate",
+    snapshotSource(String.raw`  payload.controlContract.mode === "bounded-preflight" &&
+  payload.controlContract.claimCreativeInput === "sealed-absent" &&
+  payload.controlContract.creativeInputEndpoint === "start" &&
+  Boolean(payload.release) &&
+  Boolean(payload.resultContract);
+
+const rejectIncompatibleThoughtAgentRun = async (`),
+    snapshotSource(String.raw`  payload.controlContract.mode === "bounded-preflight" &&
+  payload.controlContract.claimCreativeInput === "sealed-absent" &&
+  payload.controlContract.creativeInputEndpoint === "start" &&
+  payload.codexBootstrap?.workerSha256 === THOUGHT_CODEX_TRANSPORT_WORKER_SHA256 &&
+  /^sha256:[0-9a-f]{64}$/.test(payload.codexBootstrap.configSha256 ?? "") &&
+  typeof payload.codexBootstrap?.url === "string" &&
+  Boolean(payload.release) &&
+  Boolean(payload.resultContract);
+
+const resolveThoughtCodexBootstrap = (
+  payload: ThoughtAgentRunCreateResponse,
+  agentStatusUrl: string,
+): ThoughtCodexBootstrapBinding => {
+  const bootstrap = payload.codexBootstrap;
+  if (!bootstrap) {
+    throw new Error("THOUGHT Agent API returned no Codex bootstrap binding.");
+  }
+  const resolvedStatusUrl = new URL(agentStatusUrl, window.location.href)
+    .toString()
+    .replace(/\/+$/g, "");
+  const resolvedBootstrapUrl = new URL(bootstrap.url, resolvedStatusUrl).toString();
+  if (resolvedBootstrapUrl !== \`\${resolvedStatusUrl}/bootstrap\`) {
+    throw new Error("THOUGHT Agent API returned a Codex bootstrap from another run.");
+  }
+  return {
+    ...bootstrap,
+    url: resolvedBootstrapUrl,
+  };
+};
+
+const rejectIncompatibleThoughtAgentRun = async (`),
+  ],
+  [
+    "Codex bootstrap task builder",
+    snapshotSource(String.raw`  const product = thoughtAgentProductLabel(adapterId);
+  const buildTask = adapterId === "claude"
+    ? buildThoughtClaudeTask
+    : buildThoughtCodexTask;
+  const launchApiOrigin = (() => {`),
+    snapshotSource(String.raw`  const product = thoughtAgentProductLabel(adapterId);
+  const launchApiOrigin = (() => {`),
+  ],
+  [
+    "Codex bootstrap sealed task",
+    snapshotSource(String.raw`  const absoluteStatusUrl = new URL(statusUrl, window.location.href).toString().replace(/\/+$/g, "");
+  return buildTask({
+    product,
+    runId: run.runId,
+    runUrl: absoluteStatusUrl,
+    launchToken: run.launchToken,
+    ...(adapterId === "claude"
+      ? { surface: thoughtClaudeSurface(run.surface) }
+      : {}),
+    // A V2 run must carry its exact release and result contract from creation.
+    // The create-response gate rejects older services before any Agent opens.
+    release: run.release!,
+    resultContract: run.resultContract!,
+  });`),
+    snapshotSource(String.raw`  const absoluteStatusUrl = new URL(statusUrl, window.location.href).toString().replace(/\/+$/g, "");
+  const common = {
+    product,
+    runId: run.runId,
+    runUrl: absoluteStatusUrl,
+    launchToken: run.launchToken,
+    // A V2 run must carry its exact release and result contract from creation.
+    // The create-response gate rejects older services before any Agent opens.
+    release: run.release!,
+    resultContract: run.resultContract!,
+  };
+  if (adapterId === "claude") {
+    return buildThoughtClaudeTask({
+      ...common,
+      surface: thoughtClaudeSurface(run.surface),
+    });
+  }
+  if (!run.codexBootstrap) {
+    throw new Error("THOUGHT Codex bootstrap binding is unavailable.");
+  }
+  return buildThoughtCodexTask({
+    ...common,
+    bootstrap: run.codexBootstrap,
+  });`),
+  ],
+  [
+    "Codex bootstrap demo Agent API origin",
+    "          surface: \"thought-agent-demo\",\n          appVersion: `${APP_VERSION}+${APP_BUILD}`,\n        },",
+    "          surface: \"thought-agent-demo\",\n          appVersion: `${APP_VERSION}+${APP_BUILD}`,\n          agentApiOrigin: thoughtDockAgentPublicApiOrigin(),\n        },",
+  ],
+  [
+    "Codex bootstrap chooser Agent API origin",
+    "          surface: \"thought-dock:chooser\",\n          appVersion: `${APP_VERSION}+${APP_BUILD}`,\n        },",
+    "          surface: \"thought-dock:chooser\",\n          appVersion: `${APP_VERSION}+${APP_BUILD}`,\n          agentApiOrigin: thoughtDockAgentPublicApiOrigin(),\n        },",
+  ],
+  [
+    "Codex bootstrap public status URL",
+    "  const promptHash = await agentDemoSha256(prompt);\n  const baseRun = {",
+    "  const promptHash = await agentDemoSha256(prompt);\n  const agentStatusUrl = thoughtDockAgentPublicRunUrl(createPayload.runId, statusUrl);\n  const baseRun = {",
+    2,
+  ],
+  [
+    "Codex bootstrap run payload",
+    "    launchToken,\n    browserToken: createPayload.browserToken,",
+    "    launchToken,\n    codexBootstrap: resolveThoughtCodexBootstrap(createPayload, agentStatusUrl),\n    browserToken: createPayload.browserToken,",
+    2,
+  ],
+  [
+    "Codex bootstrap resolved status URL",
+    "    agentStatusUrl: thoughtDockAgentPublicRunUrl(createPayload.runId, statusUrl),",
+    "    agentStatusUrl,",
+    2,
+  ],
+]);
+
+const applyCurrentCodexBootstrapMainDeltas = (source, direction) => {
+  let current = source;
+  const deltas = direction === "restore"
+    ? [...CURRENT_CODEX_BOOTSTRAP_MAIN_DELTAS].reverse()
+    : CURRENT_CODEX_BOOTSTRAP_MAIN_DELTAS;
+  for (const [label, previous, currentValue, expectedCount = 1] of deltas) {
+    current = replaceExactCount(
+      current,
+      label,
+      direction === "restore" ? currentValue : previous,
+      direction === "restore" ? previous : currentValue,
+      expectedCount,
     );
   }
   return current;
@@ -1459,6 +1614,7 @@ function restoreMainSnapshot(source) {
     replaceExactCount,
   );
   currentSource = applyCurrentTrustedAgentLinkDeltas(currentSource, "restore");
+  currentSource = applyCurrentCodexBootstrapMainDeltas(currentSource, "restore");
   currentSource = applyCurrentSingleRunAgentChooserDeltas(currentSource, "restore");
   currentSource = restoreCurrentAgentRateLimitHandling(currentSource);
   currentSource = applyCurrentPreparedAgentChoiceDeltas(currentSource, "restore");
@@ -2009,8 +2165,12 @@ export function loadThoughtDevSnapshotFile(workspaceRoot, fileKey) {
     currentAgentRateLimitHandling,
     "layer",
   );
-  const currentTrustedAgentLinks = applyCurrentTrustedAgentLinkDeltas(
+  const currentCodexBootstrap = applyCurrentCodexBootstrapMainDeltas(
     currentSingleRunAgentChooser,
+    "layer",
+  );
+  const currentTrustedAgentLinks = applyCurrentTrustedAgentLinkDeltas(
+    currentCodexBootstrap,
     "layer",
   );
   const currentAgentLinePreview = layerCurrentAgentLinePreviewUnavailableCopy(

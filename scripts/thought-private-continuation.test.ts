@@ -7,9 +7,16 @@ import test from "node:test";
 import {
   buildThoughtClaudeTask,
   buildThoughtCodexTask,
+  THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
   THOUGHT_HANDOFF_OPERATION_DIAGNOSTICS,
   THOUGHT_HANDOFF_OPERATION_RECOVERY,
 } from "../packages/thought-agent-protocol/src/index";
+
+const codexBootstrapFor = (runUrl: string) => ({
+  url: `${runUrl.replace(/\/+$/g, "")}/bootstrap`,
+  workerSha256: THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
+  configSha256: `sha256:${"b".repeat(64)}` as const,
+});
 
 const LAUNCH_TOKEN = "synthetic-launch-token-never-print";
 const BRIDGE_TOKEN = "synthetic-bridge-token-never-print";
@@ -461,11 +468,13 @@ test("fake diagnostics do not trust JSON, unknown codes, or 5xx as no-commit", (
 });
 
 test("Codex handoff binds composition to verified post-start input", () => {
+  const runUrl = `https://preview.inshell.art/api/thought-agent/v2/runs/tar_${"p".repeat(24)}`;
   const task = buildThoughtCodexTask({
     product: "ChatGPT",
     runId: `tar_${"p".repeat(24)}`,
-    runUrl: `https://preview.inshell.art/api/thought-agent/v2/runs/tar_${"p".repeat(24)}`,
+    runUrl,
     launchToken: "q".repeat(43),
+    bootstrap: codexBootstrapFor(runUrl),
   });
   assert.match(task, /Wait OK:start\+THOUGHT_INPUT_READY/);
   assert.match(task, /Only then compose from displayed verified input/);
@@ -542,6 +551,7 @@ test("Codex keeps its executable continuation boundary without inventing one for
       const codex = buildThoughtCodexTask({
         ...input,
         product: "ChatGPT",
+        bootstrap: codexBootstrapFor(input.runUrl),
         networkAuthorization,
         resultContract: { declarationLabelField },
       });
@@ -550,8 +560,8 @@ test("Codex keeps its executable continuation boundary without inventing one for
         `Codex ${networkAuthorization}/${declarationLabelField} handoff is ${Buffer.byteLength(codex)} bytes`,
       );
       assert.match(codex, /exec_command\(tty:true\)/);
-      assert.match(codex, /Read-only decode\/inspection allowed/);
-      assert.match(codex, /Execute exact verified bytes/);
+      assert.match(codex, /request one origin\/network escalation on that first call/);
+      assert.match(codex, /reconstruct\/edit\/save\/install\/fallback\/manual HTTP/);
       assert.match(codex, /nonce must be absent onscreen/);
       assert.match(codex, /OK:preflight\+CREDENTIAL_READY/);
       assert.match(codex, /Wait OK:start\+THOUGHT_INPUT_READY/);

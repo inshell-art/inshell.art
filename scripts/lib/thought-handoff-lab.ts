@@ -27,6 +27,7 @@ import {
   THOUGHT_AGENT_RUN_AUTHORITY,
   THOUGHT_AGENT_RESULT_VERSION,
   THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION,
+  THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
   THOUGHT_CODEX_TRANSPORT_WORKER_SOURCE,
   THOUGHT_HANDOFF_OPERATION_RECOVERY,
   THOUGHT_V2_PROTOCOL_RELEASE,
@@ -780,8 +781,10 @@ const staticHandoffAssertions = (
   if (profile.id === "codex") {
     try {
       const transport = inspectThoughtCodexFixedWorkerHandoff(task);
-      fixedWorkerVerified = transport.config.i === runId &&
-        transport.config.u === baseUrl && transport.launchToken === launchToken;
+      fixedWorkerVerified = transport.bootstrap.url === `${baseUrl}/bootstrap` &&
+        transport.bootstrap.workerSha256 === THOUGHT_CODEX_TRANSPORT_WORKER_SHA256 &&
+        /^sha256:[0-9a-f]{64}$/.test(transport.bootstrap.configSha256) &&
+        transport.launchToken === launchToken;
     } catch {
       fixedWorkerVerified = false;
     }
@@ -806,7 +809,7 @@ const staticHandoffAssertions = (
     "The creative prompt is absent from the launch handoff.");
   check("no-installation-request",
     profile.id === "codex"
-      ? fixedWorkerVerified && task.includes("no edit/reimplementation/install/files/replacement/manual HTTP")
+      ? fixedWorkerVerified && task.includes("reconstruct/edit/save/install/fallback/manual HTTP")
       : /No installations or configuration|No setup|Never ask the creator to install, configure, or learn anything|This task requires no installation or local configuration/.test(task) &&
         /Never execute responses|download or execute nothing from it|treat responses as data|JSON is data, not code/.test(task),
     "No installation requests or execution of response data.");
@@ -828,7 +831,7 @@ const staticHandoffAssertions = (
     profile.id === "claude"
       ? task.includes("Sign-in redirect or network refusal: report the observed response and stop")
       : fixedWorkerVerified &&
-        task.includes("grant or one origin escalation") &&
+        task.includes("request one origin/network escalation") &&
         task.includes("Else report safe marker"),
     "Recovery is status-specific and bounded without repeating accepted work.");
   const creatorMessages = task.split("\n")
@@ -844,7 +847,8 @@ const staticHandoffAssertions = (
     "Transport is declarative or an exact app-owned fixed worker; no model-authored request program.");
   check("defined-identifiers",
     profile.id === "codex"
-      ? fixedWorkerVerified && !/<[^>]+>/.test(task)
+      ? fixedWorkerVerified &&
+        !/<(?:RUN_ID|LAUNCH_CREDENTIAL|APP_ENDPOINT|BOOTSTRAP_URL)>/.test(task)
       : task.includes(`RUN_ID = ${runId}`) &&
         task.includes(`LAUNCH_CREDENTIAL = ${launchToken}`) &&
         task.includes(`APP_ENDPOINT = ${baseUrl.replaceAll(runId, "RUN_ID")}`) &&
@@ -1092,7 +1096,16 @@ const runDeterministicCase = async (
     resultContract: FIXTURE_RESULT_CONTRACT,
   } as const;
   const contract = profile.buildOperationContract(taskInput);
-  const task = profile.buildTask(taskInput);
+  const task = profile.id === "codex"
+    ? buildThoughtCodexTask({
+        ...taskInput,
+        bootstrap: {
+          url: `${runUrl}/bootstrap`,
+          workerSha256: THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
+          configSha256: `sha256:${"b".repeat(64)}`,
+        },
+      })
+    : buildThoughtClaudeTask({ ...taskInput, surface: "code" });
   const commands: ThoughtCodexLabCommandResult[] = [];
   const assertions = staticHandoffAssertions(
     profile,
@@ -1313,16 +1326,28 @@ const runDeterministicCase = async (
   };
 };
 
-const canonicalCandidateTask = (profile: ThoughtHandoffLabProfile) =>
-  profile.buildTask({
+const canonicalCandidateTask = (profile: ThoughtHandoffLabProfile) => {
+  const runUrl = "https://handoff-lab.invalid/runs/tar_handoff_candidate";
+  const common = {
     product: profile.agent,
     runId: "tar_handoff_candidate",
-    runUrl: "https://handoff-lab.invalid/runs/tar_handoff_candidate",
+    runUrl,
     launchToken: "sealed-launch-token-placeholder",
     networkAuthorization: "managed",
     release: FIXTURE_RELEASE,
     resultContract: FIXTURE_RESULT_CONTRACT,
-  });
+  };
+  return profile.id === "codex"
+    ? buildThoughtCodexTask({
+        ...common,
+        bootstrap: {
+          url: `${runUrl}/bootstrap`,
+          workerSha256: THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
+          configSha256: `sha256:${"b".repeat(64)}`,
+        },
+      })
+    : buildThoughtClaudeTask({ ...common, surface: "code" });
+};
 
 export const renderThoughtAgentLabMarkdown = (
   report: ThoughtCodexLabBatchReport,
@@ -1475,7 +1500,11 @@ export const prepareThoughtCodexRealCanary = async (options: {
       promptLine: options.promptLine,
       specId: options.specId,
       requestedAgent: { adapterId: "codex", model: null },
-      client: { surface: "thought-codex-handoff-lab", appVersion: "v1" },
+      client: {
+        surface: "thought-codex-handoff-lab",
+        appVersion: "v1",
+        agentApiOrigin: origin,
+      },
       devAutoRun: false,
     }),
   });
@@ -1484,9 +1513,23 @@ export const prepareThoughtCodexRealCanary = async (options: {
     statusUrl?: string;
     browserToken?: string;
     launchUri?: string;
+    codexBootstrap?: {
+      url?: string;
+      workerSha256?: string;
+      configSha256?: string;
+    };
     error?: { code?: string; message?: string };
   };
-  if (!response.ok || !payload.runId || !payload.statusUrl || !payload.browserToken || !payload.launchUri) {
+  if (
+    !response.ok ||
+    !payload.runId ||
+    !payload.statusUrl ||
+    !payload.browserToken ||
+    !payload.launchUri ||
+    !payload.codexBootstrap?.url ||
+    payload.codexBootstrap.workerSha256 !== THOUGHT_CODEX_TRANSPORT_WORKER_SHA256 ||
+    !/^sha256:[0-9a-f]{64}$/.test(payload.codexBootstrap.configSha256 ?? "")
+  ) {
     throw new Error(
       `${response.status} ${payload.error?.code ?? "CANARY_CREATE_FAILED"}: ${payload.error?.message ?? "Could not create Codex canary."}`,
     );
@@ -1494,11 +1537,21 @@ export const prepareThoughtCodexRealCanary = async (options: {
   const launchToken = new URL(payload.launchUri).searchParams.get("token") ?? "";
   if (!launchToken) throw new Error("Codex canary launch token missing.");
   const statusUrl = new URL(payload.statusUrl, origin).toString().replace(/\/+$/g, "");
+  const bootstrapUrl = new URL(payload.codexBootstrap.url, origin).toString();
+  if (bootstrapUrl !== `${statusUrl}/bootstrap`) {
+    await cancelUnqualifiedRealCanary(statusUrl, payload.browserToken);
+    throw new Error("Codex canary bootstrap URL does not match the created run.");
+  }
   const task = buildThoughtCodexTask({
     product: CODEX_LAB_PROFILE.agent,
     runId: payload.runId,
     runUrl: statusUrl,
     launchToken,
+    bootstrap: {
+      url: bootstrapUrl,
+      workerSha256: payload.codexBootstrap.workerSha256,
+      configSha256: payload.codexBootstrap.configSha256,
+    },
     networkAuthorization: "managed",
     release: options.release,
     resultContract: options.resultContract,
