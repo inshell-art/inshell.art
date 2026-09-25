@@ -467,13 +467,11 @@ test("Codex handoff binds composition to verified post-start input", () => {
     runUrl: `https://preview.inshell.art/api/thought-agent/v2/runs/tar_${"p".repeat(24)}`,
     launchToken: "q".repeat(43),
   });
-  assert.match(task, /only after valid \/start/);
-  assert.match(task, /same worker shows input\/rules; CANDIDATE via write_stdin/);
-  assert.match(task, /validate\/hash\/PUT/);
-  assert.match(task, /promptLine\.\{text,sha256\},agentInput\.\{text,sha256\}/);
-  assert.match(task, /promptLine=agentInput text\+hash/);
-  assert.match(task, /Candidate=.*agentLine=ONE_EXACT_LINE/);
-  assert.doesNotMatch(task, /agentLine=(?!ONE_EXACT_LINE)[^;\n]+/);
+  assert.match(task, /Wait OK:start\+THOUGHT_INPUT_READY/);
+  assert.match(task, /Only then compose from displayed verified input/);
+  assert.match(task, /LINE\\nTHOUGHT_END\\n/);
+  assert.match(task, /No CR\/extra line\/JSON\/trim\/repair\/retry\/replacement/);
+  assert.doesNotMatch(task, /precomputed agentLine|hardcoded agentLine/i);
 });
 
 test("synthetic closed input is terminal before claim", async (context) => {
@@ -551,29 +549,14 @@ test("Codex keeps its executable continuation boundary without inventing one for
         Buffer.byteLength(codex) <= 7_000,
         `Codex ${networkAuthorization}/${declarationLabelField} handoff is ${Buffer.byteLength(codex)} bytes`,
       );
-      assert.match(codex, /one exec_command\(tty:true\) starts final noninteractive worker/);
-      assert.match(codex, /all source secret-free in initial cmd/);
-      assert.match(codex, /ECHO\+ECHONL off before ECHO_READY/);
-      assert.match(codex, /No child\/replacement after proof/);
-      assert.match(codex, /never write_stdin code\/command/);
-      assert.match(codex, /After fake nonce absent\+ECHO_OK, send LAUNCH_CREDENTIAL once/);
-      assert.match(codex, /Bridge stays in worker/);
-      assert.match(codex, /worker GET CONNECTIVITY_ENDPOINT unauthenticated/);
-      assert.match(codex, /permission fix may fresh worker/);
-      assert.match(codex, /Possible claim dispatch=>no replace\/reclaim/);
-      assert.match(codex, /sandbox_permissions=require_escalated once for origin/);
-      assert.match(codex, /Labels never bypass host/);
-      assert.match(codex, /only after valid \/start/);
-      assert.match(codex, /same worker shows input\/rules; CANDIDATE via write_stdin/);
-      assert.match(codex, /validate\/hash\/PUT/);
-      assert.match(codex, /Candidate=.*release\.\{protocolReleaseId=.*manifestKeccak256=/);
-      assert.match(codex, /declaration\.\{schema=.*status=.*(?:label|agentLabel)=AGENT_PRODUCT,declaredOneCreativeResult=true\}/);
-      assert.equal(codex.split(THOUGHT_HANDOFF_OPERATION_DIAGNOSTICS).length - 1, 1);
-      assert.match(codex, /THOUGHT_STOP\(N\/R\) or THOUGHT_UNCERTAIN\(U\)/);
-      assert.match(codex, /Endpoint\+valid protocol error insufficient/);
-      assert.match(codex, /R needs 4xx\+known no-commit code;else U/);
-      assert.match(codex, /Report actual receipt/);
-      assert.match(codex, /Never raw error\/body\/headers\/URL\/credential/);
+      assert.match(codex, /exec_command\(tty:true\)/);
+      assert.match(codex, /Read-only decode\/inspection allowed/);
+      assert.match(codex, /Execute exact verified bytes/);
+      assert.match(codex, /nonce must be absent onscreen/);
+      assert.match(codex, /OK:preflight\+CREDENTIAL_READY/);
+      assert.match(codex, /Wait OK:start\+THOUGHT_INPUT_READY/);
+      assert.match(codex, /LINE\\nTHOUGHT_END\\n/);
+      assert.match(codex, /unproven 429=U/);
       assert.doesNotMatch(codex, /precomputed agentLine|hardcoded agentLine/i);
     }
   }

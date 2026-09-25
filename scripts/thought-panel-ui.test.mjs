@@ -367,7 +367,8 @@ test("local Agent runs keep one release snapshot from creation through return", 
 
 test("the browser canary verifies release parity through the actual Agent deep links", () => {
   assert.match(thoughtBrowserReleaseCanary, /deep link and stored browser handoff differ/);
-  assert.match(thoughtBrowserReleaseCanary, /editable bootstrap, not creative authority/);
+  assert.match(thoughtBrowserReleaseCanary, /inspectThoughtCodexFixedWorkerHandoff/);
+  assert.match(thoughtBrowserReleaseCanary, /THOUGHT Codex: fixed worker/);
   assert.match(
     thoughtBrowserReleaseCanary,
     /Please complete one THOUGHT run with Claude/,

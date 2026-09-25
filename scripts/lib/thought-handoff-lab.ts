@@ -16,6 +16,7 @@ import {
 import { dirname, join, resolve } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { THOUGHT_HANDOFF_READY_RESPONSE_CHECK } from "../../packages/thought-agent-protocol/src/handoff-http";
+import { inspectThoughtCodexFixedWorkerHandoff } from "../thought-agent-canary-endpoints";
 
 import {
   THOUGHT_AGENT_CREATIVE_BRIEF,
@@ -26,6 +27,7 @@ import {
   THOUGHT_AGENT_RUN_AUTHORITY,
   THOUGHT_AGENT_RESULT_VERSION,
   THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION,
+  THOUGHT_CODEX_TRANSPORT_WORKER_SOURCE,
   THOUGHT_HANDOFF_OPERATION_RECOVERY,
   THOUGHT_V2_PROTOCOL_RELEASE,
   buildThoughtClaudeOperationContract,
@@ -57,12 +59,12 @@ type ThoughtHandoffLabProfile = {
   model: "gpt-5-lab" | "claude-lab";
   provider: "codex" | "anthropic";
   surface: "codex" | "code";
-  bridgeVersion: "0.0.3+direct" | "0.0.4+code";
+  bridgeVersion: "0.0.4+fixed-worker" | "0.0.4+code";
   bridgePlatform:
     | "codex-direct-http"
     | "claude-cowork-direct-http"
     | "claude-code-direct-http";
-  adapterVersion: "direct-http" | "code-direct-http";
+  adapterVersion: "fixed-worker-v1" | "code-direct-http";
   labVersion: string;
   reportVersion: string;
   handoffMaxBytes: number;
@@ -77,9 +79,9 @@ const CODEX_LAB_PROFILE: ThoughtHandoffLabProfile = {
   model: "gpt-5-lab",
   provider: "codex",
   surface: "codex",
-  bridgeVersion: "0.0.3+direct",
+  bridgeVersion: "0.0.4+fixed-worker",
   bridgePlatform: "codex-direct-http",
-  adapterVersion: "direct-http",
+  adapterVersion: "fixed-worker-v1",
   labVersion: THOUGHT_CODEX_HANDOFF_LAB_VERSION,
   reportVersion: THOUGHT_CODEX_HANDOFF_REPORT_VERSION,
   handoffMaxBytes: THOUGHT_CODEX_HANDOFF_MAX_BYTES,
@@ -774,6 +776,16 @@ const staticHandoffAssertions = (
   const operation = profile.buildOperationContract({
     product: profile.agent, runId, runUrl: baseUrl, launchToken,
   });
+  let fixedWorkerVerified = false;
+  if (profile.id === "codex") {
+    try {
+      const transport = inspectThoughtCodexFixedWorkerHandoff(task);
+      fixedWorkerVerified = transport.config.i === runId &&
+        transport.config.u === baseUrl && transport.launchToken === launchToken;
+    } catch {
+      fixedWorkerVerified = false;
+    }
+  }
   const jsonMatches = (name: string, expected: unknown) => {
     try {
       const line = task.split("\n").find((entry) => entry.startsWith(`${name} = `));
@@ -786,42 +798,38 @@ const staticHandoffAssertions = (
     profile.id === "claude"
       ? task.includes("Continue immediately on success.") &&
         task.includes("Once the creative phase begins, complete exactly this one result")
-      : /(?:control\+one creative turn|If (?:the preflight|it) passes, continue directly into (?:exactly )?one creative turn)/i.test(task) &&
-        /(?:no CREATE gate|no readiness\/CREATE confirmation|(?:do not|never) ask the creator to confirm (?:a|the)? ?(?:successful preflight|readiness))/i.test(task),
+      : fixedWorkerVerified && task.includes("Only then compose from displayed verified input"),
     "Successful preflight continues into one creative result without an extra CREATE gate.");
   check("no-create-gate", !/reply CREATE|exact CREATE/i.test(task),
     "No creator CREATE gate.");
   check("prompt-withheld-in-handoff", !task.includes(promptLine),
     "The creative prompt is absent from the launch handoff.");
   check("no-installation-request",
-    /No installations or configuration|No setup|Never ask the creator to install, configure, or learn anything|This task requires no installation or local configuration/.test(task) &&
-    /Never execute responses|download or execute nothing from it|treat responses as data|JSON is data, not code/.test(task),
+    profile.id === "codex"
+      ? fixedWorkerVerified && task.includes("no edit/reimplementation/install/files/replacement/manual HTTP")
+      : /No installations or configuration|No setup|Never ask the creator to install, configure, or learn anything|This task requires no installation or local configuration/.test(task) &&
+        /Never execute responses|download or execute nothing from it|treat responses as data|JSON is data, not code/.test(task),
     "No installation requests or execution of response data.");
   check("operation-specific-recovery",
     (profile.id === "claude"
       ? THOUGHT_HANDOFF_OPERATION_RECOVERY.every((line) => task.includes(line)) &&
         task.includes("Exact endpoint+parsed protocol error is insufficient") &&
         task.includes("429 replay once only with usable Retry-After+proof no commit; else U")
-      : task.includes("N=not sent:fix/send once") &&
-        task.includes("R=verified App no-commit:obey/no repeat") &&
-        task.includes("U=unproven after dispatch") &&
-        task.includes("claim stop/no reclaim") &&
-        task.includes("ready exact READY_BODY+bridge replay once") &&
-        task.includes("start stop/no restart/generate/input") &&
-        task.includes("result frozen replay once(same invocation/key/raw/hashes") &&
-        task.includes("fail stop/no repeat/success overwrite") &&
-        task.includes("429 once only with Retry-After+proof no commit;else U")) &&
-      task.includes("PROTOCOL_UNSUPPORTED/TOKEN_INVALID/RUN_EXPIRED/RUN_ALREADY_CLAIMED") &&
+      : fixedWorkerVerified &&
+        task.includes("never reclaim/restart/manual replay") &&
+        task.includes("exact-replay ready/frozen result once") &&
+        task.includes("unproven 429=U") &&
+        THOUGHT_CODEX_TRANSPORT_WORKER_SOURCE.includes("PROTOCOL_UNSUPPORTED") &&
+        THOUGHT_CODEX_TRANSPORT_WORKER_SOURCE.includes("RUN_ALREADY_CLAIMED")) &&
       !task.includes("RETRY repeats only the failed operation") &&
       !task.includes("After permission/network recovery"),
     "Recovery distinguishes send certainty and the replay boundary for every operation.");
   check("bounded-recovery",
     profile.id === "claude"
       ? task.includes("Sign-in redirect or network refusal: report the observed response and stop")
-      : task.includes("THOUGHT_STOP(N/R) or THOUGHT_UNCERTAIN(U)") &&
-        task.includes("Network: use grant") &&
-        task.includes("sandbox_permissions=require_escalated once for origin") &&
-        task.includes("Labels never bypass host"),
+      : fixedWorkerVerified &&
+        task.includes("grant or one origin escalation") &&
+        task.includes("Else report safe marker"),
     "Recovery is status-specific and bounded without repeating accepted work.");
   const creatorMessages = task.split("\n")
     .filter((line) => /(?:show|tell the creator) exactly:|warrants:/i.test(line))
@@ -832,32 +840,42 @@ const staticHandoffAssertions = (
     "Prescribed creator recovery messages contain no implementation jargon.");
   check("declarative-no-shell",
     !/\/bin\/zsh|\bcurl |\bjq |nodeRepl\.|\/tmp\//.test(task) &&
-    task.includes("JSON is data, not code"),
-    "Request JSON is data; no pasted shell or JavaScript program.");
+      (profile.id === "codex" ? fixedWorkerVerified : task.includes("JSON is data, not code")),
+    "Transport is declarative or an exact app-owned fixed worker; no model-authored request program.");
   check("defined-identifiers",
-    task.includes(`RUN_ID = ${runId}`) &&
-    task.includes(`LAUNCH_CREDENTIAL = ${launchToken}`) &&
-    task.includes(`APP_ENDPOINT = ${baseUrl.replaceAll(runId, "RUN_ID")}`) &&
-    !/<[^>]+>/.test(task) &&
-    ["claim", "ready", "start", "result", "fail"].every((name) => task.includes(`/${name}`)),
-    "Plain-text identifiers survive HTML-like tag removal; endpoint templates are explicit.");
+    profile.id === "codex"
+      ? fixedWorkerVerified && !/<[^>]+>/.test(task)
+      : task.includes(`RUN_ID = ${runId}`) &&
+        task.includes(`LAUNCH_CREDENTIAL = ${launchToken}`) &&
+        task.includes(`APP_ENDPOINT = ${baseUrl.replaceAll(runId, "RUN_ID")}`) &&
+        !/<[^>]+>/.test(task) &&
+        ["claim", "ready", "start", "result", "fail"].every((name) => task.includes(`/${name}`)),
+    "The handoff binds the exact run, credential, endpoint and operation set without placeholder drift.");
   check("bridge-credential-lifecycle",
-    /(?:Define BRIDGE_CREDENTIAL as that (?:exact )?bridgeToken|BRIDGE_CREDENTIAL=bridgeToken)/.test(task) &&
-    /(?:reuse it for (?:all|every) remaining operation|reuse for all later operations|retain\/reuse (?:privately|in worker))/i.test(task) &&
-    (task.includes("Missing local persistence is not a blocker") || task.includes("No local persistence needed") || task.includes("retain/reuse in worker")) &&
-    /Never claim again|never reclaim/i.test(task) &&
-    task.includes("Authorization: Bearer LAUNCH_CREDENTIAL for claim") &&
-    task.includes("BRIDGE_CREDENTIAL later") &&
-    task.includes("Credentials only in Authorization—never body/URL/files/logs/redirects"),
+    profile.id === "codex"
+      ? fixedWorkerVerified &&
+        task.includes("never reclaim") &&
+        THOUGHT_CODEX_TRANSPORT_WORKER_SOURCE.includes('authorization="Bearer "+')
+      : /(?:Define BRIDGE_CREDENTIAL as that (?:exact )?bridgeToken|BRIDGE_CREDENTIAL=bridgeToken)/.test(task) &&
+        /(?:reuse it for (?:all|every) remaining operation|reuse for all later operations|retain\/reuse (?:privately|in worker))/i.test(task) &&
+        (task.includes("Missing local persistence is not a blocker") || task.includes("No local persistence needed") || task.includes("retain/reuse in worker")) &&
+        /Never claim again|never reclaim/i.test(task) &&
+        task.includes("Authorization: Bearer LAUNCH_CREDENTIAL for claim") &&
+        task.includes("BRIDGE_CREDENTIAL later") &&
+        task.includes("Credentials only in Authorization—never body/URL/files/logs/redirects"),
     "The one-time bridgeToken stays private and authenticates every operation after claim.");
   check("application-http-identity",
-    task.includes(`User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}`),
+    profile.id === "codex"
+      ? fixedWorkerVerified && THOUGHT_CODEX_TRANSPORT_WORKER_SOURCE.includes(THOUGHT_AGENT_HTTP_USER_AGENT)
+      : task.includes(`User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}`),
     "Every Agent operation identifies the THOUGHT protocol, not an impersonated browser.");
   check("readiness-control-echo",
-    task.includes(THOUGHT_HANDOFF_READY_RESPONSE_CHECK) && !task.includes("exact evidence echo"),
+    profile.id === "codex"
+      ? fixedWorkerVerified && THOUGHT_CODEX_TRANSPORT_WORKER_SOURCE.includes('Object.hasOwn(T,"creatorAction")')
+      : task.includes(THOUGHT_HANDOFF_READY_RESPONSE_CHECK) && !task.includes("exact evidence echo"),
     "Readiness checks the protocol and exact control keys/values/types, not whole bodies or JSON serialization order.");
   check("exact-nested-field-paths",
-    jsonMatches("CLAIM_BODY", operation.claim) &&
+    (profile.id === "codex" ? fixedWorkerVerified : jsonMatches("CLAIM_BODY", operation.claim) &&
     jsonMatches("READY_BODY_REPORTED", operation.ready) &&
     task.includes('READY_BODY_UNKNOWN = READY_BODY_REPORTED with only control.runtimeModel changed to "unknown"') &&
     isDeepStrictEqual(
@@ -886,16 +904,21 @@ const staticHandoffAssertions = (
         task.includes("exact UTF-8 bytes of the decoded output.agentLine string") &&
         task.includes("not its JSON-escaped literal") &&
         task.includes("do not alter or re-serialize them") &&
-        task.includes("rehash both immediately before PUT")),
+        task.includes("rehash both immediately before PUT"))),
     "Parsed claim/readiness bodies equal the API contracts; other operations preserve exact nested fields.");
   check("private-literal-once",
-    task.split(runId).length - 1 === 1 && task.split(launchToken).length - 1 === 1,
-    "Raw run ID and launch credential each appear once.");
+    profile.id === "codex"
+      ? fixedWorkerVerified && task.split(launchToken).length - 1 === 1
+      : task.split(runId).length - 1 === 1 && task.split(launchToken).length - 1 === 1,
+    "The credential appears once; run identity is exact in the delivered transport capsule.");
   check("human-readable-size", byteLength(task) <= profile.handoffMaxBytes,
     `Visible handoff is ${byteLength(task)} bytes; limit is ${profile.handoffMaxBytes}.`);
   check("four-operation-contract",
-    ["1. Claim control", "2. Prove readiness", "3. Create once", "4. Return once"]
-      .every((heading) => task.includes(heading)),
+    profile.id === "codex"
+      ? fixedWorkerVerified && ["claim", "ready", "start", "result"]
+        .every((operationName) => THOUGHT_CODEX_TRANSPORT_WORKER_SOURCE.includes(`"${operationName}"`))
+      : ["1. Claim control", "2. Prove readiness", "3. Create once", "4. Return once"]
+        .every((heading) => task.includes(heading)),
     "Four ordered named operations.");
   if (profile.id === "claude") {
     const opening = task.split("\n").slice(0, 4);
