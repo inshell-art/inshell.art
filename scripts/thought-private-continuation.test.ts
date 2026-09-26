@@ -476,9 +476,9 @@ test("Codex handoff binds composition to verified post-start input", () => {
     launchToken: "q".repeat(43),
     bootstrap: codexBootstrapFor(runUrl),
   });
-  assert.match(task, /Wait OK:start\+THOUGHT_INPUT_READY/);
+  assert.match(task, /Wait for `OK:start` and `THOUGHT_INPUT_READY`/);
   assert.match(task, /Only then compose from displayed verified input/);
-  assert.match(task, /LINE\\nTHOUGHT_END\\n/);
+  assert.match(task, /the exact `THOUGHT_END` line/);
   assert.match(task, /No CR\/extra line\/JSON\/trim\/repair\/retry\/replacement/);
   assert.doesNotMatch(task, /precomputed agentLine|hardcoded agentLine/i);
 });
@@ -563,9 +563,9 @@ test("Codex keeps its executable continuation boundary without inventing one for
       assert.match(codex, /request one origin\/network escalation on that first call/);
       assert.match(codex, /reconstruct\/edit\/save\/install\/fallback\/manual HTTP/);
       assert.match(codex, /nonce must be absent onscreen/);
-      assert.match(codex, /OK:preflight\+CREDENTIAL_READY/);
-      assert.match(codex, /Wait OK:start\+THOUGHT_INPUT_READY/);
-      assert.match(codex, /LINE\\nTHOUGHT_END\\n/);
+      assert.match(codex, /`OK:preflight` and `CREDENTIAL_READY`/);
+      assert.match(codex, /Wait for `OK:start` and `THOUGHT_INPUT_READY`/);
+      assert.match(codex, /the exact `THOUGHT_END` line/);
       assert.match(codex, /unproven 429=U/);
       assert.doesNotMatch(codex, /precomputed agentLine|hardcoded agentLine/i);
     }

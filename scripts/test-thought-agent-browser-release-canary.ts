@@ -587,7 +587,7 @@ try {
   if (adapterId === "codex") {
     assertHandoff(/^THOUGHT Codex: fixed worker\./);
     assertHandoff(/Execute exact verified bytes; no edit\/reimplementation\/install\/files\/replacement\/manual HTTP/);
-    assertHandoff(/Wait OK:start\+THOUGHT_INPUT_READY\. Only then compose from displayed verified input\./);
+    assertHandoff(/Wait for `OK:start` and `THOUGHT_INPUT_READY`\. Only then compose from displayed verified input\./);
     assertHandoff(/never reclaim\/restart\/manual replay/);
   } else {
     assertHandoff(/^Please complete one THOUGHT run with Claude\./);

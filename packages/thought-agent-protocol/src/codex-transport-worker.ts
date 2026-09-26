@@ -345,7 +345,7 @@ let stopped = false;
 const stop = className => {
   if (stopped) return;
   stopped = true;
-  process.stdout.write("stage=bootstrap,class=" + className + " THOUGHT_STOP(N)\n");
+  process.stdout.write("stage=bootstrap,class=" + className + " THOUGHT" + String.fromCharCode(95) + "STOP(N)" + String.fromCharCode(10));
   process.exitCode = 2;
 };
 const hash = value => "sha256:" + createHash("sha256").update(value).digest("hex");
@@ -354,7 +354,9 @@ const exactKeys = (value, keys) => value && typeof value === "object" && !Array.
   if (!/^sha256:[0-9a-f]{64}$/.test(workerHash || "") || !/^sha256:[0-9a-f]{64}$/.test(configHash || "")) return stop("argument");
   let parsedUrl;
   try { parsedUrl = new URL(url); } catch { return stop("argument"); }
-  const bootstrapMatch = parsedUrl.pathname.match(/^\/api\/thought-agent\/v2\/runs\/(tar_[A-Za-z0-9_-]{8,})\/bootstrap$/);
+  const underscore = String.fromCharCode(95);
+  const runPath = new RegExp("^/api/thought-agent/v2/runs/(tar" + underscore + "[A-Za-z0-9" + underscore + "-]{8,})/bootstrap$");
+  const bootstrapMatch = parsedUrl.pathname.match(runPath);
   if (!bootstrapMatch || parsedUrl.username || parsedUrl.password || parsedUrl.search || parsedUrl.hash || (parsedUrl.protocol !== "https:" && !(parsedUrl.protocol === "http:" && ["127.0.0.1", "localhost", "[::1]"].includes(parsedUrl.hostname)))) return stop("argument");
   const expectedRunUrl = parsedUrl.origin + parsedUrl.pathname.slice(0, -"/bootstrap".length);
   const controller = new AbortController();
@@ -414,14 +416,24 @@ const exactKeys = (value, keys) => value && typeof value === "object" && !Array.
 export const THOUGHT_CODEX_TRANSPORT_WORKER_LOADER =
   THOUGHT_CODEX_TRANSPORT_WORKER_READABLE_LOADER.replace(/\s*\n\s*/g, " ");
 
+export const THOUGHT_CODEX_TRANSPORT_WORKER_LAUNCHER =
+  `process.argv[1]=Buffer.from(process.argv[1],"base64").toString("utf8");${THOUGHT_CODEX_TRANSPORT_WORKER_LOADER}`;
+
+const encodeTransportText = (value: string) => {
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return globalThis.btoa(binary);
+};
+
 export function buildThoughtCodexTransportWorkerCommand(
   binding: ThoughtCodexBootstrapBinding,
 ) {
   return [
     "node -e",
-    shellQuote(THOUGHT_CODEX_TRANSPORT_WORKER_LOADER),
+    shellQuote(THOUGHT_CODEX_TRANSPORT_WORKER_LAUNCHER),
     "--",
-    shellQuote(binding.url),
+    shellQuote(encodeTransportText(binding.url)),
     shellQuote(binding.workerSha256),
     shellQuote(binding.configSha256),
   ].join(" ");

@@ -7,6 +7,7 @@ import { createServer, type ServerResponse } from "node:http";
 import type { Socket } from "node:net";
 import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
+import { Script } from "node:vm";
 import test from "node:test";
 
 import {
@@ -14,6 +15,8 @@ import {
   THOUGHT_CODEX_BOOTSTRAP_MAX_BYTES,
   THOUGHT_CODEX_BOOTSTRAP_SCHEMA,
   THOUGHT_CODEX_BOOTSTRAP_TIMEOUT_MS,
+  THOUGHT_CODEX_TRANSPORT_WORKER_LAUNCHER,
+  THOUGHT_CODEX_TRANSPORT_WORKER_LOADER,
   THOUGHT_CODEX_TRANSPORT_WORKER_READABLE_SOURCE,
   THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
   THOUGHT_CODEX_TRANSPORT_WORKER_SOURCE,
@@ -499,14 +502,24 @@ test("fetched worker bytes match the readable source and approved hash", async (
   assert.equal(sha256(THOUGHT_CODEX_TRANSPORT_WORKER_SOURCE), THOUGHT_CODEX_TRANSPORT_WORKER_SHA256);
 });
 
-test("bootstrap command contains only the readable loader and pinned retrieval binding", async () => {
+test("bootstrap command keeps the readable loader and encodes the fragile URL binding", async () => {
   const endpoint = await startEndpoint();
   try {
     const command = buildThoughtCodexTransportWorkerCommand(endpoint.bootstrap);
     assert.match(command, /node -e/);
-    assert.ok(command.includes(endpoint.bootstrap.url));
+    assert.ok(command.includes(THOUGHT_CODEX_TRANSPORT_WORKER_LAUNCHER));
+    assert.ok(THOUGHT_CODEX_TRANSPORT_WORKER_LAUNCHER.endsWith(THOUGHT_CODEX_TRANSPORT_WORKER_LOADER));
+    assert.ok(command.includes(Buffer.from(endpoint.bootstrap.url, "utf8").toString("base64")));
+    assert.equal(command.includes(endpoint.bootstrap.url), false);
     assert.ok(command.includes(endpoint.bootstrap.workerSha256));
     assert.ok(command.includes(endpoint.bootstrap.configSha256));
+    assert.doesNotMatch(command, /[\\_]/);
+    assert.equal(
+      command.replaceAll("\\/", "/").replaceAll("_", "\\_"),
+      command,
+      "the complete executable command must survive the observed unconditional mutations",
+    );
+    assert.doesNotThrow(() => new Script(THOUGHT_CODEX_TRANSPORT_WORKER_LAUNCHER));
     assert.equal(command.includes(THOUGHT_CODEX_TRANSPORT_WORKER_SOURCE), false);
     assert.equal(command.includes(buildThoughtCodexTransportWorkerConfigText({
       product: "Codex",

@@ -27,12 +27,31 @@ import {
   buildThoughtClaudeOperationContract,
   buildThoughtClaudeTask,
 } from "../packages/thought-agent-protocol/src/index";
+import { inspectThoughtCodexFixedWorkerHandoff } from "./thought-agent-canary-endpoints";
 
 const codexBootstrapFor = (runUrl: string) => ({
   url: `${runUrl.replace(/\/+$/g, "")}/bootstrap`,
   workerSha256: THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
   configSha256: `sha256:${"b".repeat(64)}` as const,
 });
+
+// Models the two exact mutations observed in the persisted Codex-52 handoff:
+// Markdown escapes plain underscores and consumes escaped slashes. This is a
+// regression model, not a claim that it is the desktop composer's source code.
+const applyObservedCodexComposerTransform = (value: string) => {
+  let fenced = false;
+  return value.split("\n").map((line) => {
+    if (line.startsWith("```")) {
+      fenced = !fenced;
+      return line;
+    }
+    if (fenced) return line;
+    return line.split(/(`[^`]*`)/g).map((part) => {
+      if (part.startsWith("`") && part.endsWith("`")) return part;
+      return part.replaceAll("\\/", "/").replaceAll("_", "\\_");
+    }).join("");
+  }).join("\n");
+};
 import {
   buildThoughtHandoffResponseChecks,
   THOUGHT_HANDOFF_CLAIM_RESPONSE_CHECK,
@@ -78,14 +97,18 @@ for (const [agent, candidate, deepLink, buildTask, buildContract] of [
     assert.deepEqual(contract.authority, THOUGHT_AGENT_RUN_AUTHORITY);
     if (agent === "Codex") {
       assert.match(task, /fixed worker/);
-      assert.match(task, /exec_command\(tty:true\)/);
+      assert.match(task, /`exec_command\(tty:true\)`/);
       assert.match(task, /pinned retrieval binding|sha256:/);
-      assert.match(task, /OK:preflight\+CREDENTIAL_READY/);
-      assert.match(task, /OK:start\+THOUGHT_INPUT_READY/);
-      assert.match(task, /LINE\\nTHOUGHT_END\\n/);
-      assert.match(task, /Only OK:result\+Receipt succeeds/);
+      assert.match(task, /`OK:preflight` and `CREDENTIAL_READY`/);
+      assert.match(task, /`OK:start` and `THOUGHT_INPUT_READY`/);
+      assert.match(task, /the exact `THOUGHT_END` line/);
+      assert.match(task, /Only `OK:result` and `Receipt:` succeed/);
       assert.equal(task.split(input.launchToken).length - 1, 1);
-      assert.equal(task.split(input.runId).length - 1, 1);
+      assert.equal(task.split(input.runId).length - 1, 0);
+      assert.deepEqual(
+        inspectThoughtCodexFixedWorkerHandoff(task).bootstrap,
+        codexBootstrapFor(input.runUrl),
+      );
     } else {
       assert.doesNotMatch(task, /<[^>]+>/);
       assert.match(transformed, /^PROTOCOL_VERSION = inshell\.thought\.agent-run\.v2\r?$/m);
@@ -374,7 +397,7 @@ test("the handoff runs bounded control before one automatic creative turn", () =
 test("the handoff gives credentials only to the fixed worker without local persistence", () => {
   const task = thoughtCodexCanonicalCandidate();
 
-  assert.match(task, /^Credential=/m);
+  assert.match(task, /^```text\nCredential=/m);
   assert.match(task, /reconstruct\/edit\/save\/install\/fallback\/manual HTTP/);
   assert.match(task, /read host model\/effort once; never guess/);
   assert.match(task, /never reclaim\/restart\/manual replay/);
@@ -386,10 +409,10 @@ test("the fixed-worker handoff is inspectable, start-bound, and human-sized", ()
 
   assert.match(task, /request one origin\/network escalation on that first call/);
   assert.match(task, /sha256:[0-9a-f]{64}/);
-  assert.match(task, /OK:start\+THOUGHT_INPUT_READY/);
-  assert.match(task, /LINE\\nTHOUGHT_END\\n/);
+  assert.match(task, /`OK:start` and `THOUGHT_INPUT_READY`/);
+  assert.match(task, /the exact `THOUGHT_END` line/);
   assert.match(task, /No CR\/extra line\/JSON\/trim\/repair\/retry\/replacement/);
-  assert.match(task, /Only OK:result\+Receipt succeeds/);
+  assert.match(task, /Only `OK:result` and `Receipt:` succeed/);
   assert.doesNotMatch(task, /\/bin\/zsh|\bcurl\s|\bjq\s|nodeRepl\.|\/tmp\//);
   assert.ok(Buffer.byteLength(task) <= 7_000);
   assert.doesNotMatch(task, /Can a verified path remain simple\?/);
@@ -405,6 +428,42 @@ test("the Codex deep link round-trips the sealed handoff", () => {
     parsed.searchParams.get("originUrl"),
     "http://127.0.0.1:5177/thought/",
   );
+});
+
+test("the Codex command and private literals survive the observed composer transform model", () => {
+  const runUrl = "https://preview.inshell.art/api/thought-agent/v2/runs/tar_markdown_transport";
+  const launchToken = "fixture_token_with_markdown_punctuation";
+  const task = buildThoughtCodexTask({
+    product: "Codex",
+    runId: "tar_markdown_transport",
+    runUrl,
+    launchToken,
+    bootstrap: codexBootstrapFor(runUrl),
+  });
+  const imported = new URL(buildCodexDeepLink(task, "https://preview.inshell.art/thought"))
+    .searchParams.get("prompt");
+  assert.ok(imported);
+  const transported = applyObservedCodexComposerTransform(imported);
+  const delivered = inspectThoughtCodexFixedWorkerHandoff(transported);
+
+  assert.deepEqual(delivered.bootstrap, codexBootstrapFor(runUrl));
+  assert.equal(delivered.launchToken, launchToken);
+  assert.match(transported, /```sh\nnode -e [^\n]+\n```/);
+  assert.match(transported, /```text\nCredential=fixture_token_with_markdown_punctuation\n```/);
+  for (const marker of [
+    "ECHO_READY",
+    "NONCE:",
+    "ECHO_OK",
+    "OK:preflight",
+    "CREDENTIAL_READY",
+    "OK:start",
+    "THOUGHT_INPUT_READY",
+    "THOUGHT_END",
+    "OK:result",
+    "Receipt:",
+  ]) {
+    assert.ok(transported.includes(`\`${marker}\``), `${marker} must remain code-formatted`);
+  }
 });
 
 test("an oversized real canary is cancelled before the qualification error escapes", async () => {

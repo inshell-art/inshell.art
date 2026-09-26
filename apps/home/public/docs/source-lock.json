@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "91696a9f2b86ff8fc1cb417dcd5018d367f368b2200e29a68acadaef6331cd1c",
+  "sourceTreeSha256": "5929e58e7bc7181eb6fb98b1fecdcd61175d42f17eebe3afafe22fff0ca3eb7a",
   "groups": [
     {
       "id": "public-docs",
@@ -713,7 +713,7 @@
       "title": "Shared product runtime",
       "owner": "inshell.art shared App infrastructure",
       "reason": "Shared Ethereum, surface, utility, and Agent-protocol code used by public routes.",
-      "groupSha256": "3bdb9c92af1367e475e0718d10f910a99de31814ae092a70294fb690ce36d94b",
+      "groupSha256": "5e54f88188f087a806d3df84ca59a4f9dc62be53d6ad0f8dc4a227e24bcd8d2c",
       "files": [
         {
           "path": "packages/ethereum/src/abi.ts",
@@ -812,13 +812,13 @@
         },
         {
           "path": "packages/thought-agent-protocol/src/codex-client.ts",
-          "byteLength": 25895,
-          "sha256": "e815b301ef622e7ef658b7ff807d67c8ed9d96cb9a57865ae7aafdbcd09ec06a"
+          "byteLength": 26057,
+          "sha256": "75bdf7d96e07d521fa288197810caccd63dfe9deec53a4991558692681d7f4ca"
         },
         {
           "path": "packages/thought-agent-protocol/src/codex-transport-worker.ts",
-          "byteLength": 39306,
-          "sha256": "b7b44836a539e61acef7171b328bd44a3d87da9c893546eaeccfe67867cb1fdc"
+          "byteLength": 39889,
+          "sha256": "e8c31ef9e0f58621fdc67deff3c9dc6623997237bbd7d197f0ea8465063c8daf"
         },
         {
           "path": "packages/thought-agent-protocol/src/creative-brief.generated.ts",
@@ -837,8 +837,8 @@
         },
         {
           "path": "packages/thought-agent-protocol/src/index.ts",
-          "byteLength": 28954,
-          "sha256": "8e32292ed39f48740617cbcb2ea9ddf081d8a710539a33e2edee3e16a1837a2d"
+          "byteLength": 28997,
+          "sha256": "454e991f06e58f636f3c704095da932da6c877cd1419df4b8a88e631dabc1756"
         },
         {
           "path": "packages/thought-agent-protocol/src/release.generated.ts",

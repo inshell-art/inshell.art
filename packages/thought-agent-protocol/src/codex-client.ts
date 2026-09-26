@@ -157,13 +157,17 @@ export function buildThoughtCodexTask(input: ThoughtCodexTaskInput) {
   return [
     `THOUGHT ${input.product}: fixed worker.`,
     `Use the task title “THOUGHT ${input.product} run”. Keep private handoff fields out of titles and workspace names. This reduces metadata exposure; task history is not a secret store.`,
-    "Host network permission is required before start. Run the exact command below once with exec_command(tty:true) and request one origin/network escalation on that first call. Do not first run it in a restricted sandbox or reconstruct/edit/save/install/fallback/manual HTTP:",
+    "Host network permission is required before start. Run the exact fenced command below once with `exec_command(tty:true)` and request one origin/network escalation on that first call. Do not first run it in a restricted sandbox or reconstruct/edit/save/install/fallback/manual HTTP:",
+    "```sh",
     command,
-    "ECHO_READY: send NONCE:+16-128 safe chars. ECHO_OK: nonce must be absent onscreen; if seen, kill before credential.",
-    "After OK:preflight+CREDENTIAL_READY read host model/effort once; never guess. Send private JSON using the one-time credential below, exact echoProbe, metadataSource=reported+model(+valid effort), or unknown without model/effort. Never put the credential in a command or output.",
+    "```",
+    "At `ECHO_READY`, send `NONCE:` followed by 16-128 safe characters. At `ECHO_OK`, the nonce must be absent onscreen; if seen, kill before credential.",
+    "After `OK:preflight` and `CREDENTIAL_READY`, read host model/effort once; never guess. Send private JSON using the one-time credential below, exact echoProbe, metadataSource=reported+model(+valid effort), or unknown without model/effort. Never put the credential in a command or output.",
+    "```text",
     `Credential=${contract.launchToken}`,
-    "Wait OK:start+THOUGHT_INPUT_READY. Only then compose from displayed verified input. One write: `LINE\\nTHOUGHT_END\\n`. No CR/extra line/JSON/trim/repair/retry/replacement.",
-    "Only OK:result+Receipt succeeds. Else report safe marker; never reclaim/restart/manual replay. Worker may exact-replay ready/frozen result once after transport uncertainty; unproven 429=U.",
+    "```",
+    "Wait for `OK:start` and `THOUGHT_INPUT_READY`. Only then compose from displayed verified input. Write the artwork line, the exact `THOUGHT_END` line, and one final newline. No CR/extra line/JSON/trim/repair/retry/replacement.",
+    "Only `OK:result` and `Receipt:` succeed. Else report safe marker; never reclaim/restart/manual replay. Worker may exact-replay ready/frozen result once after transport uncertainty; unproven 429=U.",
   ].join("\n");
 }
 

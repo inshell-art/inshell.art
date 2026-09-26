@@ -1,7 +1,9 @@
 import {
+  THOUGHT_CODEX_TRANSPORT_WORKER_LAUNCHER,
   THOUGHT_CODEX_TRANSPORT_WORKER_LOADER,
   THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
 } from "../packages/thought-agent-protocol/src/index";
+import { Buffer } from "node:buffer";
 
 const requireTransport = (condition: unknown, message: string): void => {
   // Never include transport values in failures: the capsule carries credentials.
@@ -21,8 +23,22 @@ export const inspectThoughtCodexFixedWorkerHandoff = (handoff: string) => {
   requireTransport(commandLines.length === 1, "Codex handoff must contain exactly one worker command.");
   const match = commandLines[0].match(/^node -e '([^']*)' -- '([^']*)' '([^']*)' '([^']*)'$/);
   requireTransport(match?.length === 5, "Codex handoff worker command is invalid.");
-  const [, loader, bootstrapUrl, workerHash, configHash] = match!;
-  requireTransport(loader === THOUGHT_CODEX_TRANSPORT_WORKER_LOADER, "Codex handoff worker loader differs from the fixed release.");
+  const [, launcher, encodedBootstrapUrl, workerHash, configHash] = match!;
+  requireTransport(
+    launcher === THOUGHT_CODEX_TRANSPORT_WORKER_LAUNCHER &&
+      !/[\\_]/.test(launcher) &&
+      !/[\\_]/.test(encodedBootstrapUrl),
+    "Codex handoff worker launcher differs from the formatting-safe release.",
+  );
+  const bootstrapUrl = Buffer.from(encodedBootstrapUrl, "base64").toString("utf8");
+  requireTransport(
+    Buffer.from(bootstrapUrl, "utf8").toString("base64") === encodedBootstrapUrl,
+    "Codex handoff bootstrap URL encoding is invalid.",
+  );
+  requireTransport(
+    THOUGHT_CODEX_TRANSPORT_WORKER_LAUNCHER.endsWith(THOUGHT_CODEX_TRANSPORT_WORKER_LOADER),
+    "Codex handoff worker launcher does not contain the fixed loader.",
+  );
   requireTransport(
     workerHash === THOUGHT_CODEX_TRANSPORT_WORKER_SHA256 &&
       /^sha256:[0-9a-f]{64}$/.test(configHash),
