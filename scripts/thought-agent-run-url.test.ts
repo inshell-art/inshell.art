@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { Buffer } from "node:buffer";
 import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
 import { inspect } from "node:util";
@@ -121,9 +122,14 @@ describe("THOUGHT Agent canary uses the delivered endpoint", () => {
     assert.notEqual(commandIndex, -1);
     const match = lines[commandIndex].match(/^(node -e '[^']*' -- )'([^']*)' '([^']*)' '([^']*)'$/);
     assert.ok(match);
-    const bootstrap = { url: match[2], workerSha256: match[3], configSha256: match[4] };
+    const bootstrap = {
+      url: Buffer.from(match[2], "base64").toString("utf8"),
+      workerSha256: match[3],
+      configSha256: match[4],
+    };
     mutate(bootstrap);
-    lines[commandIndex] = `${match[1]}'${bootstrap.url}' '${bootstrap.workerSha256}' '${bootstrap.configSha256}'`;
+    const encodedUrl = Buffer.from(bootstrap.url, "utf8").toString("base64");
+    lines[commandIndex] = `${match[1]}'${encodedUrl}' '${bootstrap.workerSha256}' '${bootstrap.configSha256}'`;
     return lines.join("\n");
   };
   const agents = [
@@ -152,7 +158,12 @@ describe("THOUGHT Agent canary uses the delivered endpoint", () => {
     });
 
     test(`${agent.name} rejects a handoff that points at the wrong origin instead of masking it with statusUrl`, () => {
-      rejectsPrivately(() => transport(agent.handoff.replaceAll(expectedApiOrigin, "https://inshell.art"), agent.explicitEndpoints));
+      const changed = agent.fixedWorker
+        ? mutateCodexBootstrap(agent.handoff, (bootstrap) => {
+            bootstrap.url = bootstrap.url.replace(expectedApiOrigin, "https://inshell.art");
+          })
+        : agent.handoff.replaceAll(expectedApiOrigin, "https://inshell.art");
+      rejectsPrivately(() => transport(changed, agent.explicitEndpoints));
     });
 
     test(`${agent.name} binds the endpoint path and run ID before using the credential`, () => {

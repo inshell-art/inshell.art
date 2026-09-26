@@ -390,7 +390,8 @@ describe("THOUGHT Agent V2 protocol helpers", () => {
 
     expect(task).toContain("THOUGHT Codex: fixed worker.");
     expect(task).toContain(THOUGHT_CODEX_TRANSPORT_WORKER_SHA256);
-    expect(task).toContain("One write: `LINE\\nTHOUGHT_END\\n`");
+    expect(task).toContain("the exact `THOUGHT_END` line");
+    expect(task).toContain("one final newline");
     expect(operation.workProfile).toBe(
       THOUGHT_V2_PROTOCOL_RELEASE.identifiers.workProfile,
     );
