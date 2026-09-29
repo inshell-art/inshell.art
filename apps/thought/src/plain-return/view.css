@@ -1,0 +1,11 @@
+/* Structural override only for the explicit experimental surface. Shared
+   typography, spacing, color and button tokens remain the canonical styles. */
+body[data-thought-transport="plain-experimental"] .thought-dock-action-rail[data-content="actions"] {
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: auto;
+  justify-content: stretch;
+}
+
+body[data-thought-transport="plain-experimental"] .thought-dock-actions {
+  flex-wrap: wrap;
+}

@@ -1,5 +1,7 @@
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
+import { plainReturnDevPlugin } from "./scripts/plain-return-dev";
+import { plainReturnEntryPlugin } from "./scripts/plain-return-entry";
 import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
 import crypto from "node:crypto";
@@ -1973,6 +1975,8 @@ export default defineConfig(({ command, mode }) => {
         useLockedSurface,
         workspaceRoot,
       }),
+      plainReturnEntryPlugin(rootDir),
+      plainReturnDevPlugin(),
       createThoughtAgentDevApiPlugin(
         currentContractRuntime?.raw
           ? assertThoughtV2AnvilRuntime(currentContractRuntime.raw)

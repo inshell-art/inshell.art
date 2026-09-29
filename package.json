@@ -8,6 +8,8 @@
     "node": ">=22"
   },
   "scripts": {
+    "test:thought-plain": "node --import tsx --test apps/thought/src/plain-return/plain-return.test.ts && tsc -p apps/thought/src/plain-return/tsconfig.json",
+    "test:thought-plain:browser": "node scripts/test-thought-plain-browser.mjs",
     "check:dependency-security": "node scripts/check-dependency-security.mjs",
     "check:release-evidence": "node scripts/check-release-evidence.mjs",
     "test:release-readiness": "node --test scripts/release-readiness.test.mjs && pnpm run test:thought-failure-report",
