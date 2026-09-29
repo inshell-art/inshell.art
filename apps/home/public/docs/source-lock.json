@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "d56b4746b0a473fd11b59e0eba92923ab54f31b42417d8f4d80cf66b9efcc3c3",
+  "sourceTreeSha256": "c49b585d6e4b877c3845ad37f4fa6af0bb308845db706616e413b7caf6a986e3",
   "groups": [
     {
       "id": "public-docs",
@@ -1079,7 +1079,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "9df802d3c03ab4d0e4382a2ce661f1639ef884679f05d9f70e8facab1f07acb5",
+      "groupSha256": "1a3ed80e3674e8c68a109cd960bcb4fc5c33c9f9c6898cf4fd4edf39d9d9cf14",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1193,8 +1193,8 @@
         },
         {
           "path": "apps/thought/src/plain-return/view.ts",
-          "byteLength": 12482,
-          "sha256": "532873cbe99022026289aeddafa6b14d8da88eda08391b37b4b8d333f6770c06"
+          "byteLength": 20233,
+          "sha256": "f42c4e07e93c0d8233e7a468c478cfb505b50336a9c50d1175c888a16134d4a6"
         },
         {
           "path": "apps/thought/src/rpc-provider.ts",
