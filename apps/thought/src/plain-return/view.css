@@ -19,4 +19,12 @@ body[data-thought-transport="plain-experimental"] .thought-dock-actions {
     flex: none;
     justify-content: flex-start;
   }
+
+  body[data-thought-transport="plain-experimental"] #thought-report-bug-link {
+    position: static;
+    display: block;
+    text-align: right;
+    margin-inline: var(--shell-route-padding-inline);
+    margin-block-end: var(--thought-frontpage-shell-padding-block-end);
+  }
 }
