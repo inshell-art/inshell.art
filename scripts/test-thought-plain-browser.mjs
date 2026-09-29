@@ -118,11 +118,15 @@ try {
   const beforeInvalid = createCount();
   for (const [value, heading] of [["", "Prompt is empty"], ["🙂", "Unsupported characters"], ["A".repeat(65), "Prompt is too long"], [" A", "Prompt spacing needs editing"], ["A  B", "Prompt spacing needs editing"]]) {
     await page.locator("#thought-dock-prompt").fill(value);
-    await page.getByRole("button", { name: "Send to your Agent" }).click();
-    await page.getByText(heading, { exact: true }).waitFor();
+    const send = page.getByRole("button", { name: "Send to your Agent" });
+    if (value === "") {
+      assert.equal(await send.isDisabled(), true);
+      await send.dispatchEvent("click"); // Defense in depth: UI bypass still validates.
+    } else await send.click();
+    await page.locator(".thought-dock-status-screen__entry.is-latest").getByText(heading, { exact: true }).waitFor();
     await page.waitForTimeout(2100);
     assert.equal(await page.locator("#thought-dock-prompt").inputValue(), value, "Invalid bytes are not rewritten");
-    assert.equal(await page.getByText(heading, { exact: true }).count(), 1, "Validation survives polling render");
+    assert.equal(await page.locator(".thought-dock-status-screen__entry.is-latest").getByText(heading, { exact: true }).count(), 1, "Validation survives polling render");
     assert.equal(createCount(), beforeInvalid);
   }
   await page.screenshot({ path: `${out}/invalid-prompt.png`, fullPage: true });
@@ -132,7 +136,7 @@ try {
   const createGate = new Promise(resolve => { releaseCreate = resolve; });
   await page.route("**/api/thought-plain/v1/runs", async route => { await createGate; await route.continue(); });
   await page.getByRole("button", { name: "Send to your Agent" }).click();
-  await page.getByText("Preparing task", { exact: true }).waitFor();
+  await page.locator(".thought-dock-status-screen__entry.is-latest").getByText("Preparing task", { exact: true }).waitFor();
   await assertFrame("preparing");
   releaseCreate();
   await page.getByRole("link", { name: "ChatGPT", exact: true }).waitFor();
@@ -154,7 +158,7 @@ try {
   assert.equal(await page.getByRole("link", { name: "ChatGPT", exact: true }).count(), 0);
   await page.route("**/api/thought-plain/v1/runs/*", route => route.abort());
   await page.getByRole("button", { name: "Check return", exact: true }).click();
-  await page.getByText("Delivery uncertain", { exact: true }).waitFor();
+  await page.locator(".thought-dock-status-screen__entry.is-latest").getByText("Delivery uncertain", { exact: true }).waitFor();
   await assertFrame("delivery-uncertain");
   assert.equal(createCount(), beforeInvalid + 1);
   await page.unroute("**/api/thought-plain/v1/runs/*");
@@ -199,26 +203,27 @@ try {
     };
   });
   await page.getByRole("button", { name: "Save", exact: true }).click();
-  await page.getByText("Work not saved", { exact: true }).waitFor();
+  await page.locator(".thought-dock-status-screen__entry.is-latest").getByText("Work not saved", { exact: true }).waitFor();
   await page.waitForTimeout(2100);
-  assert.equal(await page.getByText("Work not saved", { exact: true }).count(), 1);
+  assert.equal(await page.locator(".thought-dock-status-screen__entry.is-latest").getByText("Work not saved", { exact: true }).count(), 1);
   assert.equal(await page.getByRole("button", { name: "Save", exact: true }).count(), 1);
   assert.equal((await metrics()).imageCount, 1);
   assert.equal(createCount(), beforeInvalid + 1);
   await page.screenshot({ path: `${out}/save-failed.png`, fullPage: true });
   await page.evaluate(() => { Storage.prototype.setItem = window.restoreStorageWrite; delete window.restoreStorageWrite; });
   await page.getByRole("button", { name: "Save", exact: true }).click();
-  await page.getByText("Work saved", { exact: true }).waitFor();
+  await page.locator(".thought-dock-status-screen__entry.is-latest").getByText("Work saved", { exact: true }).waitFor();
   const savedReads = statusReads();
   await page.waitForTimeout(4200);
   assert.equal(statusReads(), savedReads);
   await page.reload();
-  await page.getByText("Work saved", { exact: true }).waitFor();
+  await page.locator(".thought-dock-status-screen__entry.is-latest").getByText("Work saved", { exact: true }).waitFor();
   await page.getByRole("button", { name: "Reset", exact: true }).click();
   await assertFrame("reset");
-  const select = page.getByRole("combobox", { name: "Load saved experimental work" });
+  await page.getByRole("button", { name: "Open saved works", exact: true }).click();
+  const select = page.getByRole("combobox", { name: "Load a saved work" });
   await select.selectOption({ label: "Hello?" });
-  await page.getByText("Work saved", { exact: true }).waitFor();
+  await page.locator(".thought-dock-status-screen__entry.is-latest").getByText("Work loaded", { exact: true }).waitFor();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ colorScheme: "dark" });
   await settleLayout();
@@ -242,13 +247,13 @@ try {
   const rejectedTask = new URL(await page.getByRole("link", { name: "ChatGPT", exact: true }).getAttribute("href")).searchParams.get("prompt");
   const rejectedReply = await fetch(/^URL: (.+)$/m.exec(rejectedTask)[1], { method: "POST", headers: { Authorization: /^Authorization: (.+)$/m.exec(rejectedTask)[1], "Content-Type": "text/plain" }, body: "Bad\n", redirect: "error" });
   assert.equal(rejectedReply.status, 422); await rejectedReply.body.cancel();
-  await page.getByText("Return rejected", { exact: true }).waitFor();
+  await page.locator(".thought-dock-status-screen__entry.is-latest").getByText("Return rejected", { exact: true }).waitFor();
   await assertFrame("rejected");
   await page.getByRole("button", { name: "Reset", exact: true }).click();
   await page.locator("#thought-dock-prompt").fill("Cancel?");
   await page.getByRole("button", { name: "Send to your Agent" }).click();
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
-  await page.getByText("Task cancelled", { exact: true }).waitFor();
+  await page.locator(".thought-dock-status-screen__entry.is-latest").getByText("Task cancelled", { exact: true }).waitFor();
   await assertFrame("cancelled");
   await page.getByRole("button", { name: "Reset", exact: true }).click();
   await page.locator("#thought-dock-prompt").fill("Feedback?");
@@ -269,12 +274,13 @@ try {
     };
   });
   await page.getByRole("button", { name: "Save", exact: true }).click();
-  await page.getByText("Work not saved", { exact: true }).waitFor();
+  await page.locator(".thought-dock-status-screen__entry.is-latest").getByText("Work not saved", { exact: true }).waitFor();
   await page.getByRole("button", { name: "Reset", exact: true }).click();
-  await page.getByRole("button", { name: "Send to your Agent" }).click();
-  await page.getByText("Prompt is empty", { exact: true }).waitFor();
+  assert.equal(await page.getByRole("button", { name: "Send to your Agent" }).isDisabled(), true);
+  await page.getByRole("button", { name: "Send to your Agent" }).dispatchEvent("click");
+  await page.locator(".thought-dock-status-screen__entry.is-latest").getByText("Prompt is empty", { exact: true }).waitFor();
   await page.waitForTimeout(2100);
-  assert.equal(await page.getByText("Prompt is empty", { exact: true }).count(), 1);
+  assert.equal(await page.locator(".thought-dock-status-screen__entry.is-latest").getByText("Prompt is empty", { exact: true }).count(), 1);
   await page.evaluate(() => { Storage.prototype.setItem = window.restoreStorageWrite; delete window.restoreStorageWrite; });
   assert.equal(createCount(), beforeInvalid + 4, "Save failure/reset/invalid prompt never resends");
 
@@ -284,7 +290,7 @@ try {
   assert.equal(conflictReply.status, 409); await conflictReply.body.cancel();
   await page.evaluate(pending => sessionStorage.setItem("inshell.thought.plain-http.pending.v1", pending), feedbackPending);
   await page.reload();
-  await page.getByText("Conflicting return", { exact: true }).waitFor();
+  await page.locator(".thought-dock-status-screen__entry.is-latest").getByText("Conflicting return", { exact: true }).waitFor();
   await page.waitForFunction(() => document.querySelector("#thought-svg-preview").naturalWidth > 0);
   assert.equal(await page.getByRole("button", { name: "Save", exact: true }).count(), 0);
   assert.equal(await page.getByRole("button", { name: "Review complete", exact: true }).count(), 0);
@@ -299,7 +305,7 @@ try {
   await page.getByRole("link", { name: "ChatGPT", exact: true }).waitFor();
   const expiryRun = await page.evaluate(() => JSON.parse(sessionStorage.getItem("inshell.thought.plain-http.pending.v1")).runId);
   await page.route(`**/api/thought-plain/v1/runs/${expiryRun}`, route => route.fulfill({ contentType: "application/json", body: JSON.stringify({ runId: expiryRun, state: "expired", work: null, conflict: false }) }));
-  await page.getByText("Task expired", { exact: true }).waitFor();
+  await page.locator(".thought-dock-status-screen__entry.is-latest").getByText("Task expired", { exact: true }).waitFor();
   await assertFrame("expired");
   assert.ok(!(await page.locator("#thought-dock-details-body").textContent()).includes("can no longer be checked"));
   await page.unroute(`**/api/thought-plain/v1/runs/${expiryRun}`);
@@ -312,20 +318,19 @@ try {
   });
   await page.getByRole("button", { name: "Reset", exact: true }).click();
   await page.goto(`${disabledOrigin}/thought/?transport=plain&surface=agent`);
-  await page.getByText("Experimental return unavailable", { exact: true }).waitFor();
+  await page.locator(".thought-dock-status-screen__entry.is-latest").getByText("Experimental return unavailable", { exact: true }).waitFor();
   assert.equal(await page.getByRole("button", { name: "Send to your Agent" }).count(), 0);
   assert.equal((await fetch(disabledOrigin + "/api/thought-plain/v1/runs", { method: "POST" })).status, 404);
   await page.goto(`${disabledOrigin}/thought/?surface=agent`);
   await page.locator("#thought-dock-prompt").waitFor({ state: "visible" });
   await page.waitForTimeout(1500);
   assert.equal(await page.locator('body[data-thought-transport="plain-experimental"]').count(), 0);
-  assert.equal(await page.getByText("Experimental creation", { exact: true }).count(), 0);
   await page.goto(`${origin}/thought/?transport=plain&surface=agent`);
   await page.getByRole("button", { name: "Send to your Agent" }).waitFor();
   await page.route("**/api/thought-plain/v1/runs", route => route.abort());
   await page.locator("#thought-dock-prompt").fill("Unknown?");
   await page.getByRole("button", { name: "Send to your Agent" }).click();
-  await page.getByText("Preparation uncertain", { exact: true }).waitFor();
+  await page.locator(".thought-dock-status-screen__entry.is-latest").getByText("Preparation uncertain", { exact: true }).waitFor();
   assert.equal(await page.getByRole("button", { name: "Check return", exact: true }).count(), 0);
   assert.equal(await page.getByRole("button", { name: "Cancel", exact: true }).count(), 0);
   assert.equal(await page.getByRole("button", { name: "Reset", exact: true }).count(), 0);

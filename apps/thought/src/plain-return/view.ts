@@ -1,5 +1,11 @@
+import "@fontsource/source-code-pro/200.css";
 import "@fontsource/source-code-pro/300.css";
 import "@fontsource/source-code-pro/400.css";
+import "@fontsource/source-code-pro/500.css";
+import "@fontsource/source-code-pro/600.css";
+import "@fontsource/source-code-pro/700.css";
+import "@fontsource/source-code-pro/800.css";
+import "@fontsource/source-code-pro/900.css";
 import "@fontsource-variable/roboto-mono/wght.css";
 import "@inshell/shared/design.css";
 import "./view.css";
@@ -8,7 +14,11 @@ import { mountThoughtShell } from "../thought-shell";
 import { PlainClient, readSaved } from "./client";
 import { createBrief } from "./model";
 import { thoughtV2EmptyFrameCanvasRect } from "../thought-v2-empty-frame";
-import type { WorkStorage } from "../works";
+import { formatSavedWorkPromptLabel, type WorkStorage } from "../works";
+import { appendThoughtConsoleEvent, buildThoughtConsoleLines,
+  parseThoughtConsoleHistory, serializeThoughtConsoleHistory, thoughtConsoleVisualRole,
+  THOUGHT_CONSOLE_EMPTY_TITLE, THOUGHT_CONSOLE_EMPTY_DETAIL, type ThoughtConsoleTone } from "../thought-console";
+import { openFailureReport } from "../thought-failure-report";
 import { THOUGHT_V2_ALLOWED_CHARACTERS, THOUGHT_V2_PUNCTUATION } from "../../contract-integration/current/reference/thought-v2-terminal-work-profile";
 
 // No main.ts import: none of its legacy Agent, wallet-to-mint or RPC handlers run.
@@ -29,6 +39,9 @@ const actions = element("thought-dock-action-area");
 const actionGroup = document.createElement("div");
 actionGroup.className = "thought-dock-actions";
 const consoleBody = element("thought-dock-details-body");
+const consolePanel = element("thought-dock-details");
+const library = element("thought-dock-works");
+const librarySelect = element<HTMLSelectElement>("thought-dock-works-select");
 const preview = element<HTMLImageElement>("thought-svg-preview");
 // Resolve browser storage only when used: blocked storage must not blank the UI.
 const storage = (kind: "sessionStorage" | "localStorage"): WorkStorage => ({
@@ -44,8 +57,16 @@ let enabled = false;
 let imageUrl = "";
 let shownWork = "";
 let rendering = "";
-let actionError: { title: string; detail: string } | null = null;
+let actionError: { title: string; detail: string; nextStep?: string; report?: boolean } | null = null;
 let actionErrorState = client.state;
+let libraryOpen = false;
+let loaded = false;
+const historyKey = "inshell.thought.plain-http.console.v1";
+let history = parseThoughtConsoleHistory((() => {
+  try { return sessionStorage.getItem(historyKey); } catch { return null; }
+})());
+let attemptId = history.entries.at(-1)?.context.attemptId ?? window.crypto.randomUUID();
+let lastMessage = "";
 element("thought-dock-details").hidden = false;
 consoleBody.setAttribute("aria-live", "polite");
 actions.dataset.content = "actions";
@@ -77,20 +98,102 @@ function paintEmptyFrame() {
 }
 paintEmptyFrame();
 
-function message(title: string, detail: string) {
-  const heading = document.createElement("p");
-  heading.className = "thought-dock-status-screen__line thought-dock-status-screen__line--heading";
-  heading.textContent = actionError?.title ?? title;
-  const body = document.createElement("p");
-  body.className = "thought-dock-status-screen__line thought-dock-status-screen__line--guidance";
-  body.textContent = actionError?.detail ?? detail;
-  consoleBody.replaceChildren(heading, body);
+// Mirror the formal layout's canvas-derived identity and panel dimensions,
+// without mounting its execution, wallet or chain controllers.
+const frameElement = document.querySelector<HTMLElement>(".thought-canvas-frame")!;
+new window.ResizeObserver(() => {
+  const rect = frameElement.getBoundingClientRect();
+  document.querySelector<HTMLElement>(".frontpage-stage")!.style.setProperty("--thought-create-identity-width", `${rect.width}px`);
+  document.documentElement.style.setProperty("--thought-cli-height", `${rect.height}px`);
+}).observe(frameElement);
+
+function renderHistory() {
+  const scrollTop = consolePanel.scrollTop;
+  const previous = consoleBody.dataset.newestEntryId;
+  const newest = history.entries.at(-1)?.id;
+  // Append order is authoritative: second-resolution timestamps can tie, and
+  // historical guidance must never outrank a later successful state.
+  const nodes = [...history.entries].reverse().map(entry => {
+    const article = document.createElement("article");
+    article.className = "thought-dock-status-screen__entry";
+    article.dataset.consoleEntryId = entry.id;
+    article.dataset.consoleKind = entry.kind;
+    article.dataset.attemptId = entry.context.attemptId;
+    article.classList.toggle("is-latest", entry.id === newest);
+    article.classList.toggle("is-current-attempt", entry.context.attemptId === attemptId);
+    const guidance = thoughtConsoleVisualRole(entry) === "guidance";
+    // History remains readable, but obsolete actions must not look current.
+    const lines = buildThoughtConsoleLines({ ...entry, nextStep: entry.id === newest ? entry.nextStep : undefined });
+    for (const [index, text] of lines.entries()) {
+      const line = document.createElement("p");
+      line.className = ["thought-dock-status-screen__line", index === 0 ? "thought-dock-status-screen__line--heading" : "",
+        guidance ? "thought-dock-status-screen__line--guidance" : "",
+        entry.tone === "neutral" ? "" : `thought-dock-status-screen__line--${entry.tone}`].filter(Boolean).join(" ");
+      if (index === 0) {
+        line.append(`[${entry.time}] `);
+        const title = document.createElement("span");
+        title.textContent = entry.title;
+        line.append(title);
+        if (entry.id === newest && (client.state === "preparing" || client.state === "waiting") && !actionError) {
+          const ellipsis = document.createElement("span");
+          ellipsis.className = "thought-progress-ellipsis is-active";
+          ellipsis.setAttribute("aria-hidden", "true");
+          for (let i = 0; i < 3; i++) {
+            const dot = document.createElement("span");
+            dot.className = "thought-progress-ellipsis__dot";
+            dot.textContent = ".";
+            ellipsis.append(dot);
+          }
+          line.append(ellipsis);
+        }
+      } else line.textContent = text;
+      article.append(line);
+    }
+    if (entry.kind === "work_failed") {
+      const line = document.createElement("p");
+      line.className = "thought-dock-status-screen__line thought-dock-status-screen__line--guidance";
+      const report = document.createElement("button");
+      report.type = "button";
+      report.className = "thought-dock-status-screen__link thought-dock-status-screen__action";
+      report.textContent = "[ Report this problem ]";
+      report.setAttribute("aria-label", "Review a sanitized problem report");
+      report.addEventListener("click", () => openFailureReport({ agent: "unknown", surface: "THOUGHT experimental return",
+        appVersion: "unknown", build: "unknown", stage: "app-run" }));
+      line.append(report);
+      article.append(line);
+    }
+    return article;
+  });
+  consoleBody.replaceChildren(...nodes);
+  consoleBody.dataset.newestEntryId = newest ?? "";
+  consolePanel.scrollTop = previous !== newest || scrollTop <= 2 ? 0 : scrollTop;
 }
-function button(label: string, action: () => void | Promise<void>) {
+
+function message(title: string, detail: string, tone: ThoughtConsoleTone = "neutral", nextStep?: string) {
+  title = actionError?.title ?? title;
+  detail = actionError?.detail ?? detail;
+  if (actionError) tone = "error";
+  const failure = Boolean(actionError?.report) || ["uncertain", "preparation-uncertain", "rejected", "unavailable"].includes(client.state);
+  if (actionError) nextStep = actionError.nextStep ?? "Edit the prompt above";
+  const signature = JSON.stringify([attemptId, title, detail, tone, nextStep]);
+  if (signature !== lastMessage) {
+    lastMessage = signature;
+    history = appendThoughtConsoleEvent(history, { time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }),
+      kind: failure ? "work_failed" : tone === "warning" || tone === "error" ? "work_attention" : "work_activity",
+      context: { attemptId }, title, detail, tone, nextStep });
+    history = { ...history, entries: history.entries.slice(-80) };
+    try { sessionStorage.setItem(historyKey, serializeThoughtConsoleHistory(history)); } catch { /* History cannot block work. */ }
+  }
+  renderHistory();
+}
+function button(label: string, action: () => void | Promise<void>, options: { disabled?: boolean; ariaLabel?: string; expanded?: boolean } = {}) {
   const control = document.createElement("button");
   control.className = "thought-dock-button thought-work-cta";
   control.type = "button";
   control.textContent = label;
+  control.disabled = Boolean(options.disabled);
+  if (options.ariaLabel) control.setAttribute("aria-label", options.ariaLabel);
+  if (options.expanded !== undefined) control.setAttribute("aria-expanded", String(options.expanded));
   control.addEventListener("click", () => {
     control.disabled = true;
     actionError = null;
@@ -100,22 +203,31 @@ function button(label: string, action: () => void | Promise<void>) {
       if (!["preparation-uncertain", "uncertain"].includes(client.state)) {
         actionErrorState = client.state;
         actionError = label === "Save"
-          ? { title: "Work not saved", detail: "This browser could not store the work. Keep this page open and allow browser storage before saving again." }
-          : { title: "Action unavailable", detail: "The action could not finish. Keep this page open and check the work before continuing." };
+          ? { title: "Work not saved", detail: "This browser could not store the work. Keep this page open.", nextStep: "Allow browser storage, then save again", report: true }
+          : { title: "Action unavailable", detail: "The action could not finish. Keep this page open.", nextStep: "Review the problem before continuing; do not resubmit the task", report: true };
       }
     }).finally(() => { rendering = ""; render(); });
   });
   actionGroup.append(control);
+  return control;
 }
+librarySelect.addEventListener("change", () => {
+  if (!librarySelect.value) return;
+  try { client.load(librarySelect.value); loaded = true; libraryOpen = false; actionError = null; }
+  catch { actionErrorState = client.state; actionError = { title: "Work not loaded", detail: "The browser could not restore this saved work. Keep the current work open.", nextStep: "Check browser storage before loading again", report: true }; }
+  render();
+});
 function render() {
   if (actionError && (client.state !== actionErrorState || client.conflict)) actionError = null;
-  const signature = JSON.stringify([enabled, client.state, client.work?.runId, client.reviewed, client.conflict, Boolean(task), launched, actionError]);
+  const signature = JSON.stringify([enabled, client.state, client.work?.runId, client.reviewed, client.conflict, Boolean(task), launched, actionError, libraryOpen, loaded, prompt.value]);
   if (signature === rendering) return;
   rendering = signature;
   actionGroup.replaceChildren();
   actions.replaceChildren(actionGroup);
   actions.hidden = false;
-  prompt.disabled = !enabled || client.state !== "idle";
+  prompt.disabled = !enabled;
+  prompt.readOnly = client.state !== "idle";
+  library.classList.add("is-hidden");
   const work = client.work;
   if (work && shownWork !== work.runId) {
     if (imageUrl) URL.revokeObjectURL(imageUrl);
@@ -135,9 +247,9 @@ function render() {
   }
   if (!enabled) { message("Experimental return unavailable", "This App has not enabled this test path. Return to the regular THOUGHT page."); return; }
   if (client.conflict) {
-    message("Conflicting return", "A different response was rejected. The first response is retained for inspection, not minting.");
+    message("Conflicting return", "A different response was rejected. The first response is retained for inspection, not minting.", "warning", "Inspect this work, then reset when ready");
   } else if (client.state === "idle") {
-    message("Experimental creation", "Write one short prompt. Returned work can be saved here, but cannot be minted.");
+    message(THOUGHT_CONSOLE_EMPTY_TITLE, THOUGHT_CONSOLE_EMPTY_DETAIL);
     button("Send to your Agent", async () => {
       try { createBrief("plain_validate", prompt.value); }
       catch {
@@ -154,7 +266,7 @@ function render() {
         return;
       }
       const pending = client.create(prompt.value); render(); task = await pending;
-    });
+    }, { disabled: prompt.value.length === 0 });
   } else if (client.state === "preparing") {
     message("Preparing task", "Keep this page open.");
   } else if (client.state === "waiting") {
@@ -176,45 +288,63 @@ function render() {
     button("Cancel", () => client.cancel());
   } else if (client.state === "review" || client.state === "saved") {
     task = "";
-    message(client.state === "saved" ? "Work saved" : "Return received", client.state === "saved"
+    message(client.state === "saved" ? loaded ? "Work loaded" : "Work saved" : client.reviewed ? "Work reviewed" : "Return received", client.state === "saved"
       ? "Stored in this browser. This experimental work is not eligible for minting."
-      : `Review the exact response: ${work?.agentLine}\nProvider and model are unknown; start-only creation is not established. This work cannot be minted.`);
+      : client.reviewed ? "Save the reviewed work in this browser to keep it. This experimental work cannot be minted."
+      : "Review the returned work above. Provider and model are unknown; start-only creation is not established. This work cannot be minted.", "success");
     if (client.state === "review") button(client.reviewed ? "Save" : "Review complete", () => { if (client.reviewed) client.save(); else client.review(); });
+    if (client.state === "saved") button("Saved", () => {}, { disabled: true });
     if (client.canInspect) button("Check return", () => client.check());
   } else if (client.state === "preparation-uncertain") {
     task = "";
-    message("Preparation uncertain", "A task may have been prepared, but this page has no recovery access. It cannot check or cancel that task. Do not submit it again. You can leave for the regular THOUGHT page.");
+    message("Preparation uncertain", "A task may have been prepared, but this page has no recovery access. It cannot check or cancel that task. Do not submit it again.", "warning", "Return to the regular THOUGHT page without resubmitting");
     const exit = document.createElement("a");
     exit.className = "thought-dock-button thought-work-cta";
     exit.href = "/thought/";
     exit.textContent = "Return to THOUGHT";
     actionGroup.append(exit);
   } else if (client.state === "uncertain") {
-    message("Delivery uncertain", "The App may already have accepted the work. Check the return; do not generate or submit again.");
+    message("Delivery uncertain", "The App may already have accepted the work. Do not generate or submit again.", "warning", "Check the return");
     button("Check return", () => client.check());
     button("Cancel", () => client.cancel());
   } else if (client.state === "rejected") {
-    message("Return rejected", "The response did not meet this task's rules. Reset to begin a new work; do not resend this task.");
+    message("Return rejected", "The response did not meet this task's rules. Do not resend this task.", "error", "Reset when ready for a new work");
   } else if (client.state === "cancelled") {
     message("Task cancelled", "This task can no longer receive a response. Reset when you are ready for a new work.");
   } else if (client.state === "expired") {
-    message("Task expired", "This exchange has reached its time limit. Reset to begin a new work; do not resend this task.");
+    message("Task expired", "This exchange has reached its time limit. Do not resend this task.", "warning", "Reset when ready for a new work");
   } else {
     message("Exchange closed", "No replacement response is accepted for this task.");
   }
   if (!["waiting", "preparing", "uncertain", "preparation-uncertain"].includes(client.state)) {
-    if (client.state !== "idle") button("Reset", () => { client.reset(); task = ""; launched = false; prompt.value = ""; });
-    const saved = readSaved(savedStorage);
-    if (saved.length) {
-      const select = document.createElement("select");
-      select.className = "thought-dock-button thought-work-cta";
-      select.setAttribute("aria-label", "Load saved experimental work");
-      select.add(new Option("Load", ""));
-      for (const item of saved) select.add(new Option(item.promptLine, item.runId));
-      select.addEventListener("change", () => { if (select.value) { client.load(select.value); render(); } });
-      actionGroup.append(select);
+    button(libraryOpen ? "Load ↓" : "Load", () => {
+      libraryOpen = !libraryOpen;
+      if (libraryOpen) requestAnimationFrame(() => librarySelect.focus({ preventScroll: true }));
+    }, {
+      ariaLabel: libraryOpen ? "Collapse saved works" : "Open saved works", expanded: libraryOpen,
+    });
+    if (client.state !== "idle") button("Reset", () => {
+      client.reset(); task = ""; launched = false; prompt.value = ""; loaded = false; libraryOpen = false;
+      attemptId = window.crypto.randomUUID();
+      message("Work reset", "Prompt, current work, and open panels cleared.");
+    });
+    if (libraryOpen) {
+      const saved = [...readSaved(savedStorage)].reverse();
+      const placeholder = new Option(saved.length ? "Load a saved work" : "No saved works", "");
+      placeholder.disabled = true;
+      librarySelect.replaceChildren(placeholder, ...saved.map(item => {
+        const option = new Option(formatSavedWorkPromptLabel(item.promptLine), item.runId);
+        option.title = item.promptLine;
+        return option;
+      }));
+      librarySelect.value = client.work?.runId ?? "";
+      if (!librarySelect.value) placeholder.selected = true;
+      librarySelect.disabled = !saved.length;
+      library.classList.remove("is-hidden");
     }
   }
+  actions.hidden = !actionGroup.childElementCount;
+  element("thought-dock").dataset.rail = actions.hidden ? "hidden" : "visible";
 }
 async function start() {
   try { await client.available(); enabled = true; client.restore(); await client.check(); }
