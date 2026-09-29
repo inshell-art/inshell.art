@@ -9,3 +9,14 @@ body[data-thought-transport="plain-experimental"] .thought-dock-action-rail[data
 body[data-thought-transport="plain-experimental"] .thought-dock-actions {
   flex-wrap: wrap;
 }
+
+/* Below the two-column breakpoint the square canvas and controls form a
+   document flow, not a height-contained desktop stage. Size containment plus
+   centered flex content otherwise lets the canvas overflow into the header. */
+@media (max-width: 1023px) {
+  html.agent-surface body.frontpage[data-thought-transport="plain-experimental"]:has(.frontpage-stage:not(.is-hidden)) .frontpage-main {
+    container-type: normal;
+    flex: none;
+    justify-content: flex-start;
+  }
+}

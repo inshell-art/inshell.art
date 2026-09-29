@@ -19,15 +19,25 @@ await context.route("**/*", route => {
 const page = await context.newPage();
 page.on("pageerror", error => errors.push(error.message));
 page.on("request", request => requests.push({ path: new URL(request.url()).pathname, method: request.method() }));
+const settleLayout = async () => {
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    window.scrollTo(0, 0);
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  });
+};
 const metrics = async () => page.evaluate(() => {
   const canvas = document.querySelector(".thought-canvas-frame").getBoundingClientRect();
   const panel = document.querySelector("#thought-panel").getBoundingClientRect();
+  const header = document.querySelector(".thought-create__header").getBoundingClientRect();
+  const main = document.querySelector(".frontpage-main").getBoundingClientRect();
   const image = document.querySelector("#thought-svg-preview");
   const controls = [...document.querySelectorAll("#thought-dock-action-area button, #thought-dock-action-area a, #thought-dock-action-area select")];
   return {
     viewport: innerWidth, documentWidth: document.documentElement.scrollWidth,
     canvas: { x: canvas.x, y: canvas.y, width: canvas.width, height: canvas.height },
     panel: { x: panel.x, y: panel.y, width: panel.width, height: panel.height },
+    headerBottom: header.bottom, mainTop: main.top,
     controls: controls.map(control => ({ text: control.textContent, width: control.getBoundingClientRect().width,
       contained: control.getBoundingClientRect().right <= panel.right && control.getBoundingClientRect().left >= panel.left,
       font: getComputedStyle(control).fontFamily })),
@@ -37,9 +47,34 @@ const metrics = async () => page.evaluate(() => {
     console: document.querySelector("#thought-dock-details-body").textContent,
   };
 });
+const assertLayout = (value, stacked) => {
+  assert.ok(value.documentWidth <= value.viewport, "No horizontal overflow");
+  assert.ok(value.canvas.y >= value.headerBottom - 1, "Canvas stays below the heading");
+  assert.ok(value.canvas.y >= value.mainTop - 1, "Canvas never overflows upward from its layout");
+  assert.ok(Math.abs(value.canvas.width - value.canvas.height) < 2, "Canvas remains square");
+  if (stacked) assert.ok(value.panel.y >= value.canvas.y + value.canvas.height - 1, "Controls follow the canvas");
+  assert.ok(value.controls.every(control => control.contained), "Controls stay inside the panel");
+};
 try {
+  await page.setViewportSize({ width: 924, height: 809 });
+  await page.goto(`${disabledOrigin}/thought/?surface=agent`);
+  await page.locator("#thought-dock-prompt").waitFor({ state: "visible" });
+  await page.locator(".inshell-preview-watermark").waitFor();
+  await settleLayout();
+  const defaultMedium = await metrics();
+  await page.screenshot({ path: `${out}/default-medium-initial.png`, fullPage: true });
   await page.goto(`${origin}/thought/?transport=plain&surface=agent`);
   await page.getByRole("button", { name: "Send to your Agent" }).waitFor();
+  const initial = [];
+  for (const width of [924, 390, 768, 1023, 1024, 1280]) {
+    await page.setViewportSize({ width, height: 809 });
+    await settleLayout();
+    const layout = await metrics();
+    await page.screenshot({ path: `${out}/initial-${width}.png`, fullPage: true });
+    initial.push(layout);
+    assertLayout(layout, width < 1024);
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
   await page.locator("#thought-dock-prompt").fill("Hello?");
   await page.getByRole("button", { name: "Send to your Agent" }).click();
   await page.getByRole("link", { name: "ChatGPT", exact: true }).waitFor();
@@ -76,6 +111,18 @@ try {
   assert.ok(desktop.controls.every(control => control.font.includes("Source Code Pro")));
   assert.ok(desktop.controls.every(control => control.contained));
   await page.screenshot({ path: `${out}/desktop-review.png`, fullPage: true });
+  const returned = [];
+  for (const width of [768, 924, 1023, 1024]) {
+    await page.setViewportSize({ width, height: 809 });
+    await settleLayout();
+    const layout = await metrics();
+    await page.screenshot({ path: `${out}/returned-${width}.png`, fullPage: true });
+    returned.push(layout);
+    assertLayout(layout, width < 1024);
+    assert.equal(layout.imageCount, 1);
+    assert.equal(layout.mintVisible, false);
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
   await page.getByRole("button", { name: "Review complete" }).click();
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await page.getByText("Work saved", { exact: true }).waitFor();
@@ -122,8 +169,8 @@ try {
   await page.screenshot({ path: `${out}/preparation-uncertain.png`, fullPage: true });
   await page.unroute("**/api/thought-plain/v1/runs");
   const report = { syntheticOnly: true, liveAgents: 0, nativeLaunches: 0, handoffBytes: bytes,
-    passed: ["real create/HTTP return/poll", "reload pending", "lost Agent ack", "exact quotes", "review/save", "reload saved", "load", "desktop geometry", "mobile dark geometry", "mint isolation", "no RPC/Agent v2", "disabled UI/API", "legacy default entry", "terminal polling stopped", "Claude No folder guidance", "lost preparation reply safe exit"],
-    desktop, mobile, plainRequestCount, externalRequests: external, pageErrors: errors };
+    passed: ["real create/HTTP return/poll", "reload pending", "lost Agent ack", "exact quotes", "review/save", "reload saved", "load", "desktop geometry", "mobile dark geometry", "six-width initial geometry", "four-width returned geometry", "default medium-width comparison", "mint isolation", "no RPC/Agent v2", "disabled UI/API", "legacy default entry", "terminal polling stopped", "Claude No folder guidance", "lost preparation reply safe exit"],
+    defaultMedium, initial, returned, desktop, mobile, plainRequestCount, externalRequests: external, pageErrors: errors };
   await writeFile(`${out}/report.json`, JSON.stringify(report, null, 2) + "\n");
   console.log(JSON.stringify({ passed: report.passed, handoffBytes: bytes, evidence: out, pageErrors: errors.length, externalRequests: external.length }));
 } finally { await browser.close(); }
