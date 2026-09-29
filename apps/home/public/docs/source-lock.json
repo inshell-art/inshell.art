@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "ee56f8f0f40404cd3f324c388763e651df492630f4e6320b5e84678fb37f81b4",
+  "sourceTreeSha256": "fcfbef1a872017676202a153dd8fbcd3150775e4b333817109bd1173e3080ecd",
   "groups": [
     {
       "id": "public-docs",
@@ -605,7 +605,7 @@
       "title": "Documentation gates",
       "owner": "inshell.art repository automation",
       "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
-      "groupSha256": "ebe05149491b40340b052bc863f2606e317588ce77c0c312678373d12f5a484f",
+      "groupSha256": "b5bde059ae299d9059d1e7b62f526ba03d2fa3309584c5273499d0ccd76cbcdc",
       "files": [
         {
           "path": ".github/workflows/deploy-pages.yml",
@@ -619,8 +619,8 @@
         },
         {
           "path": ".github/workflows/test.yml",
-          "byteLength": 4131,
-          "sha256": "ad921805bc19707031957c4e45e975d51a09d188a1b5a76de801c962d307e4ae"
+          "byteLength": 4230,
+          "sha256": "bc087566d52561d3a2354f818a45323224b711db89ebc37c53ea05b25b81933d"
         },
         {
           "path": ".husky/pre-commit",
@@ -1079,7 +1079,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "b0fe246ffee307f61122d2707b80410ef85dbd24bf7fa1474bc49a20ff21710a",
+      "groupSha256": "82febf2fb2a7e949ab623c6260b568d4546b2becb4407f4830b88d66a5f42ba6",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1188,8 +1188,8 @@
         },
         {
           "path": "apps/thought/src/plain-return/view.css",
-          "byteLength": 447,
-          "sha256": "fbebb5019265bb5b9fec27c2a51cfd2218e4420d73f064ebfe77a8e4a8cfad61"
+          "byteLength": 928,
+          "sha256": "6669e4557a44c110da7ba0c6fe2d7fad594ab6b5297468bf0b573e57aba8a4a6"
         },
         {
           "path": "apps/thought/src/plain-return/view.ts",

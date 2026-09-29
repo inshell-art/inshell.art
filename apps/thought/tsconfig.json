@@ -13,6 +13,7 @@
       "@inshell/*": ["../../packages/*/src"]
     }
   },
+  "exclude": ["src/plain-return/*.test.ts"],
   "include": [
     "src",
     "integration-preview/**/*.ts",

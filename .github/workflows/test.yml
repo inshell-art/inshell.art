@@ -72,6 +72,8 @@ jobs:
         run: pnpm run test:thought-runtime
       - name: Test opt-in THOUGHT plain return
         run: pnpm run test:thought-plain
+      - name: Type-check standalone THOUGHT
+        run: pnpm --filter @inshell/thought type-check
       - name: Check THOUGHT renderer parity
         env:
           THOUGHT_RENDER_PARITY_RPC_URL: ${{ vars.THOUGHT_RENDER_PARITY_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com' }}
