@@ -35,6 +35,7 @@ export class PlainClient {
   private pending: Pending | null = null;
   private epoch = 0;
   private checking = false;
+  private cancelling = false;
   constructor(private pendingStorage: WorkStorage, private savedStorage: WorkStorage, private fetcher: typeof fetch = (input, init) => fetch(input, init)) {}
   private async request(path: string, init: RequestInit = {}) {
     const response = await this.fetcher(`${API}${path}`, { ...init, redirect: "error", cache: "no-store", signal: globalThis.AbortSignal.timeout(8000) });
@@ -90,6 +91,8 @@ export class PlainClient {
     } else throw new Error("uncertain");
   }
   get canInspect() { return this.pending !== null && this.pending.readExpiresAt > Date.now(); }
+  // Expose only the validated artistic line, never the recovery credential.
+  get pendingPrompt() { return this.pending?.promptLine ?? null; }
   async poll() {
     // Automatic reads stop at a terminal result. Manual inspection remains
     // available for later conflicts, without an indefinite D1 polling loop.
@@ -97,7 +100,7 @@ export class PlainClient {
     await this.check();
   }
   async check() {
-    if (!this.pending || this.checking) return;
+    if (!this.pending || this.checking || this.cancelling) return;
     if (!this.canInspect) {
       if (this.state !== "saved") this.state = "expired";
       return;
@@ -112,11 +115,13 @@ export class PlainClient {
     } finally { this.checking = false; }
   }
   async cancel() {
-    if (!this.pending) return;
+    if (!this.pending || this.cancelling) return;
+    this.cancelling = true;
     ++this.epoch;
     try {
       this.accept(await this.request(`/runs/${this.pending.runId}`, { method: "DELETE", headers: { Authorization: `Bearer ${this.pending.browserToken}` } }));
     } catch { this.state = "uncertain"; }
+    finally { this.cancelling = false; }
   }
   review() {
     if (this.state !== "review" || !this.work || this.conflict) throw new Error("Work cannot be reviewed");

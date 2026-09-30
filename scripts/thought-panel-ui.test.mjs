@@ -18,6 +18,7 @@ import {
 const indexHtml = await readFile(new URL("../apps/thought/index.html", import.meta.url), "utf8");
 const thoughtCss = await readFile(new URL("../apps/thought/src/style.css", import.meta.url), "utf8");
 const thoughtMain = await readFile(new URL("../apps/thought/src/main.ts", import.meta.url), "utf8");
+const plainView = await readFile(new URL("../apps/thought/src/plain-return/view.ts", import.meta.url), "utf8");
 const thoughtLaunchState = await readFile(
   new URL("../apps/thought/src/thought-launch-state.ts", import.meta.url),
   "utf8",
@@ -1682,6 +1683,53 @@ test("launch context guidance reuses the shared amber warning style", () => {
   assert.doesNotMatch(thoughtCss, /claude.*warning|folder.*warning/i);
   const lockedStyle = loadThoughtDevSnapshotFile(repoRoot, "style");
   assert.match(lockedStyle, /\.thought-dock-status-screen__line--warning\s*\{\s*color: var\(--status-warning-text\);/);
+});
+
+test("plain presenter keeps confirmed chooser warning, restoration and cancellation controls", () => {
+  // Normal runtime/CI source guards cover BOTH presenters; rendered transitions
+  // remain the separately runnable test:thought-plain:state-parity browser suite.
+  const waiting = plainView.split('} else if (client.state === "waiting") {')[1].split('} else if (client.state === "review"')[0];
+  assert.match(waiting, /No folder[\s\S]*?, "warning"\);/);
+  assert.match(plainView, /client\.state === "waiting" && \(!task \|\| launched\)/);
+  const start = plainView.slice(plainView.indexOf("async function start()"));
+  assert.match(start, /client\.restore\(\);\s+if \(client\.pendingPrompt !== null\) prompt\.value = client\.pendingPrompt;\s+await client\.check\(\)/);
+  assert.match(plainView, /prompt\.readOnly = client\.state !== "idle" && client\.state !== "cancelled"/);
+  assert.match(plainView, /client\.state === "idle" \|\| client\.state === "cancelled"/);
+  const cancel = plainView.split("async function cancelTask()")[1].split("async function start()")[0];
+  assert.match(cancel, /await client\.cancel\(\);\s+if \(client\.state === "cancelled"\)/);
+  assert.match(cancel, /prompt\.focus\(\{ preventScroll: true \}\)/);
+  assert.doesNotMatch(cancel, /client\.(?:reset|create)\(/);
+  assert.match(plainView, /if \(\["idle", "cancelled", "review", "saved"\]\.includes\(client\.state\)\) button\(libraryOpen/);
+  assert.match(plainView, /if \(client\.state !== "idle" && client\.state !== "cancelled"\) button\("Reset"/);
+});
+
+test("plain presenter preserves desktop-only creation, Load guidance and prompt focus", () => {
+  assert.match(plainView, /\(max-width: 760px\), \(\(max-height: 500px\) and \(orientation: landscape\) and \(pointer: coarse\)\)/);
+  assert.match(plainView, /if \(!mobileAgentMedia\.matches\) button\("Send to your Agent"/);
+  assert.match(plainView, /if \(cancelling \|\| mobileAgentMedia\.matches\) \{ event\.preventDefault\(\)/);
+  assert.match(plainView, /title = "Load a saved work";\s+detail = "Saved in this browser only—not on-chain or synced\."/);
+  assert.match(plainView, /librarySelect\.focus\(\{ preventScroll: true \}\)/);
+  const reset = plainView.split('button("Reset", () => {')[1].split("if (libraryOpen)")[0];
+  assert.match(reset, /prompt\.value = ""/);
+  assert.match(reset, /prompt\.focus\(\{ preventScroll: true \}\)/);
+});
+
+test("plain editor reuses history helpers with isolated draft storage and guarded shortcuts", () => {
+  assert.match(plainView, /from "\.\.\/thought-prompt-history"/);
+  assert.match(plainView, /const promptHistoryLimit = 50/);
+  assert.match(plainView, /navigateThoughtPromptHistory\(\{/);
+  const draft = plainView.slice(plainView.indexOf("function readDraft"), plainView.indexOf("let promptHistory"));
+  assert.match(draft, /window\.sessionStorage\.setItem\(draftKey, prompt\.value\)/);
+  assert.match(draft, /function writeDraft\(\) \{\s+try \{\s+(?:\/\/[^\n]*\n\s+)*window\.sessionStorage\.setItem\(draftKey, prompt\.value\);/);
+  assert.doesNotMatch(draft, /removeItem\(draftKey\)/);
+  assert.doesNotMatch(draft, /window\.localStorage/);
+  assert.match(plainView, /const draftKey = "inshell\.thought\.plain-http\.draft\.v1"/);
+  assert.match(plainView, /const promptHistoryKey = "inshell\.thought\.plain-http\.prompt-history\.v1"/);
+  assert.match(plainView, /if \(!canEditPrompt\(\) \|\| event\.isComposing \|\| event\.repeat\) return/);
+  assert.match(plainView, /\(event\.metaKey \|\| event\.ctrlKey\) && !event\.altKey && event\.key === "Enter" && !mobileAgentMedia\.matches/);
+  assert.match(plainView, /find\(control => control\.textContent === "Send to your Agent"\)\?\.click\(\)/);
+  assert.match(plainView, /const canEditPrompt = \(\) => enabled && !cancelling && \(client\.state === "idle" \|\| client\.state === "cancelled"\)/);
+  assert.match(plainView, /prompt\.value = "";[^\n]*\n\s+promptCursor = \{ index: null, draft: "" \}; writeDraft\(\)/);
 });
 
 test("a returned Agent line remains visible when canonical artwork preview is unavailable", () => {

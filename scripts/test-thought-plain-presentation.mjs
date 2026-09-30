@@ -191,7 +191,9 @@ try {
       await heading("Task cancelled").waitFor();
       await capture("cancelled");
       assert.equal(sequence, beforeUncertain);
-      await button("Reset").click();
+      assert.equal(await page.locator("#thought-dock-prompt").inputValue(), "Wait?");
+      assert.equal(await page.locator("#thought-dock-prompt").evaluate(el => el.readOnly), false);
+      assert.equal(await button("Reset").count(), 0);
       rejectCreate = true;
       await page.locator("#thought-dock-prompt").fill("Uncertain?");
       await button("Send to your Agent").click();
