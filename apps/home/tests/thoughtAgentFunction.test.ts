@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from "@jest/globals";
 import { Buffer } from "node:buffer";
 import { webcrypto, randomFillSync } from "node:crypto";
-import { onRequestPost as onCreateRun } from "../../../functions/api/thought-agent/v1/runs";
+// Seed historical runs through the internal constructor, never the retired
+// public admission route. The remaining tests exercise real recovery handlers.
+import { createRun as onCreateRun, createRun as onCreateRunV2 } from "../../../functions/api/thought-agent/v1/shared";
 import { onRequestGet as onGetCodexClient } from "../../../functions/api/thought-agent/v2/client";
-import { onRequestPost as onCreateRunV2 } from "../../../functions/api/thought-agent/v2/runs";
 import { onRequestGet as onGetRunV2 } from "../../../functions/api/thought-agent/v2/runs/[runId]";
 import { onRequestGet as onGetCodexBootstrapV2 } from "../../../functions/api/thought-agent/v2/runs/[runId]/bootstrap";
 import { onRequestPost as onClaimRunV2 } from "../../../functions/api/thought-agent/v2/runs/[runId]/claim";

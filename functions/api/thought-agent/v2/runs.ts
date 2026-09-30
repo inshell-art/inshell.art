@@ -1,4 +1,1 @@
-export {
-  createRun as onRequestPost,
-  onRequestOptions,
-} from "../v1/shared";
+export { onRequestPost, onRequestOptions } from "../v1/runs";

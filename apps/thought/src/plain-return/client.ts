@@ -1,9 +1,27 @@
-import { appendThoughtWork, writeThoughtWorks, type ThoughtWorkRecord, type WorkStorage } from "../works";
+import { appendThoughtWork, readThoughtWorks, writeThoughtWorks, type ThoughtWorkRecord, type WorkStorage } from "../works";
+import { buildThoughtV2Svg } from "../thought-v2-renderer";
+import { assertThoughtV2Line } from "../../contract-integration/current/reference/thought-v2-terminal-work-profile";
 import { API, PENDING_KEY, SAVED_KEY, assertRunId, createBrief, validateWork, type PlainWork } from "./model";
 
 type Pending = { runId: string; promptLine: string; browserToken: string; readExpiresAt: number };
 type Status = { runId: string; state: string; conflict: boolean; work: PlainWork | null };
+// Display only. No plain run/acknowledgement or provenance is fabricated, and
+// no old store is written. Incompatible records remain untouched in that store.
+export function readEarlierWorks(storage: WorkStorage) {
+  try {
+    return readThoughtWorks(storage).flatMap(record => {
+      try {
+        assertThoughtV2Line(record.prompt, "prompt");
+        assertThoughtV2Line(record.returnedText, "agent");
+        return [{ runId: `historical:${record.id}`, promptLine: record.prompt,
+          agentLine: record.returnedText,
+          svg: buildThoughtV2Svg({ promptLine: record.prompt, agentLine: record.returnedText }) }];
+      } catch { return []; }
+    });
+  } catch { return []; }
+}
 export type ClientState = "idle" | "preparing" | "preparation-uncertain" | "waiting" | "review" | "saved" | "cancelled" | "rejected" | "expired" | "uncertain" | "unavailable";
+export type WorkExport = { schema: "inshell.thought.plain-work-export.v1"; stage: "accepted" | "saved" | "loaded"; work: PlainWork; conflict: boolean; reviewed: boolean };
 
 function storedRecord(work: PlainWork): ThoughtWorkRecord {
   return appendThoughtWork([], {
@@ -36,6 +54,7 @@ export class PlainClient {
   private epoch = 0;
   private checking = false;
   private cancelling = false;
+  private loadedFromSave = false;
   constructor(private pendingStorage: WorkStorage, private savedStorage: WorkStorage, private fetcher: typeof fetch = (input, init) => fetch(input, init)) {}
   private async request(path: string, init: RequestInit = {}) {
     const response = await this.fetcher(`${API}${path}`, { ...init, redirect: "error", cache: "no-store", signal: globalThis.AbortSignal.timeout(8000) });
@@ -84,6 +103,7 @@ export class PlainClient {
       if (work.runId !== this.pending.runId || work.promptLine !== this.pending.promptLine) throw new Error("uncertain");
       if (this.work && JSON.stringify(this.work) !== JSON.stringify(work)) throw new Error("uncertain");
       this.work = work;
+      this.loadedFromSave = false;
       this.conflict = status.conflict;
       this.state = readSaved(this.savedStorage).some(saved => saved.runId === work.runId) ? "saved" : "review";
     } else if (["pending", "cancelled", "rejected", "expired"].includes(status.state) && status.work === null) {
@@ -134,6 +154,17 @@ export class PlainClient {
     writeThoughtWorks(this.savedStorage, works.map((work, index) => ({ ...storedRecord(work), id: index + 1 })), SAVED_KEY);
     this.state = "saved";
   }
+  // Explicit visitor export. Only the displayed artwork record and its local
+  // review state leave the App; never pending credentials, handoffs or history.
+  exportWork(): WorkExport {
+    if (!this.work || !["review", "saved"].includes(this.state)) throw new Error("No work to export");
+    const current = validateWork(this.work);
+    const saved = this.state === "saved" ? readSaved(this.savedStorage).find(item => item.runId === current.runId) : null;
+    if (this.state === "saved" && (!saved || JSON.stringify(saved) !== JSON.stringify(current))) throw new Error("Saved record differs");
+    return { schema: "inshell.thought.plain-work-export.v1",
+      stage: this.loadedFromSave ? "loaded" : saved ? "saved" : "accepted",
+      work: saved ?? current, conflict: this.conflict, reviewed: this.reviewed };
+  }
   load(runId: string) {
     if (["waiting", "preparing", "uncertain", "preparation-uncertain"].includes(this.state)) throw new Error("An exchange is still active");
     const work = readSaved(this.savedStorage).find(item => item.runId === runId);
@@ -142,6 +173,7 @@ export class PlainClient {
     this.pending = null;
     this.pendingStorage.removeItem(PENDING_KEY);
     this.work = work;
+    this.loadedFromSave = true;
     this.conflict = false;
     this.reviewed = true;
     this.state = "saved";
@@ -152,6 +184,7 @@ export class PlainClient {
     this.pending = null;
     this.pendingStorage.removeItem(PENDING_KEY);
     this.work = null;
+    this.loadedFromSave = false;
     this.reviewed = false;
     this.conflict = false;
     this.state = "idle";

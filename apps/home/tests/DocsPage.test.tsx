@@ -541,9 +541,11 @@ describe("Docs source editorial guardrails", () => {
 
     expect(thought).toMatch(/active Claude Code handoff is an ordinary one-run request/i);
     expect(thought).toMatch(/no repository changes, installation, or downloaded executable/i);
-    expect(thought).toMatch(/exact response data supplies and binds the prompt/i);
-    expect(thought).toMatch(/App operation requests send credentials only in Authorization headers/i);
-    expect(thought).toMatch(/does not choose a \$PATH/i);
+    expect(thought).toMatch(/ordinary \/thought entry supplies the complete private brief/i);
+    expect(thought).toMatch(/exact App endpoint in an Authorization header/i);
+    expect(thought).toMatch(/Provider and model remain unknown/i);
+    expect(thought).toMatch(/new legacy run creation is retired/i);
+    expect(thought).toMatch(/cannot enter the App mint path/i);
     expect(thought).toMatch(/direct mint/i);
     expect(thought).toMatch(/Unattested/i);
 

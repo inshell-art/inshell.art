@@ -12,6 +12,9 @@ const allowedCells = [...requiredCells, "mac-b/codex", "mac-b/claude"];
 const text = (value) => typeof value === "string" && value.trim().length > 0;
 const date = (value) => typeof value === "string" && Number.isFinite(Date.parse(value));
 const cellFields = new Set(["machine", "agent", "testedCommit", "mode", "execution", "surface", "state", "runId", "taskSha256", "receiptSha256", "agentLineSha256", "osVersion", "appVersion", "browserVersion", "metadataSource", "model", "launchObserved", "previewObserved", "completedAt", "origin"]);
+const observations = ["returnObserved", "reviewObserved", "saveObserved", "reloadObserved", "loadObserved"];
+const plainHashes = ["briefSha256", "acknowledgementSha256", "recordSha256", "promptLineSha256", "agentLineSha256", "savedRecordSha256", "loadedRecordSha256"];
+const transports = ["plain-http"];
 
 // This validates reviewed observations, not provider attestation or operator
 // authorization to promote. Never manufacture observations from a fixture run.
@@ -19,20 +22,34 @@ export function validateReleaseEvidence(evidence, now = Date.now()) {
   const errors = [];
   if (!evidence || typeof evidence !== "object") return ["Release evidence is missing."];
   if (Object.keys(evidence).some((key) => !["schema", "candidateCommit", "reviewedBy", "reviewedAt", "cells"].includes(key))) errors.push("Unexpected evidence fields; do not include raw sessions or credentials.");
-  if (evidence.schema !== "inshell.thought.release-evidence.v1") errors.push("Unsupported evidence schema.");
+  const v2 = evidence.schema === "inshell.thought.release-evidence.v2";
+  if (!v2 && evidence.schema !== "inshell.thought.release-evidence.v1") errors.push("Unsupported evidence schema.");
   if (!sha.test(evidence.candidateCommit ?? "")) errors.push("Freeze and record the full candidate commit.");
   if (!text(evidence.reviewedBy) || !date(evidence.reviewedAt)) errors.push("Operator evidence review is missing.");
   if (Date.parse(evidence.reviewedAt) > now) errors.push("Evidence review cannot be in the future.");
   const cells = Array.isArray(evidence.cells) ? evidence.cells : [];
-  if (cells.length < 2 || cells.length > 4) errors.push("Two real-agent cells on the operator Mac are required; second-Mac coverage is optional.");
+  if (cells.length < 2 || cells.length > 4) errors.push("Codex and Claude on the operator Mac are required; second-Mac coverage is optional.");
   const seen = new Set();
   const runs = new Set();
   const receipts = new Set();
   for (const cell of cells) {
     if (!cell || typeof cell !== "object") { errors.push("Malformed cell."); continue; }
-    if (Object.keys(cell).some((key) => !cellFields.has(key))) errors.push("Unexpected cell fields; retain only sanitized qualification metadata.");
-    const key = `${cell.machine}/${cell.agent}`;
-    if (!allowedCells.includes(key) || seen.has(key)) errors.push(`Unexpected or duplicate cell: ${key}.`);
+    const plain = v2 && cell.transport === "plain-http";
+    const fields = new Set(cellFields);
+    if (v2) for (const field of ["transport", ...observations, "conflict"]) fields.add(field);
+    if (plain) {
+      fields.delete("taskSha256"); fields.delete("receiptSha256"); fields.delete("model");
+      for (const field of [...plainHashes, "acceptedAt", "integrityChecked"]) fields.add(field);
+    }
+    if (Object.keys(cell).some((key) => !fields.has(key))) errors.push("Unexpected cell fields; retain only sanitized qualification metadata.");
+    const machineAgent = `${cell.machine}/${cell.agent}`;
+    const key = v2 ? `${cell.transport}/${machineAgent}` : machineAgent;
+    if (!allowedCells.includes(machineAgent) || seen.has(key)) errors.push(`Unexpected or duplicate cell: ${key}.`);
+    if (v2) {
+      if (!transports.includes(cell.transport)) errors.push(`${key}: unsupported transport.`);
+      for (const field of observations) if (cell[field] !== true) errors.push(`${key}: missing ${field}.`);
+      if (cell.conflict !== false) errors.push(`${key}: conflicting or uninspected return.`);
+    }
     seen.add(key);
     if (cell.testedCommit !== evidence.candidateCommit) errors.push(`${key}: wrong candidate commit.`);
     if (cell.mode !== "real-canary") errors.push(`${key}: simulated checks cannot qualify a release.`);
@@ -40,12 +57,18 @@ export function validateReleaseEvidence(evidence, now = Date.now()) {
     if (cell.agent === "claude" && cell.surface !== "code") errors.push(`${key}: Claude Code is required, not Cowork.`);
     if (cell.agent === "codex" && cell.surface !== "codex") errors.push(`${key}: Codex is required; ordinary ChatGPT does not qualify.`);
     if (cell.state !== "returned") errors.push(`${key}: no accepted return.`);
-    if (!/^tar_[A-Za-z0-9_-]+$/.test(cell.runId ?? "") || runs.has(cell.runId)) errors.push(`${key}: missing or reused run ID.`);
+    if (!(plain ? /^plain_[a-zA-Z0-9-]{8,64}$/ : /^tar_[A-Za-z0-9_-]+$/).test(cell.runId ?? "") || runs.has(cell.runId)) errors.push(`${key}: missing or reused run ID.`);
     runs.add(cell.runId);
-    if (receipts.has(cell.receiptSha256)) errors.push(`${key}: reused receipt.`);
-    receipts.add(cell.receiptSha256);
-    for (const field of ["taskSha256", "receiptSha256", "agentLineSha256"]) {
+    const receipt = plain ? cell.acknowledgementSha256 : cell.receiptSha256;
+    if (receipts.has(receipt)) errors.push(`${key}: reused receipt.`);
+    receipts.add(receipt);
+    for (const field of plain ? plainHashes : ["taskSha256", "receiptSha256", "agentLineSha256"]) {
       if (!digest.test(cell[field] ?? "")) errors.push(`${key}: invalid ${field}.`);
+    }
+    if (plain) {
+      if (cell.integrityChecked !== true || cell.recordSha256 !== cell.savedRecordSha256 || cell.recordSha256 !== cell.loadedRecordSha256) errors.push(`${key}: accepted, saved and reloaded exact records must agree.`);
+      if (!date(cell.acceptedAt) || Date.parse(cell.acceptedAt) > Date.parse(cell.completedAt)) errors.push(`${key}: invalid acceptance chronology.`);
+      if (cell.metadataSource !== "unknown") errors.push(`${key}: plain records do not establish a model.`);
     }
     for (const field of ["osVersion", "appVersion", "browserVersion"]) {
       if (!text(cell[field]) || /^(unknown|not-recorded|n\/a)$/i.test(cell[field]) || /fixture|simulated|\blab\b/i.test(cell[field])) errors.push(`${key}: record actual ${field}.`);
@@ -69,13 +92,16 @@ export function validateReleaseEvidence(evidence, now = Date.now()) {
       if (origin.origin !== cell.origin || origin.protocol !== "https:" || origin.hostname !== "preview.inshell.art") throw new Error();
     } catch { errors.push(`${key}: production qualification must test https://preview.inshell.art.`); }
   }
-  for (const key of requiredCells) if (!seen.has(key)) errors.push(`Missing cell: ${key}.`);
+  for (const key of v2 ? transports.flatMap(transport => requiredCells.map(cell => `${transport}/${cell}`)) : requiredCells) if (!seen.has(key)) errors.push(`Missing cell: ${key}.`);
   return errors;
 }
 
 export function checkReleaseEvidence(root) {
   const evidence = JSON.parse(readFileSync(resolve(root, EVIDENCE_PATH), "utf8"));
   const errors = validateReleaseEvidence(evidence);
+  // Keep v1 readable as historical evidence. It cannot qualify the new default
+  // or the retired creation API. Existing-run compatibility is regression-tested.
+  if (evidence.schema !== "inshell.thought.release-evidence.v2") errors.push("This candidate requires v2 qualification for plain-http; historical evidence is not current qualification.");
   if (errors.length) return errors;
   const git = (...args) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
   try {

@@ -64,6 +64,44 @@ function evidence() {
   };
 }
 
+// Synthetic plain metadata, used only in isolated git-gate tests.
+function plainEvidence() {
+  const value = unknownModels(evidence());
+  value.schema = "inshell.thought.release-evidence.v2";
+  for (const cell of value.cells) {
+    cell.transport = "plain-http";
+    cell.runId = `plain_gate-${cell.agent}`;
+    cell.acknowledgementSha256 = cell.receiptSha256;
+    delete cell.receiptSha256; delete cell.taskSha256;
+    for (const key of ["briefSha256", "recordSha256", "promptLineSha256", "savedRecordSha256", "loadedRecordSha256"]) cell[key] = hash;
+    for (const key of ["returnObserved", "reviewObserved", "saveObserved", "reloadObserved", "loadObserved", "integrityChecked"]) cell[key] = true;
+    cell.conflict = false; cell.acceptedAt = cell.completedAt;
+  }
+  return value;
+}
+
+test("replacement qualification requires actual plain records; historical v1 stays readable", () => {
+  assert.deepEqual(validateReleaseEvidence(plainEvidence()), []);
+  assert.deepEqual(validateReleaseEvidence(evidence()), []);
+});
+for (const [name, mutate] of Object.entries({
+  "wrong transport": c => { c.transport = "agent-v2"; },
+  "legacy run": c => { c.runId = "tar_obsolete"; },
+  "fabricated legacy receipt": c => { c.receiptSha256 = hash; },
+  "missing acknowledgement": c => { delete c.acknowledgementSha256; },
+  "changed save": c => { c.savedRecordSha256 = `sha256:${"d".repeat(64)}`; },
+  "changed reload": c => { c.loadedRecordSha256 = `sha256:${"e".repeat(64)}`; },
+  "unverified integrity": c => { c.integrityChecked = false; },
+  "conflict": c => { c.conflict = true; },
+  "uninspected conflict": c => { delete c.conflict; },
+  "invented model": c => { c.metadataSource = "reported"; c.model = "some-model"; },
+  "future acceptance": c => { c.acceptedAt = "2999-01-01T00:00:00Z"; },
+  ...Object.fromEntries(["returnObserved", "reviewObserved", "saveObserved", "reloadObserved", "loadObserved"].map(key => [key, c => { c[key] = false; }])),
+})) test(`plain evidence rejects ${name}`, () => {
+  const value = plainEvidence(); mutate(value.cells[0]);
+  assert.ok(validateReleaseEvidence(value).length);
+});
+
 test("two reviewed operator-Mac cells pass; an unqualified template never does", () => {
   assert.deepEqual(validateReleaseEvidence(evidence()), []);
   assert.ok(validateReleaseEvidence({ schema: "inshell.thought.release-evidence.v1", cells: [] }).length);
@@ -161,13 +199,13 @@ test("git gate permits evidence-only commits and content-identical promotions, r
     git("config", "commit.gpgsign", "false");
     writeFileSync(join(root, "app.txt"), "candidate"); git("add", "app.txt"); git("commit", "-m", "candidate");
     const candidate = git("rev-parse", "HEAD");
-    const value = evidence(); value.candidateCommit = candidate;
+    const value = plainEvidence(); value.candidateCommit = candidate;
     value.cells.forEach((cell) => { cell.testedCommit = candidate; });
     mkdirSync(join(root, "release-evidence"));
     const save = () => writeFileSync(join(root, EVIDENCE_PATH), JSON.stringify(value));
     save(); git("add", EVIDENCE_PATH); git("commit", "-m", "evidence only");
     assert.deepEqual(checkReleaseEvidence(root), []);
-    unknownModels(value); save(); git("add", EVIDENCE_PATH); git("commit", "-m", "explicit unknown provenance");
+    value.reviewedBy = "second test reviewer"; save(); git("add", EVIDENCE_PATH); git("commit", "-m", "evidence review only");
     assert.deepEqual(checkReleaseEvidence(root), []);
     writeFileSync(join(root, "app.txt"), "drift");
     assert.match(checkReleaseEvidence(root).join(), /differs/);
