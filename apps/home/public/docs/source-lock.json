@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "c49b585d6e4b877c3845ad37f4fa6af0bb308845db706616e413b7caf6a986e3",
+  "sourceTreeSha256": "3032bb4ed152034fae8d3cb19b489d9731069397190e85d33ade2267ff378a1d",
   "groups": [
     {
       "id": "public-docs",
@@ -605,7 +605,7 @@
       "title": "Documentation gates",
       "owner": "inshell.art repository automation",
       "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
-      "groupSha256": "b5bde059ae299d9059d1e7b62f526ba03d2fa3309584c5273499d0ccd76cbcdc",
+      "groupSha256": "5ef561e0e6fc95140e5c69dc302e446024417413046e4914b6207e75fcaf7650",
       "files": [
         {
           "path": ".github/workflows/deploy-pages.yml",
@@ -634,8 +634,8 @@
         },
         {
           "path": "package.json",
-          "byteLength": 13647,
-          "sha256": "f1ccf897926fcd744388d21f4748c6172858645c110d4cbccd44cd8c765f34b9"
+          "byteLength": 13751,
+          "sha256": "e2463092169c0c0b9fec4666dfa25f255125af7d9f09f167f674d7ffef5d9ba9"
         },
         {
           "path": "scripts/check-dependency-security.mjs",
@@ -1079,7 +1079,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "1a3ed80e3674e8c68a109cd960bcb4fc5c33c9f9c6898cf4fd4edf39d9d9cf14",
+      "groupSha256": "cd6cb58614ffc849453b37d6d2483f423b52dd30aea8c70a7ecc32fad92ed094",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1173,8 +1173,8 @@
         },
         {
           "path": "apps/thought/src/plain-return/client.ts",
-          "byteLength": 8159,
-          "sha256": "5d4c9b4d288dfb0b353b98a8339c39dd3fa22e5f85ef19cff12ead4a5e3b5a0b"
+          "byteLength": 8440,
+          "sha256": "a5502a086d8d971dfeaed6db631b59528d13626006dd33c0618175f8abb62156"
         },
         {
           "path": "apps/thought/src/plain-return/model.ts",
@@ -1193,8 +1193,8 @@
         },
         {
           "path": "apps/thought/src/plain-return/view.ts",
-          "byteLength": 20233,
-          "sha256": "f42c4e07e93c0d8233e7a468c478cfb505b50336a9c50d1175c888a16134d4a6"
+          "byteLength": 25435,
+          "sha256": "94807333077cced9e19111ba59e21fa353cde81d9039dfb66d38a34a2c455f8c"
         },
         {
           "path": "apps/thought/src/rpc-provider.ts",

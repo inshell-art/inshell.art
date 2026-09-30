@@ -254,6 +254,41 @@ test("expired read capability stops uncertain recovery polling locally", async (
     assert.equal(reads, 1); assert.equal(client.state, "expired");
   } finally { Date.now = originalNow; }
 });
+
+test("restored pending prompt is available without exposing capability metadata", () => {
+  const pending = mem();
+  pending.setItem(PENDING_KEY, JSON.stringify({ runId: "plain_restore1", promptLine: "Hello?", browserToken: "a".repeat(43), readExpiresAt: Date.now() + 5000 }));
+  const client = new PlainClient(pending, mem());
+  client.restore();
+  assert.equal(client.pendingPrompt, "Hello?");
+  assert.equal(client.state, "waiting");
+  pending.setItem(PENDING_KEY, JSON.stringify({ runId: "plain_restore1", promptLine: "Invalid\n", browserToken: "a".repeat(43), readExpiresAt: Date.now() + 5000 }));
+  const invalid = new PlainClient(pending, mem()); invalid.restore();
+  assert.equal(invalid.pendingPrompt, null);
+});
+
+test("cancel confirmation cannot be overwritten by an older poll or duplicate cancellation", async () => {
+  const pending = mem();
+  pending.setItem(PENDING_KEY, JSON.stringify({ runId: "plain_cancel01", promptLine: "Hello?", browserToken: "a".repeat(43), readExpiresAt: Date.now() + 5000 }));
+  let finishRead!: (response: Response) => void, finishCancel!: (response: Response) => void;
+  const methods: string[] = [];
+  const client = new PlainClient(pending, mem(), async (_input, init) => {
+    methods.push(init?.method ?? "GET");
+    return new Promise<Response>(resolve => { if (init?.method === "DELETE") finishCancel = resolve; else finishRead = resolve; });
+  });
+  client.restore();
+  const poll = client.poll(), cancel = client.cancel();
+  await client.cancel(); await client.check();
+  assert.equal(client.state, "waiting");
+  assert.throws(() => client.reset());
+  finishCancel(Response.json({ runId: "plain_cancel01", state: "cancelled", conflict: false, work: null }));
+  await cancel;
+  finishRead(Response.json({ runId: "plain_cancel01", state: "pending", conflict: false, work: null }));
+  await poll;
+  assert.equal(client.state, "cancelled");
+  assert.equal(client.pendingPrompt, "Hello?");
+  assert.deepEqual(methods, ["GET", "DELETE"]);
+});
 test("real local HTTP executes product SQL, survives reopen, and uses only synthetic capabilities", async () => {
   const dir = await mkdtemp(path.join(tmpdir(), "thought-plain-product-test-"));
   const filename = path.join(dir, "runs.sqlite");

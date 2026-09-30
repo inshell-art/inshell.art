@@ -19,6 +19,7 @@ import { appendThoughtConsoleEvent, buildThoughtConsoleLines,
   parseThoughtConsoleHistory, serializeThoughtConsoleHistory, thoughtConsoleVisualRole,
   THOUGHT_CONSOLE_EMPTY_TITLE, THOUGHT_CONSOLE_EMPTY_DETAIL, type ThoughtConsoleTone } from "../thought-console";
 import { openFailureReport } from "../thought-failure-report";
+import { appendThoughtPromptHistory, navigateThoughtPromptHistory, parseThoughtPromptHistory, type ThoughtPromptHistoryCursor } from "../thought-prompt-history";
 import { THOUGHT_V2_ALLOWED_CHARACTERS, THOUGHT_V2_PUNCTUATION } from "../../contract-integration/current/reference/thought-v2-terminal-work-profile";
 
 // No main.ts import: none of its legacy Agent, wallet-to-mint or RPC handlers run.
@@ -61,6 +62,35 @@ let actionError: { title: string; detail: string; nextStep?: string; report?: bo
 let actionErrorState = client.state;
 let libraryOpen = false;
 let loaded = false;
+let cancelling = false;
+const mobileAgentMedia = window.matchMedia("(max-width: 760px), ((max-height: 500px) and (orientation: landscape) and (pointer: coarse))");
+mobileAgentMedia.addEventListener("change", () => { rendering = ""; render(); });
+// Same privacy classes as the formal editor, separate from its storage keys:
+// unsubmitted draft is tab-only; launched prompt history is browser-local.
+const draftKey = "inshell.thought.plain-http.draft.v1";
+const promptHistoryKey = "inshell.thought.plain-http.prompt-history.v1";
+const promptHistoryLimit = 50;
+function readDraft() {
+  try { return window.sessionStorage.getItem(draftKey); } catch { return null; }
+}
+function writeDraft() {
+  try {
+    // Empty is an explicit edit, not an absent draft: do not revive a cancelled prompt on refresh.
+    window.sessionStorage.setItem(draftKey, prompt.value);
+  } catch { /* Denied storage must not prevent editing. Never fall back to localStorage. */ }
+}
+let promptHistory = parseThoughtPromptHistory((() => {
+  try { return window.localStorage.getItem(promptHistoryKey) ?? window.sessionStorage.getItem(promptHistoryKey); }
+  catch { try { return window.sessionStorage.getItem(promptHistoryKey); } catch { return null; } }
+})(), promptHistoryLimit);
+let promptCursor: ThoughtPromptHistoryCursor = { index: null, draft: "" };
+function recordPrompt() {
+  promptHistory = appendThoughtPromptHistory(promptHistory, prompt.value, promptHistoryLimit);
+  try { window.localStorage.setItem(promptHistoryKey, JSON.stringify(promptHistory)); }
+  catch { try { window.sessionStorage.setItem(promptHistoryKey, JSON.stringify(promptHistory)); } catch { /* Memory-only history. */ } }
+  promptCursor = { index: null, draft: "" };
+}
+const canEditPrompt = () => enabled && !cancelling && (client.state === "idle" || client.state === "cancelled");
 const historyKey = "inshell.thought.plain-http.console.v1";
 let history = parseThoughtConsoleHistory((() => {
   try { return sessionStorage.getItem(historyKey); } catch { return null; }
@@ -73,9 +103,29 @@ actions.dataset.content = "actions";
 // Reject invalid input without silently truncating pasted artistic bytes.
 prompt.removeAttribute("maxlength");
 prompt.addEventListener("input", () => {
+  if (!canEditPrompt()) return;
+  promptCursor = { index: null, draft: "" };
+  writeDraft();
   actionError = null;
   prompt.removeAttribute("aria-invalid");
   render();
+});
+prompt.addEventListener("keydown", event => {
+  if (!canEditPrompt() || event.isComposing || event.repeat) return;
+  if (!event.metaKey && !event.ctrlKey && !event.altKey && ["ArrowUp", "ArrowDown"].includes(event.key)) {
+    const navigation = navigateThoughtPromptHistory({ history: promptHistory, cursor: promptCursor,
+      currentValue: prompt.value, direction: event.key === "ArrowUp" ? "older" : "newer" });
+    if (!navigation.handled) return;
+    event.preventDefault();
+    prompt.value = navigation.value;
+    promptCursor = { index: navigation.index, draft: navigation.draft };
+    actionError = null; prompt.removeAttribute("aria-invalid"); writeDraft(); render();
+    try { prompt.setSelectionRange(prompt.value.length, prompt.value.length); } catch { /* IME may reject selection. */ }
+  } else if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key === "Enter" && !mobileAgentMedia.matches) {
+    event.preventDefault();
+    // Use the same synchronous disabled latch and validation as an explicit click.
+    Array.from(actionGroup.querySelectorAll("button")).find(control => control.textContent === "Send to your Agent")?.click();
+  }
 });
 
 function paintEmptyFrame() {
@@ -134,7 +184,7 @@ function renderHistory() {
         const title = document.createElement("span");
         title.textContent = entry.title;
         line.append(title);
-        if (entry.id === newest && (client.state === "preparing" || client.state === "waiting") && !actionError) {
+        if (entry.id === newest && (client.state === "preparing" || (client.state === "waiting" && (!task || launched))) && !actionError && !libraryOpen) {
           const ellipsis = document.createElement("span");
           ellipsis.className = "thought-progress-ellipsis is-active";
           ellipsis.setAttribute("aria-hidden", "true");
@@ -170,9 +220,15 @@ function renderHistory() {
 }
 
 function message(title: string, detail: string, tone: ThoughtConsoleTone = "neutral", nextStep?: string) {
+  if (libraryOpen && !actionError) {
+    title = "Load a saved work";
+    detail = "Saved in this browser only—not on-chain or synced.";
+    tone = "neutral";
+    nextStep = undefined;
+  }
   title = actionError?.title ?? title;
   detail = actionError?.detail ?? detail;
-  if (actionError) tone = "error";
+  if (actionError) tone = actionError.report ? "error" : "warning";
   const failure = Boolean(actionError?.report) || ["uncertain", "preparation-uncertain", "rejected", "unavailable"].includes(client.state);
   if (actionError) nextStep = actionError.nextStep ?? "Edit the prompt above";
   const signature = JSON.stringify([attemptId, title, detail, tone, nextStep]);
@@ -219,14 +275,14 @@ librarySelect.addEventListener("change", () => {
 });
 function render() {
   if (actionError && (client.state !== actionErrorState || client.conflict)) actionError = null;
-  const signature = JSON.stringify([enabled, client.state, client.work?.runId, client.reviewed, client.conflict, Boolean(task), launched, actionError, libraryOpen, loaded, prompt.value]);
+  const signature = JSON.stringify([enabled, client.state, client.work?.runId, client.reviewed, client.conflict, Boolean(task), launched, cancelling, actionError, libraryOpen, loaded, prompt.value]);
   if (signature === rendering) return;
   rendering = signature;
   actionGroup.replaceChildren();
   actions.replaceChildren(actionGroup);
   actions.hidden = false;
   prompt.disabled = !enabled;
-  prompt.readOnly = client.state !== "idle";
+  prompt.readOnly = client.state !== "idle" && client.state !== "cancelled";
   library.classList.add("is-hidden");
   const work = client.work;
   if (work && shownWork !== work.runId) {
@@ -248,9 +304,12 @@ function render() {
   if (!enabled) { message("Experimental return unavailable", "This App has not enabled this test path. Return to the regular THOUGHT page."); return; }
   if (client.conflict) {
     message("Conflicting return", "A different response was rejected. The first response is retained for inspection, not minting.", "warning", "Inspect this work, then reset when ready");
-  } else if (client.state === "idle") {
-    message(THOUGHT_CONSOLE_EMPTY_TITLE, THOUGHT_CONSOLE_EMPTY_DETAIL);
-    button("Send to your Agent", async () => {
+  } else if (client.state === "idle" || client.state === "cancelled") {
+    if (mobileAgentMedia.matches) message("Continue on desktop", "ChatGPT and Claude creation require the desktop THOUGHT App. Open this page on desktop to create and save a THOUGHT.");
+    else if (client.state === "cancelled") message("Task cancelled", "This task can no longer receive a response. Edit the prompt or send it as a new task.");
+    else message(THOUGHT_CONSOLE_EMPTY_TITLE, THOUGHT_CONSOLE_EMPTY_DETAIL);
+    if (!mobileAgentMedia.matches) button("Send to your Agent", async () => {
+      if (!canEditPrompt() || mobileAgentMedia.matches) return;
       try { createBrief("plain_validate", prompt.value); }
       catch {
         actionErrorState = client.state;
@@ -265,6 +324,10 @@ function render() {
         prompt.focus();
         return;
       }
+      // Only an explicit new Send may leave a confirmed cancellation. No replay.
+      if (client.state === "cancelled") client.reset();
+      task = ""; launched = false; libraryOpen = false; loaded = false;
+      attemptId = window.crypto.randomUUID();
       const pending = client.create(prompt.value); render(); task = await pending;
     }, { disabled: prompt.value.length === 0 });
   } else if (client.state === "preparing") {
@@ -272,20 +335,24 @@ function render() {
   } else if (client.state === "waiting") {
     message(task && !launched ? "Task ready" : "Waiting for the return", task && !launched
       ? 'Choose your Agent and submit the prefilled task once. For Claude, use a fresh chat with "No folder"; this task needs no repository access. Its response will return here automatically.'
-      : "Check your Agent for any permission request. Do not submit the task again.");
-    if (task && !launched) {
+      : 'Check your Agent for any permission request. For Claude, use a fresh chat with "No folder". Do not submit the task again.', "warning");
+    if (task && !launched && !mobileAgentMedia.matches) {
       // Explicit trusted click; no automatic app launch during creation/reload.
       for (const [label, prefix, key] of [["ChatGPT", "codex://new?", "prompt"], ["Claude", "claude://code/new?", "q"]]) {
         const link = document.createElement("a");
         link.className = "thought-dock-button thought-work-cta";
         link.textContent = label;
         link.href = prefix + new URLSearchParams({ [key]: task });
-        link.addEventListener("click", () => { launched = true; task = ""; globalThis.queueMicrotask(render); }, { once: true });
+        link.addEventListener("click", event => {
+          if (cancelling || mobileAgentMedia.matches) { event.preventDefault(); return; }
+          recordPrompt();
+          launched = true; task = ""; globalThis.queueMicrotask(render);
+        }, { once: true });
         actionGroup.append(link);
       }
     }
     if (!task || launched) button("Check return", () => client.check());
-    button("Cancel", () => client.cancel());
+    button("Cancel", cancelTask, { disabled: cancelling });
   } else if (client.state === "review" || client.state === "saved") {
     task = "";
     message(client.state === "saved" ? loaded ? "Work loaded" : "Work saved" : client.reviewed ? "Work reviewed" : "Return received", client.state === "saved"
@@ -306,27 +373,27 @@ function render() {
   } else if (client.state === "uncertain") {
     message("Delivery uncertain", "The App may already have accepted the work. Do not generate or submit again.", "warning", "Check the return");
     button("Check return", () => client.check());
-    button("Cancel", () => client.cancel());
+    button("Cancel", cancelTask, { disabled: cancelling });
   } else if (client.state === "rejected") {
     message("Return rejected", "The response did not meet this task's rules. Do not resend this task.", "error", "Reset when ready for a new work");
-  } else if (client.state === "cancelled") {
-    message("Task cancelled", "This task can no longer receive a response. Reset when you are ready for a new work.");
   } else if (client.state === "expired") {
     message("Task expired", "This exchange has reached its time limit. Do not resend this task.", "warning", "Reset when ready for a new work");
   } else {
     message("Exchange closed", "No replacement response is accepted for this task.");
   }
   if (!["waiting", "preparing", "uncertain", "preparation-uncertain"].includes(client.state)) {
-    button(libraryOpen ? "Load ↓" : "Load", () => {
+    if (["idle", "cancelled", "review", "saved"].includes(client.state)) button(libraryOpen ? "Load ↓" : "Load", () => {
       libraryOpen = !libraryOpen;
-      if (libraryOpen) requestAnimationFrame(() => librarySelect.focus({ preventScroll: true }));
+      if (libraryOpen) window.requestAnimationFrame(() => librarySelect.focus({ preventScroll: true }));
     }, {
       ariaLabel: libraryOpen ? "Collapse saved works" : "Open saved works", expanded: libraryOpen,
     });
-    if (client.state !== "idle") button("Reset", () => {
+    if (client.state !== "idle" && client.state !== "cancelled") button("Reset", () => {
       client.reset(); task = ""; launched = false; prompt.value = ""; loaded = false; libraryOpen = false;
+      promptCursor = { index: null, draft: "" }; writeDraft();
       attemptId = window.crypto.randomUUID();
       message("Work reset", "Prompt, current work, and open panels cleared.");
+      window.requestAnimationFrame(() => prompt.focus({ preventScroll: true }));
     });
     if (libraryOpen) {
       const saved = [...readSaved(savedStorage)].reverse();
@@ -346,8 +413,27 @@ function render() {
   actions.hidden = !actionGroup.childElementCount;
   element("thought-dock").dataset.rail = actions.hidden ? "hidden" : "visible";
 }
+async function cancelTask() {
+  cancelling = true;
+  render();
+  try {
+    await client.cancel();
+    if (client.state === "cancelled") {
+      task = ""; launched = false; libraryOpen = false;
+      writeDraft();
+      window.requestAnimationFrame(() => prompt.focus({ preventScroll: true }));
+    }
+  } finally { cancelling = false; }
+}
 async function start() {
-  try { await client.available(); enabled = true; client.restore(); await client.check(); }
+  try {
+    await client.available(); enabled = true;
+    const draft = readDraft(); prompt.value = draft ?? "";
+    client.restore();
+    if (client.pendingPrompt !== null) prompt.value = client.pendingPrompt;
+    await client.check();
+    if (client.state === "cancelled" && draft !== null) prompt.value = draft;
+  }
   catch { enabled = false; }
   render();
   window.setInterval(() => { if (enabled) void client.poll().then(render); }, 2000);
