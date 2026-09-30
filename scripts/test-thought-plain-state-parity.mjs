@@ -35,7 +35,8 @@ const locked = loadThoughtDevSnapshotFile(process.cwd(), "main");
 for (const text of ['thoughtDockPrompt.value = stored.prompt', 'title: "Load a saved work"', 'kind: "work_agent_selection_ready"']) assert.ok(locked.includes(text));
 assert.match(locked, /kind: "work_agent_selection_ready",[\s\S]*?tone: "warning"/);
 
-const origin = "http://127.0.0.1:5190";
+const origin = process.env.PLAIN_TEST_ORIGIN ?? "http://127.0.0.1:5190";
+assert.match(origin, /^http:\/\/127\.0\.0\.1:\d+$/);
 const out = process.env.PARITY_OUTPUT ?? "tmp/plain-state-parity-20260930/after";
 const observe = process.env.PARITY_OBSERVE === "1";
 await mkdir(out, { recursive: true });
@@ -187,12 +188,12 @@ try {
     await lockedEditor("cancel-uncertain");
     failCancel = false; cancelReturnsWork = true;
     await button("Cancel").click(); await wait("Return received"); cancelReturnsWork = false;
-    await capture("return-wins-cancel", { prompt: "Race?", readOnly: true, actions: ["Review complete", "Check return", "Load", "Reset"], progress: 0 });
+    await capture("return-wins-cancel", { prompt: "Race?", readOnly: true, actions: ["Review complete", "Check return", "Export work", "Load", "Reset"], progress: 0 });
     await lockedEditor("returned");
     await button("Review complete").click(); await wait("Work reviewed");
-    await capture("reviewed", { actions: ["Save", "Check return", "Load", "Reset"] });
+    await capture("reviewed", { actions: ["Save", "Check return", "Export work", "Load", "Reset"] });
     await button("Save").click(); await wait("Work saved");
-    const saved = await capture("saved", { actions: ["Saved", "Check return", "Load", "Reset"], disabledActions: ["Saved"] });
+    const saved = await capture("saved", { actions: ["Saved", "Check return", "Export work", "Load", "Reset"], disabledActions: ["Saved"] });
     check(`${theme}/saved-next`, saved.text.includes("next:"), false);
     await button("Reset").click(); await button("Send to your Agent").waitFor();
     await capture("reset", { prompt: "", readOnly: false, focus: "thought-dock-prompt" });
@@ -204,7 +205,7 @@ try {
     await capture("load-panel", { focus: "thought-dock-works-select" });
     check(`${theme}/load-guidance`, (await latest().textContent()).includes("Saved in this browser only—not on-chain or synced."), true);
     await page.locator("#thought-dock-works-select").selectOption({ label: "Race?" }); await wait("Work loaded");
-    await capture("loaded", { prompt: "Race?", readOnly: true, actions: ["Saved", "Load", "Reset"], disabledActions: ["Saved"] });
+    await capture("loaded", { prompt: "Race?", readOnly: true, actions: ["Saved", "Export work", "Load", "Reset"], disabledActions: ["Saved"] });
     for (const width of [390, 924]) {
       await page.setViewportSize({ width, height: 900 });
       await capture(`loaded-${width}`, { prompt: "Race?" });

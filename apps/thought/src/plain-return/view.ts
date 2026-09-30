@@ -11,7 +11,7 @@ import "@inshell/shared/design.css";
 import "./view.css";
 import { PREVIEW_WATERMARK_LABEL, shouldShowPreviewWatermark } from "@inshell/shared";
 import { mountThoughtShell } from "../thought-shell";
-import { PlainClient, readSaved } from "./client";
+import { PlainClient, readEarlierWorks, readSaved } from "./client";
 import { createBrief } from "./model";
 import { thoughtV2EmptyFrameCanvasRect } from "../thought-v2-empty-frame";
 import { formatSavedWorkPromptLabel, type WorkStorage } from "../works";
@@ -21,8 +21,11 @@ import { appendThoughtConsoleEvent, buildThoughtConsoleLines,
 import { openFailureReport } from "../thought-failure-report";
 import { appendThoughtPromptHistory, navigateThoughtPromptHistory, parseThoughtPromptHistory, type ThoughtPromptHistoryCursor } from "../thought-prompt-history";
 import { THOUGHT_V2_ALLOWED_CHARACTERS, THOUGHT_V2_PUNCTUATION } from "../../contract-integration/current/reference/thought-v2-terminal-work-profile";
+import { assertDeploymentOverrides } from "../thought-v2-production-deployment";
 
 // No main.ts import: none of its legacy Agent, wallet-to-mint or RPC handlers run.
+// Integrity remains enforced even though this surface has no mint capability.
+assertDeploymentOverrides(import.meta.env);
 const element = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 document.documentElement.classList.remove("cli-surface", "debug-cli");
 document.documentElement.classList.add("agent-surface");
@@ -62,6 +65,7 @@ let actionError: { title: string; detail: string; nextStep?: string; report?: bo
 let actionErrorState = client.state;
 let libraryOpen = false;
 let loaded = false;
+let historical: ReturnType<typeof readEarlierWorks>[number] | null = null;
 let cancelling = false;
 const mobileAgentMedia = window.matchMedia("(max-width: 760px), ((max-height: 500px) and (orientation: landscape) and (pointer: coarse))");
 mobileAgentMedia.addEventListener("change", () => { rendering = ""; render(); });
@@ -90,7 +94,7 @@ function recordPrompt() {
   catch { try { window.sessionStorage.setItem(promptHistoryKey, JSON.stringify(promptHistory)); } catch { /* Memory-only history. */ } }
   promptCursor = { index: null, draft: "" };
 }
-const canEditPrompt = () => enabled && !cancelling && (client.state === "idle" || client.state === "cancelled");
+const canEditPrompt = () => enabled && !historical && !cancelling && (client.state === "idle" || client.state === "cancelled");
 const historyKey = "inshell.thought.plain-http.console.v1";
 let history = parseThoughtConsoleHistory((() => {
   try { return sessionStorage.getItem(historyKey); } catch { return null; }
@@ -269,22 +273,29 @@ function button(label: string, action: () => void | Promise<void>, options: { di
 }
 librarySelect.addEventListener("change", () => {
   if (!librarySelect.value) return;
-  try { client.load(librarySelect.value); loaded = true; libraryOpen = false; actionError = null; }
+  try {
+    if (librarySelect.value.startsWith("historical:")) {
+      const earlier = readEarlierWorks(savedStorage).find(work => work.runId === librarySelect.value);
+      if (!earlier) throw new Error("Historical work missing");
+      client.reset(); historical = earlier;
+    } else { client.load(librarySelect.value); historical = null; }
+    loaded = true; libraryOpen = false; actionError = null;
+  }
   catch { actionErrorState = client.state; actionError = { title: "Work not loaded", detail: "The browser could not restore this saved work. Keep the current work open.", nextStep: "Check browser storage before loading again", report: true }; }
   render();
 });
 function render() {
   if (actionError && (client.state !== actionErrorState || client.conflict)) actionError = null;
-  const signature = JSON.stringify([enabled, client.state, client.work?.runId, client.reviewed, client.conflict, Boolean(task), launched, cancelling, actionError, libraryOpen, loaded, prompt.value]);
+  const signature = JSON.stringify([enabled, client.state, client.work?.runId, historical?.runId, client.reviewed, client.conflict, Boolean(task), launched, cancelling, actionError, libraryOpen, loaded, prompt.value]);
   if (signature === rendering) return;
   rendering = signature;
   actionGroup.replaceChildren();
   actions.replaceChildren(actionGroup);
   actions.hidden = false;
   prompt.disabled = !enabled;
-  prompt.readOnly = client.state !== "idle" && client.state !== "cancelled";
+  prompt.readOnly = Boolean(historical) || (client.state !== "idle" && client.state !== "cancelled");
   library.classList.add("is-hidden");
-  const work = client.work;
+  const work = historical ?? client.work;
   if (work && shownWork !== work.runId) {
     if (imageUrl) URL.revokeObjectURL(imageUrl);
     imageUrl = URL.createObjectURL(new Blob([work.svg], { type: "image/svg+xml" }));
@@ -301,8 +312,12 @@ function render() {
     element("thought-grid").classList.remove("is-hidden");
     shownWork = "";
   }
-  if (!enabled) { message("Experimental return unavailable", "This App has not enabled this test path. Return to the regular THOUGHT page."); return; }
-  if (client.conflict) {
+  if (historical) {
+    message("Earlier work loaded", "Read-only preview of a saved work. Its original record is unchanged; it is not a new return and cannot be minted here.");
+    button("Saved", () => {}, { disabled: true });
+  } else if (!enabled) {
+    message("Creation unavailable", "The App cannot receive a new work right now. Your saved works remain in this browser.", "warning");
+  } else if (client.conflict) {
     message("Conflicting return", "A different response was rejected. The first response is retained for inspection, not minting.", "warning", "Inspect this work, then reset when ready");
   } else if (client.state === "idle" || client.state === "cancelled") {
     if (mobileAgentMedia.matches) message("Continue on desktop", "ChatGPT and Claude creation require the desktop THOUGHT App. Open this page on desktop to create and save a THOUGHT.");
@@ -362,9 +377,17 @@ function render() {
     if (client.state === "review") button(client.reviewed ? "Save" : "Review complete", () => { if (client.reviewed) client.save(); else client.review(); });
     if (client.state === "saved") button("Saved", () => {}, { disabled: true });
     if (client.canInspect) button("Check return", () => client.check());
+    button("Export work", () => {
+      const record = client.exportWork();
+      const url = URL.createObjectURL(new Blob([JSON.stringify(record, null, 2)], { type: "application/json" }));
+      const link = document.createElement("a");
+      link.href = url; link.download = `${record.work.runId}-${record.stage}.json`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }, { ariaLabel: "Export artwork record without credentials" });
   } else if (client.state === "preparation-uncertain") {
     task = "";
-    message("Preparation uncertain", "A task may have been prepared, but this page has no recovery access. It cannot check or cancel that task. Do not submit it again.", "warning", "Return to the regular THOUGHT page without resubmitting");
+    message("Preparation uncertain", "A task may have been prepared, but this page has no recovery access. It cannot check or cancel that task. Do not submit it again.", "warning", "Keep this page open and check the Agent task before starting another work");
     const exit = document.createElement("a");
     exit.className = "thought-dock-button thought-work-cta";
     exit.href = "/thought/";
@@ -388,7 +411,8 @@ function render() {
     }, {
       ariaLabel: libraryOpen ? "Collapse saved works" : "Open saved works", expanded: libraryOpen,
     });
-    if (client.state !== "idle" && client.state !== "cancelled") button("Reset", () => {
+    if (historical || (client.state !== "idle" && client.state !== "cancelled")) button("Reset", () => {
+      historical = null;
       client.reset(); task = ""; launched = false; prompt.value = ""; loaded = false; libraryOpen = false;
       promptCursor = { index: null, draft: "" }; writeDraft();
       attemptId = window.crypto.randomUUID();
@@ -397,16 +421,17 @@ function render() {
     });
     if (libraryOpen) {
       const saved = [...readSaved(savedStorage)].reverse();
-      const placeholder = new Option(saved.length ? "Load a saved work" : "No saved works", "");
+      const earlierWorks = [...readEarlierWorks(savedStorage)].reverse();
+      const placeholder = new Option(saved.length + earlierWorks.length ? "Load a saved work" : "No saved works", "");
       placeholder.disabled = true;
-      librarySelect.replaceChildren(placeholder, ...saved.map(item => {
-        const option = new Option(formatSavedWorkPromptLabel(item.promptLine), item.runId);
+      librarySelect.replaceChildren(placeholder, ...[...saved, ...earlierWorks].map(item => {
+        const option = new Option((item.runId.startsWith("historical:") ? "Earlier: " : "") + formatSavedWorkPromptLabel(item.promptLine), item.runId);
         option.title = item.promptLine;
         return option;
       }));
-      librarySelect.value = client.work?.runId ?? "";
+      librarySelect.value = work?.runId ?? "";
       if (!librarySelect.value) placeholder.selected = true;
-      librarySelect.disabled = !saved.length;
+      librarySelect.disabled = !(saved.length + earlierWorks.length);
       library.classList.remove("is-hidden");
     }
   }

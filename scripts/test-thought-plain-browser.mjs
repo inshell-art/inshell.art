@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, writeFile, readFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import { chromium } from "@playwright/test";
 
@@ -70,6 +71,19 @@ const assertLayout = (value, stacked) => {
   }
 };
 const frameChecks = [];
+const exported = {};
+const exportWork = async stage => {
+  const downloadEvent = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export artwork record without credentials" }).click();
+  const download = await downloadEvent;
+  assert.match(download.suggestedFilename(), new RegExp(`^plain_[a-zA-Z0-9-]+-${stage}\\.json$`));
+  const file = `${out}/${stage}.json`;
+  await download.saveAs(file);
+  const record = JSON.parse(await readFile(file, "utf8"));
+  assert.equal(record.stage, stage);
+  assert.deepEqual(Object.keys(record).sort(), ["schema", "stage", "work", "conflict", "reviewed"].sort());
+  exported[stage] = record;
+};
 const assertFrame = async (name) => {
   await settleLayout();
   const bounds = await page.locator(".thought-canvas-frame").boundingBox();
@@ -99,9 +113,9 @@ try {
   await page.locator(".inshell-preview-watermark").waitFor();
   await settleLayout();
   const defaultMedium = await metrics();
-  assert.equal(defaultMedium.reportLink.position, "fixed", "Default surface is unchanged");
+  assert.equal(defaultMedium.reportLink.position, "static", "Default uses the approved plain presentation");
   await page.screenshot({ path: `${out}/default-medium-initial.png`, fullPage: true });
-  await page.goto(`${origin}/thought/?transport=plain&surface=agent`);
+  await page.goto(`${origin}/thought/`);
   await page.getByRole("button", { name: "Send to your Agent" }).waitFor();
   const initial = [];
   for (const width of [924, 390, 768, 1023, 1024, 1280]) {
@@ -164,9 +178,13 @@ try {
   await page.unroute("**/api/thought-plain/v1/runs/*");
   const response = await fetch(url, { method: "POST", headers: { Authorization: authorization, "Content-Type": "text/plain; charset=utf-8" }, body: '"One."', redirect: "error" });
   assert.equal(response.status, 200);
-  // Deliberately don't use the acknowledgement to feed the UI: polling owns it.
-  await response.body.cancel();
+  // Actual HTTP body, never acknowledge(work). Do not use it to feed the UI:
+  // polling owns acceptance. Only synthetic artistic records are written here.
+  const acknowledgement = await response.json();
+  await writeFile(`${out}/acknowledgement.json`, JSON.stringify(acknowledgement));
   await page.getByRole("button", { name: "Review complete" }).waitFor();
+  await exportWork("accepted");
+  assert.equal(JSON.stringify(exported.accepted).includes(authorization), false);
   const statusReads = () => requests.filter(request => request.method === "GET" && request.path.startsWith("/api/thought-plain/v1/runs/")).length;
   const reviewReads = statusReads();
   await page.waitForTimeout(4200);
@@ -213,6 +231,7 @@ try {
   await page.evaluate(() => { Storage.prototype.setItem = window.restoreStorageWrite; delete window.restoreStorageWrite; });
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await page.locator(".thought-dock-status-screen__entry.is-latest").getByText("Work saved", { exact: true }).waitFor();
+  await exportWork("saved");
   const savedReads = statusReads();
   await page.waitForTimeout(4200);
   assert.equal(statusReads(), savedReads);
@@ -224,6 +243,15 @@ try {
   const select = page.getByRole("combobox", { name: "Load a saved work" });
   await select.selectOption({ label: "Hello?" });
   await page.locator(".thought-dock-status-screen__entry.is-latest").getByText("Work loaded", { exact: true }).waitFor();
+  await exportWork("loaded");
+  assert.deepEqual(exported.accepted.work, exported.saved.work);
+  assert.deepEqual(exported.accepted.work, exported.loaded.work);
+  await writeFile(`${out}/observations.json`, JSON.stringify({ machine: "mac-a", agent: "codex", testedCommit: "0".repeat(40), mode: "synthetic", execution: "desktop-deep-link", surface: "codex", osVersion: "synthetic", appVersion: "synthetic", browserVersion: "synthetic", launchObserved: true, previewObserved: true, returnObserved: true, reviewObserved: true, saveObserved: true, reloadObserved: true, loadObserved: true, completedAt: new Date().toISOString(), origin }));
+  const collected = JSON.parse(execFileSync(process.execPath, ["--import", "tsx", "scripts/collect-thought-plain-evidence.ts", "--exports", ...["accepted", "saved", "loaded", "acknowledgement", "observations"].map(name => `${out}/${name}.json`)], { encoding: "utf8" }));
+  assert.equal(collected.mode, "synthetic", "Synthetic demonstration must never qualify a release");
+  assert.equal(collected.acknowledgementSha256.startsWith("sha256:"), true);
+  assert.equal(collected.recordSha256, collected.loadedRecordSha256);
+  await writeFile(`${out}/synthetic-collected.json`, JSON.stringify(collected, null, 2));
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ colorScheme: "dark" });
   await settleLayout();
@@ -238,6 +266,7 @@ try {
   assert.equal(requests.filter(request => request.method === "POST" && request.path === "/api/thought-plain/v1/runs").length, 1);
   assert.equal(requests.filter(request => /\/api\/(thought-agent|.*rpc|thought-contract)/.test(request.path)).length, 0);
   const plainRequestCount = requests.length;
+  await page.setViewportSize({ width: 1280, height: 900 });
   // Exercise terminal rejection and cancellation through the actual loopback
   // API; no native app is opened and no failed real task is replayed.
   await page.getByRole("button", { name: "Reset", exact: true }).click();
@@ -255,7 +284,7 @@ try {
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await page.locator(".thought-dock-status-screen__entry.is-latest").getByText("Task cancelled", { exact: true }).waitFor();
   await assertFrame("cancelled");
-  await page.getByRole("button", { name: "Reset", exact: true }).click();
+  assert.equal(await page.getByRole("button", { name: "Reset", exact: true }).count(), 0);
   await page.locator("#thought-dock-prompt").fill("Feedback?");
   await page.getByRole("button", { name: "Send to your Agent" }).click();
   await page.getByRole("link", { name: "ChatGPT", exact: true }).waitFor();
@@ -318,13 +347,16 @@ try {
   });
   await page.getByRole("button", { name: "Reset", exact: true }).click();
   await page.goto(`${disabledOrigin}/thought/?transport=plain&surface=agent`);
-  await page.locator(".thought-dock-status-screen__entry.is-latest").getByText("Experimental return unavailable", { exact: true }).waitFor();
+  await page.locator(".thought-dock-status-screen__entry.is-latest").getByText("Creation unavailable", { exact: true }).waitFor();
   assert.equal(await page.getByRole("button", { name: "Send to your Agent" }).count(), 0);
   assert.equal((await fetch(disabledOrigin + "/api/thought-plain/v1/runs", { method: "POST" })).status, 404);
   await page.goto(`${disabledOrigin}/thought/?surface=agent`);
   await page.locator("#thought-dock-prompt").waitFor({ state: "visible" });
   await page.waitForTimeout(1500);
-  assert.equal(await page.locator('body[data-thought-transport="plain-experimental"]').count(), 0);
+  assert.equal(await page.locator('body[data-thought-transport="plain-experimental"]').count(), 1);
+  for (const version of [1, 2]) for (const slash of ["", "/"]) {
+    assert.equal((await fetch(`${origin}/api/thought-agent/v${version}/runs${slash}`, { method: "POST" })).status, 410);
+  }
   await page.goto(`${origin}/thought/?transport=plain&surface=agent`);
   await page.getByRole("button", { name: "Send to your Agent" }).waitFor();
   await page.route("**/api/thought-plain/v1/runs", route => route.abort());
@@ -345,7 +377,7 @@ try {
   await page.getByRole("button", { name: "Send to your Agent" }).waitFor();
   await assertFrame("storage-denied-initial");
   const report = { syntheticOnly: true, liveAgents: 0, nativeLaunches: 0, handoffBytes: bytes,
-    passed: ["real create/HTTP return/poll", "reload pending", "lost Agent ack", "exact quotes", "review/save", "reload saved", "load", "desktop geometry", "mobile dark geometry", "six-width initial geometry", "four-width returned geometry", "default medium-width comparison", "mint isolation", "no RPC/Agent v2", "disabled UI/API", "legacy default entry", "terminal polling stopped", "Claude No folder guidance", "lost preparation reply safe exit"],
+    passed: ["real create/HTTP return/poll", "reload pending", "lost Agent ack", "exact quotes", "review/save", "reload saved", "load", "desktop geometry", "mobile dark geometry", "six-width initial geometry", "four-width returned geometry", "default plain entry", "mint isolation", "no RPC/Agent v2", "disabled UI/API", "legacy admission retired", "terminal polling stopped", "Claude No folder guidance", "lost preparation reply safe exit"],
     frameChecks, defaultMedium, initial, returned, desktop, mobile, plainRequestCount, externalRequests: external, pageErrors: errors };
   report.passed.push("rendered frame pixels in all states and widths", "persistent specific prompt validation; zero create and no byte rewrite", "validation clears after editing", "preparing and delivery uncertainty", "quota failure keeps review and Save without resend", "terminal rejection and cancellation");
   report.passed.push("validation after failed Save and Reset", "expiry copy valid for separate write/read limits");

@@ -13,7 +13,7 @@
     "test:thought-plain:state-parity": "node --import tsx scripts/test-thought-plain-state-parity.mjs",
     "check:dependency-security": "node scripts/check-dependency-security.mjs",
     "check:release-evidence": "node scripts/check-release-evidence.mjs",
-    "test:release-readiness": "node --test scripts/release-readiness.test.mjs && pnpm run test:thought-failure-report",
+    "test:release-readiness": "node --test scripts/release-readiness.test.mjs && node --import tsx --test scripts/plain-replacement.test.ts && pnpm run test:thought-failure-report",
     "dev:home": "pnpm --filter @inshell/home dev",
     "dev:home:devnet": "pnpm --filter @inshell/home dev:devnet",
     "dev:thought": "pnpm --filter @inshell/thought dev",

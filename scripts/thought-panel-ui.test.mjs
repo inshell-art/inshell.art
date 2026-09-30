@@ -1693,14 +1693,14 @@ test("plain presenter keeps confirmed chooser warning, restoration and cancellat
   assert.match(plainView, /client\.state === "waiting" && \(!task \|\| launched\)/);
   const start = plainView.slice(plainView.indexOf("async function start()"));
   assert.match(start, /client\.restore\(\);\s+if \(client\.pendingPrompt !== null\) prompt\.value = client\.pendingPrompt;\s+await client\.check\(\)/);
-  assert.match(plainView, /prompt\.readOnly = client\.state !== "idle" && client\.state !== "cancelled"/);
+  assert.match(plainView, /prompt\.readOnly = Boolean\(historical\) \|\| \(client\.state !== "idle" && client\.state !== "cancelled"\)/);
   assert.match(plainView, /client\.state === "idle" \|\| client\.state === "cancelled"/);
   const cancel = plainView.split("async function cancelTask()")[1].split("async function start()")[0];
   assert.match(cancel, /await client\.cancel\(\);\s+if \(client\.state === "cancelled"\)/);
   assert.match(cancel, /prompt\.focus\(\{ preventScroll: true \}\)/);
   assert.doesNotMatch(cancel, /client\.(?:reset|create)\(/);
   assert.match(plainView, /if \(\["idle", "cancelled", "review", "saved"\]\.includes\(client\.state\)\) button\(libraryOpen/);
-  assert.match(plainView, /if \(client\.state !== "idle" && client\.state !== "cancelled"\) button\("Reset"/);
+  assert.match(plainView, /if \(historical \|\| \(client\.state !== "idle" && client\.state !== "cancelled"\)\) button\("Reset"/);
 });
 
 test("plain presenter preserves desktop-only creation, Load guidance and prompt focus", () => {
@@ -1728,7 +1728,7 @@ test("plain editor reuses history helpers with isolated draft storage and guarde
   assert.match(plainView, /if \(!canEditPrompt\(\) \|\| event\.isComposing \|\| event\.repeat\) return/);
   assert.match(plainView, /\(event\.metaKey \|\| event\.ctrlKey\) && !event\.altKey && event\.key === "Enter" && !mobileAgentMedia\.matches/);
   assert.match(plainView, /find\(control => control\.textContent === "Send to your Agent"\)\?\.click\(\)/);
-  assert.match(plainView, /const canEditPrompt = \(\) => enabled && !cancelling && \(client\.state === "idle" \|\| client\.state === "cancelled"\)/);
+  assert.match(plainView, /const canEditPrompt = \(\) => enabled && !historical && !cancelling && \(client\.state === "idle" \|\| client\.state === "cancelled"\)/);
   assert.match(plainView, /prompt\.value = "";[^\n]*\n\s+promptCursor = \{ index: null, draft: "" \}; writeDraft\(\)/);
 });
 
