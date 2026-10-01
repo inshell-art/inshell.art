@@ -2,12 +2,15 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { createServer } from "node:http";
-import { mkdtemp, rm } from "node:fs/promises";
+import { spawn } from "node:child_process";
+import { Buffer } from "node:buffer";
+import process from "node:process";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { handlePlainRequest, READ_TTL, WRITE_TTL, type PlainEnv } from "../../../../functions/api/thought-plain/v1/_middleware";
 import { servePlainRequest, sqliteD1 } from "../../scripts/plain-return-dev";
-import { API, PENDING_KEY, PINS, SAVED_KEY, createBrief, handoff, makeWork, validateWork } from "./model";
+import { ACK_SCHEMA, API, PENDING_KEY, PINS, SAVED_KEY, createBrief, handoff, makeWork, validateWork } from "./model";
 import { PlainClient, readSaved } from "./client";
 import { readThoughtWorks } from "../works";
 
@@ -72,6 +75,92 @@ test("frozen complete brief, canonical rendering, exact quotes and unknown prove
   assert.ok(task.text.includes(brief.text));
   assert.ok(task.text.includes("do not regenerate or automatically resend"));
   assert.throws(() => handoff(work.runId, work.promptLine, "http://evil.example", "a".repeat(43), Date.now()));
+});
+function curlArguments(task: string): string[] {
+  return [...JSON.parse(/^Curl arguments \(JSON array\): (.+)$/m.exec(task)![1]),
+    "--header", /^Authorization: .+$/m.exec(task)![0],
+    "--header", /^Content-Type: .+$/m.exec(task)![0],
+    "--url", /^URL: (.+)$/m.exec(task)![1]];
+}
+// Test-only invocation of the handoff's arguments, not a second delivery client.
+function nativeCurl(task: string, body: string, curlHome?: string) {
+  return new Promise<{ exit: number | null; stdout: string }>((resolve, reject) => {
+    const child = spawn("/usr/bin/curl", curlArguments(task), {
+      shell: false,
+      env: { ...process.env, ...(curlHome ? { CURL_HOME: curlHome } : {}), NO_PROXY: "127.0.0.1", no_proxy: "127.0.0.1" },
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    let stdout = "";
+    child.stdout.setEncoding("utf8").on("data", chunk => { stdout += chunk; });
+    child.stderr.resume(); // No capability-bearing diagnostics in test output.
+    child.on("error", reject);
+    child.on("close", exit => resolve({ exit, stdout }));
+    child.stdin.on("error", reject);
+    child.stdin.end(Buffer.from(body, "utf8"));
+  });
+}
+function verifiedCurlAck(result: Awaited<ReturnType<typeof nativeCurl>>, runId: string, line: string) {
+  assert.equal(result.exit, 0);
+  assert.equal(result.stdout.slice(-4), "\n200");
+  const ack = JSON.parse(result.stdout.slice(0, -4));
+  assert.equal(ack.schema, ACK_SCHEMA); assert.equal(ack.runId, runId);
+  assert.equal(ack.state, "returned"); assert.equal(ack.agentLine, line);
+  return ack;
+}
+test("both launch paths retain the shared native-curl-only handoff and frozen creative brief", async () => {
+  const task = handoff("plain_test0001", "Hello?", origin, "a".repeat(43), Date.now()).text;
+  const args = curlArguments(task);
+  assert.deepEqual(args.slice(0, -6), ["-q", "--silent", "--show-error", "--request", "POST", "--no-location", "--max-redirs", "0", "--retry", "0", "--connect-timeout", "10", "--max-time", "30", "--data-binary", "@-", "--write-out", "\\n%{http_code}"]);
+  for (const text of ["already installed native curl executable", "not a shell alias or wrapper", "do not override User-Agent", "No Python urllib, requests, fetch or other HTTP transport fallback", "stop before submission", "normal host approval", "Keep -q as the first argument", "do not interpolate artwork into shell code or use echo", "must not perform HTTP itself", "do not regenerate or automatically resend", "identical original bytes", "safe error code"]) assert.ok(task.includes(text), text);
+  assert.ok(task.includes(createBrief("plain_test0001", "Hello?").text));
+  assert.equal(task.split("Authorization: Bearer").length, 2, "Capability is not duplicated into a generated client");
+  // The UI uses the identical server handoff for both installed-app launch URLs.
+  const view = await readFile(new URL("./view.ts", import.meta.url), "utf8");
+  assert.ok(view.includes('[["ChatGPT", "codex://new?", "prompt"], ["Claude", "claude://code/new?", "q"]]'));
+  assert.ok(view.includes('link.href = prefix + new URLSearchParams({ [key]: task })'));
+  for (const [prefix, key] of [["codex://new?", "prompt"], ["claude://code/new?", "q"]]) {
+    assert.equal(new URL(prefix + new URLSearchParams({ [key]: task })).searchParams.get(key), task);
+  }
+});
+test("native curl ignores config redirects/retries/extra destinations; ACK and uncertain boundaries stay strict", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "thought-curl-config-test-"));
+  const requests: { url: string; body: string; userAgent: string }[] = [];
+  const runId = "plain_curltest01", line = `"One's: (two), three!"`;
+  let mode = "redirect";
+  const server = createServer(async (req, res) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) chunks.push(Buffer.from(chunk));
+    requests.push({ url: req.url!, body: Buffer.concat(chunks).toString("utf8"), userAgent: req.headers["user-agent"] ?? "" });
+    if (mode === "disconnect") { req.socket.destroy(); return; }
+    if (mode === "redirect") { res.writeHead(307, { Location: "/unexpected" }); res.end(); return; }
+    if (mode === "unavailable") { res.writeHead(503, { "Retry-After": "0" }); res.end('{"code":"UNAVAILABLE"}'); return; }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(mode === "malformed" ? "not-json" : JSON.stringify({ schema: ACK_SCHEMA, runId, state: "returned", agentLine: "Different." }));
+  });
+  await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address(); assert.ok(address && typeof address !== "string");
+  const base = `http://127.0.0.1:${address.port}`;
+  const task = handoff(runId, "Hello?", base, "a".repeat(43), Date.now() + 60000).text;
+  try {
+    // Synthetic local-only config would add a request and alter client identity if -q regressed.
+    await writeFile(path.join(dir, ".curlrc"), `location\nretry = 2\nurl = "${base}/unexpected"\nuser-agent = "wrong-client"\n`);
+    for (mode of ["redirect", "unavailable", "malformed", "wrong-ack", "disconnect"]) {
+      const before = requests.length;
+      const result = await nativeCurl(task, line, dir);
+      assert.equal(requests.length, before + 1, "Each synthetic trial makes one POST only");
+      const observed = requests.at(-1)!;
+      assert.equal(observed.url, `${API}/runs/${runId}/return`);
+      assert.equal(observed.body, line); assert.ok(!observed.body.endsWith("\n"));
+      assert.match(observed.userAgent, /^curl\/[\d.]+$/);
+      if (mode === "redirect") assert.ok(result.stdout.endsWith("\n307"));
+      if (mode === "unavailable") assert.ok(result.stdout.endsWith("\n503"));
+      if (mode === "disconnect") assert.notEqual(result.exit, 0);
+      assert.throws(() => verifiedCurlAck(result, runId, line));
+    }
+  } finally {
+    await new Promise<void>(resolve => server.close(() => resolve()));
+    await rm(dir, { recursive: true, force: true });
+  }
 });
 test("same-origin create, scoped capabilities, no token reflection or cleartext persistence", async () => {
   const s = setup();
@@ -289,12 +378,13 @@ test("cancel confirmation cannot be overwritten by an older poll or duplicate ca
   assert.equal(client.pendingPrompt, "Hello?");
   assert.deepEqual(methods, ["GET", "DELETE"]);
 });
-test("real local HTTP executes product SQL, survives reopen, and uses only synthetic capabilities", async () => {
+test("native curl exact-byte submission executes product SQL and ACK, survives reopen, synthetic only", async () => {
   const dir = await mkdtemp(path.join(tmpdir(), "thought-plain-product-test-"));
   const filename = path.join(dir, "runs.sqlite");
   let database = new DatabaseSync(filename);
   const env: PlainEnv = { THOUGHT_PLAIN_HTTP_ENABLED: "true", INSHELL_CHAIN_DATA_DB: sqliteD1(database) };
-  const server = createServer((req, res) => { void servePlainRequest(req, res, env); });
+  let posts = 0;
+  const server = createServer((req, res) => { if (req.method === "POST" && req.url?.endsWith("/return")) posts++; void servePlainRequest(req, res, env); });
   await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
   const address = server.address(); assert.ok(address && typeof address !== "string");
   const base = `http://127.0.0.1:${address.port}`; env.THOUGHT_PLAIN_HTTP_ORIGIN = base;
@@ -302,11 +392,16 @@ test("real local HTTP executes product SQL, survives reopen, and uses only synth
     const created = await fetch(base + API + "/runs", { method: "POST", headers: { Origin: base, "Content-Type": "application/json", "X-Thought-Create": "1" }, body: JSON.stringify({ promptLine: "Hello?" }) });
     assert.equal(created.status, 201);
     const run = await created.json();
-    const response = await fetch(base + API + `/runs/${run.runId}/return`, { method: "POST", headers: { Authorization: /Authorization: (Bearer \S+)/.exec(run.handoff)![1], "Content-Type": "text/plain" }, body: "One." });
-    assert.equal(response.status, 200);
+    const line = `"One's: (two), three!"`;
+    const response = await nativeCurl(run.handoff, line);
+    verifiedCurlAck(response, run.runId, line);
+    assert.equal(posts, 1);
     database.close(); database = new DatabaseSync(filename); env.INSHELL_CHAIN_DATA_DB = sqliteD1(database);
     const status = await fetch(base + API + `/runs/${run.runId}`, { headers: { Authorization: `Bearer ${run.browserToken}` } });
-    assert.equal((await status.json()).work.agentLine, "One.");
+    const work = (await status.json()).work;
+    assert.equal(work.agentLine, line);
+    assert.ok(!work.agentLine.endsWith("\n"));
+    assert.equal(validateWork(work).provenance.mintEligible, false);
   } finally {
     await new Promise<void>(resolve => server.close(() => resolve()));
     database.close(); await rm(dir, { recursive: true, force: true });
