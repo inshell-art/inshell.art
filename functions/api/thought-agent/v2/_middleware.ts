@@ -12,6 +12,7 @@ const routes: ReadonlyArray<readonly [RegExp, readonly string[]]> = [
   [/^\/api\/thought-agent\/v2\/(?:connectivity|client)\/?$/, ["GET", "OPTIONS"]],
   [/^\/api\/thought-agent\/v2\/runs\/?$/, ["POST", "OPTIONS"]],
   [/^\/api\/thought-agent\/v2\/runs\/tar_[A-Za-z0-9_-]{8,}\/?$/, ["GET", "OPTIONS"]],
+  [/^\/api\/thought-agent\/v2\/runs\/tar_[A-Za-z0-9_-]{8,}\/bootstrap\/?$/, ["GET", "OPTIONS"]],
   [/^\/api\/thought-agent\/v2\/runs\/tar_[A-Za-z0-9_-]{8,}\/(?:claim|ready|start|fail|cancel|claim-authorization)\/?$/, ["POST", "OPTIONS"]],
   [/^\/api\/thought-agent\/v2\/runs\/tar_[A-Za-z0-9_-]{8,}\/result\/?$/, ["PUT", "OPTIONS"]],
 ];

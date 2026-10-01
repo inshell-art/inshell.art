@@ -115,6 +115,11 @@ export default defineConfig(({ command, mode }) => {
       port: 5173,
       strictPort: true,
       proxy: {
+        "/api/thought-plain": {
+          target: thoughtAppOrigin,
+          changeOrigin: false,
+          secure: false,
+        },
         "/api/thought-contract": {
           target: thoughtAppOrigin,
           changeOrigin: true,

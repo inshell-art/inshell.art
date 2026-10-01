@@ -20,12 +20,38 @@ import {
   THOUGHT_AGENT_HTTP_USER_AGENT,
   THOUGHT_AGENT_RUN_AUTHORITY,
   THOUGHT_HANDOFF_OPERATION_RECOVERY,
+  THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
   THOUGHT_V2_PROTOCOL_RELEASE,
   buildThoughtCodexOperationContract,
   buildThoughtCodexTask,
   buildThoughtClaudeOperationContract,
   buildThoughtClaudeTask,
 } from "../packages/thought-agent-protocol/src/index";
+import { inspectThoughtCodexFixedWorkerHandoff } from "./thought-agent-canary-endpoints";
+
+const codexBootstrapFor = (runUrl: string) => ({
+  url: `${runUrl.replace(/\/+$/g, "")}/bootstrap`,
+  workerSha256: THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
+  configSha256: `sha256:${"b".repeat(64)}` as const,
+});
+
+// Models the two exact mutations observed in the persisted Codex-52 handoff:
+// Markdown escapes plain underscores and consumes escaped slashes. This is a
+// regression model, not a claim that it is the desktop composer's source code.
+const applyObservedCodexComposerTransform = (value: string) => {
+  let fenced = false;
+  return value.split("\n").map((line) => {
+    if (line.startsWith("```")) {
+      fenced = !fenced;
+      return line;
+    }
+    if (fenced) return line;
+    return line.split(/(`[^`]*`)/g).map((part) => {
+      if (part.startsWith("`") && part.endsWith("`")) return part;
+      return part.replaceAll("\\/", "/").replaceAll("_", "\\_");
+    }).join("");
+  }).join("\n");
+};
 import {
   buildThoughtHandoffResponseChecks,
   THOUGHT_HANDOFF_CLAIM_RESPONSE_CHECK,
@@ -54,63 +80,69 @@ for (const [agent, candidate, deepLink, buildTask, buildContract] of [
   ["Claude", thoughtClaudeCanonicalCandidate, buildClaudeDeepLink, buildThoughtClaudeTask, buildThoughtClaudeOperationContract],
 ] as const) {
   test(`${agent} protocol labels and exact request bodies survive deep-link and plain-text transport`, () => {
-    const input = {
+    const baseInput = {
       product: agent,
       runId: "tar_handoff_transport_regression",
       runUrl: "https://staging.inshell-art.pages.dev/api/thought-agent/v2/runs/tar_handoff_transport_regression",
       launchToken: "fixture-only-launch-credential",
     };
+    const input = agent === "Codex"
+      ? { ...baseInput, bootstrap: codexBootstrapFor(baseInput.runUrl) }
+      : baseInput;
     const task = buildTask(input);
     const decoded = new URL(deepLink(task)).searchParams.get(agent === "Codex" ? "prompt" : "q")!;
     const transformed = decoded.replace(/\\([_*])/g, "$1").replace(/\r?\n/g, "\r\n");
     assert.equal(transformed.replaceAll("\r\n", "\n"), task);
-    assert.doesNotMatch(task, /<[^>]+>/);
-    assert.match(transformed, /^PROTOCOL_VERSION = inshell\.thought\.agent-run\.v2\r?$/m);
-    assert.match(transformed, /^CONTROL_SCHEMA = inshell\.thought\.agent-control\.v2\r?$/m);
     const contract = buildContract(input);
-    const expectedData = [["CLAIM_BODY", contract.claim], ["READY_BODY_REPORTED", contract.ready], ["RUN_AUTHORITY", contract.authority]] as const;
-    for (const [key, expected] of expectedData) {
-      const line = transformed.split(/\r?\n/).find((value) => value.startsWith(`${key} = `));
-      assert.ok(line);
-      assert.deepEqual(JSON.parse(line.slice(key.length + 3)), expected);
-    }
-    assert.ok(transformed.includes('READY_BODY_UNKNOWN = READY_BODY_REPORTED with only control.runtimeModel changed to "unknown"'));
-    assert.deepEqual(
-      { ...contract.ready, control: { ...contract.ready.control, runtimeModel: "unknown" } },
-      contract.readyUnknown,
-    );
     assert.deepEqual(contract.authority, THOUGHT_AGENT_RUN_AUTHORITY);
-    const sharedChecks = agent === "Codex"
-      ? [
-          THOUGHT_HANDOFF_READY_RESPONSE_CHECK,
-          THOUGHT_HANDOFF_RESULT_RESPONSE_CHECK,
-          THOUGHT_HANDOFF_FAIL_RESPONSE_CHECK,
-        ]
-      : [
-          THOUGHT_HANDOFF_CLAIM_RESPONSE_CHECK,
-          THOUGHT_HANDOFF_READY_RESPONSE_CHECK,
-          THOUGHT_HANDOFF_START_RESPONSE_CHECK,
-          THOUGHT_HANDOFF_RESULT_RESPONSE_CHECK,
-          THOUGHT_HANDOFF_FAIL_RESPONSE_CHECK,
-        ];
-    for (const check of sharedChecks) {
-      assert.equal(task.split(check).length - 1, 1);
-    }
     if (agent === "Codex") {
-      assert.match(task, /Claim: runId=RUN_ID,state=claimed,bridgeToken nonempty/);
-      assert.match(task, /request\.\{authority=RUN_AUTHORITY,intent=generate-thought-candidate/);
-      assert.match(task, /promptLine\.\{text,sha256\},agentInput\.\{text,sha256\}/);
+      assert.match(task, /fixed worker/);
+      assert.match(task, /`exec_command\(tty:true\)`/);
+      assert.match(task, /pinned retrieval binding|sha256:/);
+      assert.match(task, /`OK:preflight` and `CREDENTIAL_READY`/);
+      assert.match(task, /`OK:start` and `THOUGHT_INPUT_READY`/);
+      assert.match(task, /the exact `THOUGHT_END` line/);
+      assert.match(task, /Only `OK:result` and `Receipt:` succeed/);
+      assert.equal(task.split(input.launchToken).length - 1, 1);
+      assert.equal(task.split(input.runId).length - 1, 0);
+      assert.deepEqual(
+        inspectThoughtCodexFixedWorkerHandoff(task).bootstrap,
+        codexBootstrapFor(input.runUrl),
+      );
+    } else {
+      assert.doesNotMatch(task, /<[^>]+>/);
+      assert.match(transformed, /^PROTOCOL_VERSION = inshell\.thought\.agent-run\.v2\r?$/m);
+      assert.match(transformed, /^CONTROL_SCHEMA = inshell\.thought\.agent-control\.v2\r?$/m);
+      const expectedData = [["CLAIM_BODY", contract.claim], ["READY_BODY_REPORTED", contract.ready], ["RUN_AUTHORITY", contract.authority]] as const;
+      for (const [key, expected] of expectedData) {
+        const line = transformed.split(/\r?\n/).find((value) => value.startsWith(`${key} = `));
+        assert.ok(line);
+        assert.deepEqual(JSON.parse(line.slice(key.length + 3)), expected);
+      }
+      assert.ok(transformed.includes('READY_BODY_UNKNOWN = READY_BODY_REPORTED with only control.runtimeModel changed to "unknown"'));
+      assert.deepEqual(
+        { ...contract.ready, control: { ...contract.ready.control, runtimeModel: "unknown" } },
+        contract.readyUnknown,
+      );
+      for (const check of [
+        THOUGHT_HANDOFF_CLAIM_RESPONSE_CHECK,
+        THOUGHT_HANDOFF_READY_RESPONSE_CHECK,
+        THOUGHT_HANDOFF_START_RESPONSE_CHECK,
+        THOUGHT_HANDOFF_RESULT_RESPONSE_CHECK,
+        THOUGHT_HANDOFF_FAIL_RESPONSE_CHECK,
+      ]) {
+        assert.equal(task.split(check).length - 1, 1);
+      }
+      assert.doesNotMatch(task, /exact evidence echo/);
+      assert.match(task, /Authorization: Bearer LAUNCH_CREDENTIAL for claim/);
+      assert.match(task, /BRIDGE_CREDENTIAL later/);
+      assert.ok(transformed.includes(`All requests: User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}; identifies THOUGHT`));
+      assert.match(task, /never a browser\/model/);
+      assert.match(task, /Credentials only in Authorization—never body\/URL\/files\/logs\/redirects/);
+      assert.equal(task.split(input.launchToken).length - 1, 1);
+      assert.equal(task.split(input.runId).length - 1, 1);
     }
-    assert.equal(task.split(THOUGHT_HANDOFF_READY_RESPONSE_CHECK).length - 1, 1);
-    assert.doesNotMatch(task, /exact evidence echo/);
-    assert.match(task, /Authorization: Bearer LAUNCH_CREDENTIAL for claim/);
-    assert.match(task, /BRIDGE_CREDENTIAL later/);
     assert.equal(THOUGHT_AGENT_HTTP_USER_AGENT, "Inshell-THOUGHT-Agent/2");
-    assert.ok(transformed.includes(`All requests: User-Agent: ${THOUGHT_AGENT_HTTP_USER_AGENT}; identifies THOUGHT`));
-    assert.match(task, /never a browser\/model/);
-    assert.match(task, /Credentials only in Authorization—never body\/URL\/files\/logs\/redirects/);
-    assert.equal(task.split(input.launchToken).length - 1, 1);
-    assert.equal(task.split(input.runId).length - 1, 1);
     assert.ok(Buffer.byteLength(task) <= (agent === "Codex" ? 7_000 : 14_000));
     assert.ok(Buffer.byteLength(candidate()) <= (agent === "Codex" ? 7_000 : 14_000));
   });
@@ -118,18 +150,10 @@ for (const [agent, candidate, deepLink, buildTask, buildContract] of [
   test(`${agent} keeps protocol/authentication recovery bounded`, () => {
     const task = candidate();
     if (agent === "Codex") {
-      assert.match(task, /N=not sent:fix\/send once/);
-      assert.match(task, /R=verified App no-commit:obey\/no repeat/);
-      assert.match(task, /U=unproven after dispatch/);
-      assert.match(task, /claim stop\/no reclaim/);
-      assert.match(task, /ready exact READY_BODY\+bridge replay once/);
-      assert.match(task, /start stop\/no restart\/generate\/input/);
-      assert.match(task, /result frozen replay once\(same invocation\/key\/raw\/hashes/);
-      assert.match(task, /no reserialize\/repair\/art change\/regeneration/);
-      assert.match(task, /fail stop\/no repeat\/success overwrite/);
-      assert.match(task, /THOUGHT_STOP\(N\/R\) or THOUGHT_UNCERTAIN\(U\)/);
-      assert.match(task, /Endpoint\+valid protocol error insufficient/);
-      assert.match(task, /R needs 4xx\+known no-commit code;else U/);
+      assert.match(task, /Else report safe marker/);
+      assert.match(task, /never reclaim\/restart\/manual replay/);
+      assert.match(task, /exact-replay ready\/frozen result once after transport uncertainty/);
+      assert.match(task, /unproven 429=U/);
     } else {
       for (const line of THOUGHT_HANDOFF_OPERATION_RECOVERY) {
         assert.equal(task.split(line).length - 1, 1, `${agent} must include shared recovery line`);
@@ -147,12 +171,10 @@ for (const [agent, candidate, deepLink, buildTask, buildContract] of [
       assert.match(task, /fail stop\/reconcile \(no repeat\/success overwrite\)/);
       assert.match(task, /Sign-in redirect or network refusal: report the observed response and stop/);
       assert.doesNotMatch(task, /permission denial|connection approval|host permission|chat approval/i);
+      assert.doesNotMatch(task, /RETRY repeats only the failed operation|After permission\/network recovery/);
+      assert.match(task, /PROTOCOL_UNSUPPORTED\/TOKEN_INVALID\/RUN_EXPIRED\/RUN_ALREADY_CLAIMED/);
+      assert.match(task, /429 replay once only with usable Retry-After\+proof no commit; else U/);
     }
-    assert.doesNotMatch(task, /RETRY repeats only the failed operation|After permission\/network recovery/);
-    assert.match(task, /PROTOCOL_UNSUPPORTED\/TOKEN_INVALID\/RUN_EXPIRED\/RUN_ALREADY_CLAIMED/);
-    assert.match(task, agent === "Codex"
-      ? /429 once only with Retry-After\+proof no commit;else U/
-      : /429 replay once only with usable Retry-After\+proof no commit; else U/);
     assert.doesNotMatch(task, /If the first App exchange is denied/);
   });
 }
@@ -314,6 +336,7 @@ test("Codex and ChatGPT handoffs fit real run and credential lengths on staging 
         runId,
         runUrl: `${origin}/api/thought-agent/v2/runs/${runId}`,
         launchToken: "x".repeat(43),
+        bootstrap: codexBootstrapFor(`${origin}/api/thought-agent/v2/runs/${runId}`),
       });
       const bytes = Buffer.byteLength(task);
       assert.ok(bytes <= 7_000, `${product} ${origin} handoff is ${bytes} bytes`);
@@ -361,83 +384,36 @@ test("the Codex handoff matrix has stable unique case IDs", () => {
 
 test("the handoff runs bounded control before one automatic creative turn", () => {
   const task = thoughtCodexCanonicalCandidate();
-  const headings = [
-    "1. Claim control",
-    "2. Prove readiness",
-    "3. Create once",
-    "4. Return once",
-  ];
-  const positions = headings.map((heading) => task.indexOf(heading));
+  const positions = ["ECHO_READY", "CREDENTIAL_READY", "OK:start", "OK:result"]
+    .map((marker) => task.indexOf(marker));
 
   assert.ok(positions.every((position) => position >= 0));
   assert.deepEqual([...positions].sort((a, b) => a - b), positions);
-  assert.match(task, /control\+one creative turn; no CREATE gate/);
+  assert.match(task, /fixed worker/);
+  assert.match(task, /Only then compose from displayed verified input/);
   assert.doesNotMatch(task, /reply CREATE/i);
 });
 
-test("the handoff retains one private bridge credential in task context without local persistence", () => {
+test("the handoff gives credentials only to the fixed worker without local persistence", () => {
   const task = thoughtCodexCanonicalCandidate();
 
-  assert.match(task, /BRIDGE_CREDENTIAL=bridgeToken/);
-  assert.match(task, /retain\/reuse in worker/);
-  assert.match(task, /Credentials only in Authorization/);
-  assert.match(task, /Bridge stays in worker; no file\/storage\/log\/relay/);
-  assert.match(task, /same worker shows input\/rules/);
-  assert.match(task, /never reclaim/);
+  assert.match(task, /^```text\nCredential=/m);
+  assert.match(task, /reconstruct\/edit\/save\/install\/fallback\/manual HTTP/);
+  assert.match(task, /read host model\/effort once; never guess/);
+  assert.match(task, /never reclaim\/restart\/manual replay/);
+  assert.doesNotMatch(task, /\.launch-token|\/tmp\//);
 });
 
-test("the handoff is declarative, bootstrap-only, release-bound, and human-sized", () => {
+test("the fixed-worker handoff is inspectable, start-bound, and human-sized", () => {
   const task = thoughtCodexCanonicalCandidate();
 
-  assert.match(task, /Transport capsule:/);
-  assert.match(task, /APP_ENDPOINT = .*RUN_ID/);
-  assert.match(task, /prompt=\/start only/);
-  assert.match(task, /No setup;/);
-  assert.match(task, /spec\.\{id,text,sha256,contractSpecId,contractSpecHash\}/);
-  assert.match(task, /instructions\.\{id,artifactId,text,sha256\}/);
-  assert.match(task, /spec\.text!=instructions\.text/);
-  assert.match(task, /protocolReleaseId=CANONICAL_PROTOCOL_RELEASE_ID/);
-  assert.match(task, /manifestKeccak256=CANONICAL_MANIFEST_HASH/);
-  assert.match(
-    task,
-    /outputContract\.release only: protocolReleaseId=>CANONICAL_PROTOCOL_RELEASE_ID/,
-  );
-  assert.match(task, /Chat ignored/);
-  assert.doesNotMatch(task, /<protocol_release_id> = /);
-  assert.doesNotMatch(task, /<manifest_hash> = /);
-  assert.match(task, /not transcript purity/);
-  assert.match(task, /Report actual receipt/);
-  const authorityLine = task.split("\n").find((line) => line.startsWith("RUN_AUTHORITY = "));
-  assert.ok(authorityLine);
-  assert.deepEqual(
-    JSON.parse(authorityLine.slice("RUN_AUTHORITY = ".length)),
-    THOUGHT_AGENT_RUN_AUTHORITY,
-  );
-  assert.match(task, /request\.\{authority=RUN_AUTHORITY/);
-  assert.ok(task.split("runId=RUN_ID").length - 1 >= 3);
-  assert.match(task, /workProfile=WORK_PROFILE/);
-  assert.match(task, /no clarification/);
-  assert.match(task, /protocolVersion=PROTOCOL_VERSION,invocationId=INVOCATION_ID/);
-  assert.match(task, /startedAt=exact,completedAt=UTC,output\.\{mediaType=application\/json/);
-  assert.match(task, /visibleTurns:/);
-  assert.match(task, /agentInvocations:/);
-  assert.match(task, /workspacePolicy:/);
-  assert.match(task, /sandboxPolicy:/);
-  assert.match(task, /approvalPolicy:/);
-  assert.match(task, /userConfigPolicy:/);
-  assert.match(task, /\/start opens prompt\./);
-  assert.doesNotMatch(task, /any returned release against the capsule release/);
-  assert.match(task, /Exact nonempty\+optional valid effort=>metadataSource=reported/);
-  assert.match(task, /absent=>omit both,metadataSource=unknown/);
-  assert.match(task, /no guess\/config/);
-  assert.match(task, /metadataSource=unknown\/READY_BODY_UNKNOWN/);
-  assert.match(task, /POST only protocolVersion=PROTOCOL_VERSION,invocationId=INVOCATION_ID/);
-  assert.match(task, /bridge=CLAIM_BODY\.bridge,adapter=CLAIM_BODY\.adapter/);
-  assert.match(task, /agent\.\{product=AGENT_PRODUCT,provider=codex,model\?\/reasoningEffort\? iff reported,metadataSource\}/);
-  assert.match(task, /output\.\{mediaType=application\/json,raw=once-serialized candidate,rawSha256,agentLine,agentLineSha256\}/);
-  assert.match(task, /no failedAt\./);
+  assert.match(task, /request one origin\/network escalation on that first call/);
+  assert.match(task, /sha256:[0-9a-f]{64}/);
+  assert.match(task, /`OK:start` and `THOUGHT_INPUT_READY`/);
+  assert.match(task, /the exact `THOUGHT_END` line/);
+  assert.match(task, /No CR\/extra line\/JSON\/trim\/repair\/retry\/replacement/);
+  assert.match(task, /Only `OK:result` and `Receipt:` succeed/);
   assert.doesNotMatch(task, /\/bin\/zsh|\bcurl\s|\bjq\s|nodeRepl\.|\/tmp\//);
-  assert.equal(task.split("tar_handoff_candidate").length - 1, 1);
   assert.ok(Buffer.byteLength(task) <= 7_000);
   assert.doesNotMatch(task, /Can a verified path remain simple\?/);
 });
@@ -454,6 +430,42 @@ test("the Codex deep link round-trips the sealed handoff", () => {
   );
 });
 
+test("the Codex command and private literals survive the observed composer transform model", () => {
+  const runUrl = "https://preview.inshell.art/api/thought-agent/v2/runs/tar_markdown_transport";
+  const launchToken = "fixture_token_with_markdown_punctuation";
+  const task = buildThoughtCodexTask({
+    product: "Codex",
+    runId: "tar_markdown_transport",
+    runUrl,
+    launchToken,
+    bootstrap: codexBootstrapFor(runUrl),
+  });
+  const imported = new URL(buildCodexDeepLink(task, "https://preview.inshell.art/thought"))
+    .searchParams.get("prompt");
+  assert.ok(imported);
+  const transported = applyObservedCodexComposerTransform(imported);
+  const delivered = inspectThoughtCodexFixedWorkerHandoff(transported);
+
+  assert.deepEqual(delivered.bootstrap, codexBootstrapFor(runUrl));
+  assert.equal(delivered.launchToken, launchToken);
+  assert.match(transported, /```sh\nnode -e [^\n]+\n```/);
+  assert.match(transported, /```text\nCredential=fixture_token_with_markdown_punctuation\n```/);
+  for (const marker of [
+    "ECHO_READY",
+    "NONCE:",
+    "ECHO_OK",
+    "OK:preflight",
+    "CREDENTIAL_READY",
+    "OK:start",
+    "THOUGHT_INPUT_READY",
+    "THOUGHT_END",
+    "OK:result",
+    "Receipt:",
+  ]) {
+    assert.ok(transported.includes(`\`${marker}\``), `${marker} must remain code-formatted`);
+  }
+});
+
 test("an oversized real canary is cancelled before the qualification error escapes", async () => {
   const originalFetch = globalThis.fetch;
   const requests: Array<{ url: string; init?: RequestInit }> = [];
@@ -461,11 +473,17 @@ test("an oversized real canary is cancelled before the qualification error escap
     const url = String(input);
     requests.push({ url, init });
     if (requests.length === 1) {
+      const statusUrl = `https://staging.example/${"x".repeat(2_000)}`;
       return Response.json({
         runId: "tar_oversized_canary",
-        statusUrl: `https://staging.example/${"x".repeat(2_000)}`,
+        statusUrl,
         browserToken: "browser-token",
         launchUri: "codex://run?token=launch-token",
+        codexBootstrap: {
+          url: `${statusUrl}/bootstrap`,
+          workerSha256: THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
+          configSha256: `sha256:${"b".repeat(64)}`,
+        },
       });
     }
     return Response.json({ state: "cancelled" });

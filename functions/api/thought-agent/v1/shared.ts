@@ -8,11 +8,13 @@ import {
   THOUGHT_AGENT_RECEIPT_VERSION,
   THOUGHT_AGENT_RUN_AUTHORITY,
   THOUGHT_AGENT_RUN_TTL_MS,
+  THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
   THOUGHT_V2_PROTOCOL_RELEASE,
   ThoughtAgentProtocolError,
   assertThoughtAgentMetadataMatchesControl,
   assertThoughtLine,
   assertProtocolVersion,
+  buildThoughtCodexTransportWorkerConfigText,
   buildThoughtAgentInput,
   buildThoughtAgentReceipt,
   byteLengthUtf8,
@@ -208,6 +210,36 @@ export async function createRun(ctx: ThoughtAgentRouteContext): Promise<Response
     const db = await getDb(ctx);
     const body = parseCreateRunRequest(await readJson(ctx.request, 12 * 1024));
     const origin = requireAllowedWebOrigin(ctx);
+    const requestApiOrigin = new globalThis.URL(ctx.request.url).origin;
+    let agentApiOrigin = origin;
+    if (body.client?.agentApiOrigin) {
+      let configured: globalThis.URL;
+      try {
+        configured = new globalThis.URL(body.client.agentApiOrigin);
+      } catch {
+        throw new HttpProtocolError(
+          400,
+          "AGENT_OUTPUT_SCHEMA_INVALID",
+          "Invalid Agent API origin.",
+        );
+      }
+      if (
+        !["http:", "https:"].includes(configured.protocol) ||
+        configured.username ||
+        configured.password ||
+        configured.pathname !== "/" ||
+        configured.search ||
+        configured.hash ||
+        (configured.origin !== origin && configured.origin !== requestApiOrigin)
+      ) {
+        throw new HttpProtocolError(
+          400,
+          "AGENT_OUTPUT_SCHEMA_INVALID",
+          "Agent API origin does not match this App endpoint.",
+        );
+      }
+      agentApiOrigin = configured.origin;
+    }
     const prompt = body.promptLine;
     assertThoughtLine(prompt, "prompt");
     if (body.specId !== THOUGHT_AGENT_REGISTERED_SPEC_ID) {
@@ -320,6 +352,25 @@ export async function createRun(ctx: ThoughtAgentRouteContext): Promise<Response
       delete_after: deleteAfter,
     });
 
+    const apiBase = thoughtAgentApiBase(ctx.request);
+    const statusUrl = `${apiBase}/runs/${runId}`;
+    const codexBootstrap = apiBase === "/api/thought-agent/v2"
+      ? {
+          url: `${statusUrl}/bootstrap`,
+          workerSha256: THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
+          configSha256: await sha256Hex(buildThoughtCodexTransportWorkerConfigText({
+            product: "Codex",
+            runId,
+            runUrl: `${agentApiOrigin}${statusUrl}`,
+            protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
+            controlVersion: THOUGHT_AGENT_CONTROL_VERSION,
+            resultVersion: THOUGHT_V2_PROTOCOL_RELEASE.identifiers.agentResult,
+            workProfile: THOUGHT_V2_PROTOCOL_RELEASE.identifiers.workProfile,
+            declarationLabelField: "label",
+            release: THOUGHT_V2_PROTOCOL_RELEASE.release,
+          })),
+        }
+      : undefined;
     const launchUri = `thought://agent/run?run_id=${encodeURIComponent(
       runId,
     )}&token=${encodeURIComponent(launchToken)}&api_origin=${encodeURIComponent(origin)}`;
@@ -328,7 +379,7 @@ export async function createRun(ctx: ThoughtAgentRouteContext): Promise<Response
       state: "created",
       launchUri,
       browserToken,
-      statusUrl: `${thoughtAgentApiBase(ctx.request)}/runs/${runId}`,
+      statusUrl,
       createdAt,
       claimExpiresAt,
       ...(thoughtAgentApiBase(ctx.request) === "/api/thought-agent/v2"
@@ -339,6 +390,7 @@ export async function createRun(ctx: ThoughtAgentRouteContext): Promise<Response
               claimCreativeInput: "sealed-absent",
               creativeInputEndpoint: "start",
             },
+            codexBootstrap,
           }
         : {}),
       release: THOUGHT_V2_PROTOCOL_RELEASE.release,

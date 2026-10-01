@@ -1,0 +1,199 @@
+{
+  "schema": "inshell.thought.plain-evidence-review.v1",
+  "status": "bounded-composite-approved; independent-ops-review-pending",
+  "productCandidate": "cb4c287a0c841dd222e13a37e7018dac44a58fab",
+  "authority": "Direct operator approval in Applications on 2026-10-01: I approve the bounded Codex-57/Claude-57 qualification correction, keeping historical build/browser details unknown. Stop before publication for OPS review.",
+  "qualificationBoundary": "Only these two exact runs against the pinned cb4c287 candidate, with separately checked current UI. Codex retains its recorded original source; Claude initiating frontend and both historical browser versions remain unknown. This is not model/provider attestation, mint eligibility, a new canary, or publication approval. completedAt in the qualification record is the retained 11:16:26.005Z verification checkpoint, not an invented Agent finish time; acceptedAt retains the actual return time.",
+  "operatorObservation": {
+    "source": "OPS checkpoint: Operator confirms both preservation checks; production evidence review — 2026-10-01",
+    "statement": "Both Agent runs and Save → refresh → Load passed.",
+    "scope": "First-hand operator observation; not inferred from saved exports."
+  },
+  "sourceClarification": {
+    "source": "Operator reply forwarded verbatim by OPS on 2026-10-01",
+    "reply": "yes, I refresh, don't remember",
+    "confirmed": "Refreshed before launching Claude-57 after the Reset-button fix.",
+    "unknown": "Which URL/tab initiated Claude-57.",
+    "routeAmbiguityIsNotABlocker": true,
+    "candidateRouteProof": "Immutable dfd726bb /thought/ and /thought/?transport=plain both returned HTTP 200 with identical HTML SHA-256 58430d41faa46ff808a35b8f87181cce19463d674cc9379a8f1c463ef26a7abe. Entry uses pathname only; both import the same view. Client uses the same server-issued handoff and same API, independent of query.",
+    "cacheLimit": "Source middleware and immutable responses specify public, max-age=60, stale-while-revalidate=300. A refresh is not itself an observed build digest. This is not proof that caching caused the old assets, or a capture of historical canonical-host response headers.",
+    "survivingTabLimit": "Both surviving tabs reference pre-fix asset families. Neither is established as the initiating Claude-57 tab; they cannot negate the operator's refresh observation or establish its resulting build.",
+    "resolution": "Route equivalence established; exact Claude frontend source remains unproven. Direct operator approval admits the bounded composite proof without relabelling the run as a whole-commit test. No additional canary requirement introduced."
+  },
+  "immutableArtifactComparisons": [
+    {
+      "deployment": "dfd726bb-3732-4c51-8e44-e2e5c5b68eb0",
+      "sourceCommit": "cb4c287a0c841dd222e13a37e7018dac44a58fab",
+      "assetUrl": "https://dfd726bb.inshell-art.pages.dev/thought/assets/index-Bla3c9Uy.js",
+      "entrySha256": "c162be14702914dc881337bd3e6096f454795214995e131180b58d270955f9e2",
+      "view": "view-B39VgE_y.js",
+      "stylesheet": "index-7p2RU9KR.css"
+    },
+    {
+      "deployment": "70ace42b-a72e-4eed-a33d-37d0e381d80f",
+      "sourceCommit": "3968b7c09c689e090ac851173ab351358f4692c2",
+      "assetUrl": "https://70ace42b.inshell-art.pages.dev/thought/assets/index-D5OTl27C.js",
+      "entrySha256": "e069eb809e97c3d38c05c4d1cf453bd688a5f4ce2c1c1da4a1c7e0939909e3e4",
+      "view": "view-DIzZiMy9.js",
+      "stylesheet": "index-CofWbgyE.css"
+    },
+    {
+      "deployment": "71ef53ed-42ad-4295-9b11-af779f145fca",
+      "sourceCommit": "e5c56cc6a1edc6edfbc8dc60fb9dfd22ddbd14bf",
+      "assetUrl": "https://71ef53ed.inshell-art.pages.dev/thought/assets/index-D5OTl27C.js",
+      "entrySha256": "e069eb809e97c3d38c05c4d1cf453bd688a5f4ce2c1c1da4a1c7e0939909e3e4",
+      "limit": "Identical static entry in two distinct commits; this asset alone cannot identify the whole source."
+    },
+    {
+      "deploymentUrl": "https://e1110398.inshell-art.pages.dev",
+      "sourceCommit": "ece4abc758a6c6c2a6943f47697616b33e8e8dec",
+      "assetUrl": "https://e1110398.inshell-art.pages.dev/thought/assets/index-CxdXMinG.js",
+      "entrySha256": "998ee66296b7af14de8f97567a2d11be6aa3147ec91960bd52622858a9944cee",
+      "view": "view-BxP7B8i0.js",
+      "stylesheet": "index-CofWbgyE.css"
+    }
+  ],
+  "artifactComparisonBoundary": "Credential-free GETs of already identified immutable public deployments. Deployment-to-commit associations are the independently recorded OPS release identities. Retrieved artifact bytes are not claimed to be bytes extracted from an original tab's execution cache.",
+  "claudeServerHandoffComparison": {
+    "originalSource": "Claude session 0092a028-35a7-4131-8279-66052f333134, original human-message handoff text",
+    "normalization": "Replace only the single Authorization capability line and single Expires line with placeholders. Retain original run ID, exact prompt/brief, origin, permission requirements and delivery text. No credential emitted or persisted.",
+    "actualNormalizedSha256": "5848a22deed0e4854493144f8615525cb08310223cf6d8408bec5d3636536040",
+    "matchingGenerations": ["3968b7c09c689e090ac851173ab351358f4692c2", "cb4c287a0c841dd222e13a37e7018dac44a58fab"],
+    "olderGenerations": [
+      { "commits": ["ece4abc758a6c6c2a6943f47697616b33e8e8dec", "e5c56cc6a1edc6edfbc8dc60fb9dfd22ddbd14bf"], "normalizedSha256": "f5cc739d463c41a1aa56f7783011a6b067304ca2231c2891e6124c8a9c8bc5f9", "matchesActual": false },
+      { "commits": ["d7d927bd5a24c1a89bbe4fbdea7c2c1a272014f5"], "normalizedSha256": "c3aea2768cb28af69a8eb3a5411d4939683a0c47a59e7fc6933560aa984d82fe", "matchesActual": false }
+    ],
+    "currentModelSourceSha256": "1685fbadbf4c317ccdfbfd749bb6372c91ace20a5eabb7ee04839d644882bd12",
+    "handlerSourceSha256": "5eb4844e1d630c5e0360f1eaf1036cc5966ccc652cee79344ac85fc66172399d",
+    "handlerUnchangedAcrossComparedGenerations": true,
+    "serverVsShell": "PlainClient.create returns result.handoff. The middleware generates this handoff server-side and responds Cache-Control:no-store; client requests also specify no-store. Old shell asset identity does not establish an old issued handoff.",
+    "coverage": "Original current-generation brief and permission/native-curl delivery instructions, actual successful HTTP acknowledgement, exact saved/loaded record identity, operator refresh/preservation observation, and separately verified final candidate UI.",
+    "limits": "Equivalent server source is not an exact deployed handler byte attestation or unique whole-commit proof. The initiating shell commit remains unknown. The new bounded composite exception does not extend to other runs or candidates.",
+    "assessment": "Direct operator approval permits this exact composite qualification. Independent OPS review and separate release checks remain required before publication."
+  },
+  "runs": [
+    {
+      "agent": "codex",
+      "runId": "plain_8f798ee8-9a50-442a-8032-cdec312e21b6",
+      "testedCommit": "3968b7c09c689e090ac851173ab351358f4692c2",
+      "sourceBasis": "OPS network-permission staging checkpoint and Codex-57 original-tab observation; retained original source, not cb4c287.",
+      "acceptedAt": "2026-10-01T09:53:54.192Z",
+      "runtime": "Codex Desktop runtime 0.159.2",
+      "acknowledgement": {
+        "source": "Codex chat 01a0f6e2-0697-7bb1-9595-4c37e2c3a7f4, command call_qNABrknJe4ctorgk6zXtrnWe, actual untruncated stdout",
+        "sha256": "8a9d92920f15d89ac2dbe4c47ffed328886f6b0beb3bf42274355d923440aa0c",
+        "httpStatus": 200,
+        "exitCode": 0,
+        "matchesSavedWork": true
+      },
+      "delivery": {
+        "nativeCurl": true,
+        "onePost": true,
+        "noRedirect": true,
+        "noRetry": true,
+        "permission": "require_escalated requested on actual delivery command"
+      },
+      "savedExport": {
+        "filename": "plain_8f798ee8-9a50-442a-8032-cdec312e21b6-saved (1).json",
+        "sha256": "90e0ae77db464efb25d4fd4259f11f971dea6f0e437fec57f00b858b900c3e3e",
+        "stage": "saved",
+        "reviewed": true,
+        "conflict": false,
+        "validateWork": true,
+        "workSha256": "f961b0643e039bdcad4211ae2748f53967d60104d92bc8b20044edb4c7daeb2c"
+      },
+      "loadedExport": {
+        "filename": "plain_8f798ee8-9a50-442a-8032-cdec312e21b6-loaded.json",
+        "sha256": "920702882dbec8a6a8151fcccb603d4dfd327f1287332e0d259e15abc705cc89",
+        "stage": "loaded",
+        "reviewed": true,
+        "conflict": false,
+        "validateWork": true,
+        "workSha256": "f961b0643e039bdcad4211ae2748f53967d60104d92bc8b20044edb4c7daeb2c",
+        "savedRecordMatches": true,
+        "recovery": "Ordinary Load and Export in separate same-profile tab 923801622 at 2026-10-01 19:04 Asia/Shanghai; original tabs unchanged."
+      },
+      "canonicalRecordProof": {
+        "originalServerBriefMatches": true,
+        "actualSenderAcknowledgementMatches": true,
+        "expectedCanonicalRecordMatchesSavedAndLoaded": true,
+        "basis": "makeWork(actualAck.runId, originalBrief.promptLine, actualAck.agentLine, actualAck.acceptedAt), then validateWork and exact JSON comparisons.",
+        "limit": "Derived expected canonical identity, not an observed full accepted HTTP body or an accepted-stage export."
+      }
+    },
+    {
+      "agent": "claude",
+      "runId": "plain_5db719cc-e68f-484f-9753-dd4f2c74a115",
+      "testedCommit": null,
+      "sourceBasis": "Not established. Acceptance after deployment is not source binding.",
+      "acceptedAt": "2026-10-01T10:34:51.728Z",
+      "runtime": "Claude Code 2.1.285",
+      "acknowledgement": {
+        "source": "Claude session 0092a028-35a7-4131-8279-66052f333134, tool_result toolu_01BiaQr4osAvePD9tokZadLU, actual stdout",
+        "sha256": "d659bf8da1559afd96790ab59b98ff244d777822a429e41ff1dba8f1e8b80886",
+        "httpStatus": 200,
+        "exitCode": 0,
+        "matchesSavedWork": true
+      },
+      "delivery": {
+        "nativeCurl": true,
+        "onePost": true,
+        "noRedirect": true,
+        "noRetry": true,
+        "permission": "Transcript records auto mode, not a separate permission approval observation",
+        "artworkFile": "Artistic line written to scratchpad/line.txt; not a credential or client file"
+      },
+      "savedExport": {
+        "filename": "plain_5db719cc-e68f-484f-9753-dd4f2c74a115-saved.json",
+        "sha256": "cb38a5921a3e2c40b62ed56d297cec11add9ef54743f0b91b307cf0c0dd2bccb",
+        "stage": "saved",
+        "reviewed": true,
+        "conflict": false,
+        "validateWork": true,
+        "workSha256": "e6c686729e2bcb086151227190a5a7c478016debf5cb9a65f7613d62a7d40ce8"
+      },
+      "loadedExport": {
+        "filename": "plain_5db719cc-e68f-484f-9753-dd4f2c74a115-loaded.json",
+        "sha256": "66d3917279596a14d72080f7c78934f62901edcd597ded0deee3c667283e54ce",
+        "stage": "loaded",
+        "reviewed": true,
+        "conflict": false,
+        "validateWork": true,
+        "workSha256": "e6c686729e2bcb086151227190a5a7c478016debf5cb9a65f7613d62a7d40ce8",
+        "savedRecordMatches": true,
+        "recovery": "Ordinary Load and Export in separate same-profile tab 923801622 at 2026-10-01 19:03 Asia/Shanghai; original tabs unchanged."
+      },
+      "canonicalRecordProof": {
+        "originalServerBriefMatches": true,
+        "actualSenderAcknowledgementMatches": true,
+        "expectedCanonicalRecordMatchesSavedAndLoaded": true,
+        "basis": "makeWork(actualAck.runId, originalBrief.promptLine, actualAck.agentLine, actualAck.acceptedAt), then validateWork and exact JSON comparisons.",
+        "limit": "Derived expected canonical identity, not an observed full accepted HTTP body or an accepted-stage export. Generator equivalence does not establish the initiating frontend commit."
+      }
+    }
+  ],
+  "provenance": {
+    "metadataSource": "unknown",
+    "attested": false,
+    "mintEligible": false
+  },
+  "environmentRecovery": {
+    "observedOn": "2026-10-01",
+    "osVersion": "macOS 26.7 (25G229)",
+    "osBasis": "Actual current sw_vers read, consistent with the earlier historical matrix; not a contemporaneous run capture.",
+    "installedChromeVersion": "154.0.8037.92",
+    "chromeProcessStartedLocal": "2026-09-28T20:41:43+08:00",
+    "installedChromeInfoModifiedAt": "2026-09-29T23:15:10.557Z",
+    "runningChromeVersion": null,
+    "limit": "Installed Chrome bytes postdate the still-running process; installed version alone is not proof of the browser version used for these runs. Browser API blocked chrome://version inspection; no workaround attempted."
+  },
+  "survivingTabs": [
+    { "tabId": "923801443", "path": "/thought/", "entryAsset": "index-D5OTl27C.js", "sourceCommit": null },
+    { "tabId": "923801323", "path": "/thought/?transport=plain", "entryAsset": "index-CxdXMinG.js", "sourceCommit": null }
+  ],
+  "historicalUnknownsRetained": [
+    "Claude-57 initiating frontend source identity. Operator confirmed refresh, not URL/tab; route equivalence removes URL ambiguity but actual loaded build remains unproven against surviving older assets and shell cache behavior.",
+    "Actual running Chrome version for these runs. Current installed version is recorded separately, not silently substituted."
+  ],
+  "collectionBoundary": "Original acknowledgements were read from actual sender tool outputs, not reconstructed. Loaded exports were downloaded through normal UI controls in a separate tab, not relabelled from saved files. Canonical accepted identity is explicitly a deterministic proof against those genuine inputs. No new Agent run, direct browser storage access or change to original tabs was performed."
+}

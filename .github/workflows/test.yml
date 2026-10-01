@@ -70,6 +70,10 @@ jobs:
         run: pnpm run test:presepolia
       - name: Test THOUGHT runtime payloads
         run: pnpm run test:thought-runtime
+      - name: Test opt-in THOUGHT plain return
+        run: pnpm run test:thought-plain
+      - name: Type-check standalone THOUGHT
+        run: pnpm --filter @inshell/thought type-check
       - name: Check THOUGHT renderer parity
         env:
           THOUGHT_RENDER_PARITY_RPC_URL: ${{ vars.THOUGHT_RENDER_PARITY_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com' }}
@@ -86,6 +90,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - name: Enable pnpm
         run: corepack enable
       - name: Use Node.js

@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
+import { Buffer } from "node:buffer";
 import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
 import { inspect } from "node:util";
 
 import { buildThoughtCodexOperationContract, buildThoughtCodexTask } from "../packages/thought-agent-protocol/src/codex-client";
+import { THOUGHT_CODEX_TRANSPORT_WORKER_SHA256 } from "../packages/thought-agent-protocol/src/codex-transport-worker";
 import { buildThoughtClaudeTask } from "../packages/thought-agent-protocol/src/claude-client";
 import {
   thoughtAgentCanaryHandoffTransport,
@@ -102,10 +104,37 @@ describe("THOUGHT Agent canary uses the delivered endpoint", () => {
   const expectedApiOrigin = "https://preview.inshell.art";
   const publicRunUrl = `${expectedApiOrigin}/api/thought-agent/v2/runs/${runId}`;
   const launchToken = "canary-fixture-launch-credential";
-  const taskInput = { ...buildInput(publicRunUrl), launchToken };
+  const taskInput = {
+    ...buildInput(publicRunUrl),
+    launchToken,
+    bootstrap: {
+      url: `${publicRunUrl}/bootstrap`,
+      workerSha256: THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
+      configSha256: `sha256:${"b".repeat(64)}` as const,
+    },
+  };
+  const mutateCodexBootstrap = (
+    handoff: string,
+    mutate: (bootstrap: { url: string; workerSha256: string; configSha256: string }) => void,
+  ) => {
+    const lines = handoff.split("\n");
+    const commandIndex = lines.findIndex((line) => line.startsWith("node -e "));
+    assert.notEqual(commandIndex, -1);
+    const match = lines[commandIndex].match(/^(node -e '[^']*' -- )'([^']*)' '([^']*)' '([^']*)'$/);
+    assert.ok(match);
+    const bootstrap = {
+      url: Buffer.from(match[2], "base64").toString("utf8"),
+      workerSha256: match[3],
+      configSha256: match[4],
+    };
+    mutate(bootstrap);
+    const encodedUrl = Buffer.from(bootstrap.url, "utf8").toString("base64");
+    lines[commandIndex] = `${match[1]}'${encodedUrl}' '${bootstrap.workerSha256}' '${bootstrap.configSha256}'`;
+    return lines.join("\n");
+  };
   const agents = [
-    { name: "Codex", explicitEndpoints: false, handoff: buildThoughtCodexTask(taskInput) },
-    { name: "Claude", explicitEndpoints: true, handoff: buildThoughtClaudeTask({ ...taskInput, surface: "code" }) },
+    { name: "Codex", fixedWorker: true, explicitEndpoints: false, handoff: buildThoughtCodexTask(taskInput) },
+    { name: "Claude", fixedWorker: false, explicitEndpoints: true, handoff: buildThoughtClaudeTask({ ...taskInput, surface: "code" }) },
   ];
   const transport = (handoff: string, explicitEndpoints: boolean) => thoughtAgentCanaryHandoffTransport({
     handoff, explicitEndpoints, runId, launchToken, expectedApiOrigin,
@@ -129,7 +158,12 @@ describe("THOUGHT Agent canary uses the delivered endpoint", () => {
     });
 
     test(`${agent.name} rejects a handoff that points at the wrong origin instead of masking it with statusUrl`, () => {
-      rejectsPrivately(() => transport(agent.handoff.replaceAll(expectedApiOrigin, "https://inshell.art"), agent.explicitEndpoints));
+      const changed = agent.fixedWorker
+        ? mutateCodexBootstrap(agent.handoff, (bootstrap) => {
+            bootstrap.url = bootstrap.url.replace(expectedApiOrigin, "https://inshell.art");
+          })
+        : agent.handoff.replaceAll(expectedApiOrigin, "https://inshell.art");
+      rejectsPrivately(() => transport(changed, agent.explicitEndpoints));
     });
 
     test(`${agent.name} binds the endpoint path and run ID before using the credential`, () => {
@@ -144,18 +178,34 @@ describe("THOUGHT Agent canary uses the delivered endpoint", () => {
         `/api/thought-agent/v2/runs/RUN_ID`,
         `not-a-url-${launchToken}`,
       ]) {
-        rejectsPrivately(() => transport(agent.handoff.replace(/^APP_ENDPOINT = .+$/m, `APP_ENDPOINT = ${endpoint}`), agent.explicitEndpoints));
+        const changed = agent.fixedWorker
+          ? mutateCodexBootstrap(agent.handoff, (bootstrap) => {
+              bootstrap.url = `${endpoint.replaceAll("RUN_ID", runId)}/bootstrap`;
+            })
+          : agent.handoff.replace(/^APP_ENDPOINT = .+$/m, `APP_ENDPOINT = ${endpoint}`);
+        rejectsPrivately(() => transport(changed, agent.explicitEndpoints));
       }
     });
 
     test(`${agent.name} rejects missing, duplicated or mismatched capsule bindings without exposing credentials`, () => {
-      for (const handoff of [
-        agent.handoff.replace(/^APP_ENDPOINT = .+\n/m, ""),
-        `${agent.handoff}\nAPP_ENDPOINT = ${publicRunUrl}`,
-        agent.handoff.replace(/^RUN_ID = .+$/m, "RUN_ID = tar_other_run"),
-        agent.handoff.replace(/^LAUNCH_CREDENTIAL = .+$/m, "LAUNCH_CREDENTIAL = different-fixture-credential"),
-        `${agent.handoff}\nLAUNCH_CREDENTIAL = ${launchToken}`,
-      ]) rejectsPrivately(() => transport(handoff, agent.explicitEndpoints));
+      const malformed = agent.fixedWorker
+        ? [
+            mutateCodexBootstrap(agent.handoff, (bootstrap) => { bootstrap.url = ""; }),
+            `${agent.handoff}\nAPP_ENDPOINT = ${publicRunUrl}`,
+            mutateCodexBootstrap(agent.handoff, (bootstrap) => {
+              bootstrap.url = `${expectedApiOrigin}/api/thought-agent/v2/runs/tar_other_run/bootstrap`;
+            }),
+            agent.handoff.replace(/^Credential=.+$/m, "Credential=different-fixture-credential"),
+            `${agent.handoff}\nLAUNCH_CREDENTIAL = ${launchToken}`,
+          ]
+        : [
+            agent.handoff.replace(/^APP_ENDPOINT = .+\n/m, ""),
+            `${agent.handoff}\nAPP_ENDPOINT = ${publicRunUrl}`,
+            agent.handoff.replace(/^RUN_ID = .+$/m, "RUN_ID = tar_other_run"),
+            agent.handoff.replace(/^LAUNCH_CREDENTIAL = .+$/m, "LAUNCH_CREDENTIAL = different-fixture-credential"),
+            `${agent.handoff}\nLAUNCH_CREDENTIAL = ${launchToken}`,
+          ];
+      for (const handoff of malformed) rejectsPrivately(() => transport(handoff, agent.explicitEndpoints));
     });
 
     test(`${agent.name} rejects divergent explicit operation endpoints`, () => {

@@ -19,7 +19,7 @@ Within the wider field of [Agent Art](https://inshell.art/docs/agent-art), THOUG
 
 The artistic distinction is not that a text service returned bytes. THOUGHT makes a narrow opening for thinking power: an Agent interprets one human intention and forms one exact response. The work preserves that result without claiming access to hidden reasoning or equating machine and human thought.
 
-The creation flow is: human prompt → Agent response → validation and canonical record assembly → human selection → wallet confirmation → $PATH movement consumption → THOUGHT minted. The Agent responds. The human decides. The wallet confirms. The contract records.
+The App creation flow is: human prompt → Agent response → validation and preview → human review → browser-local Save and Load. Plain-return works are not eligible for App minting. The separate contract flow requires human selection, wallet confirmation, and $PATH movement consumption before a THOUGHT is minted. The Agent responds. The human decides. The wallet confirms. The contract records.
 
 Prompt and Agent response are each 1–64 bytes of Terminal English. Allowed characters are space, A–Z, a–z, 0–9, and . , ? ! : ; ' " - ( ) / &. Leading spaces, trailing spaces, and repeated internal spaces are rejected. Validation never trims, normalizes, repairs, translates, or rewrites accepted bytes.
 
@@ -199,7 +199,7 @@ Both lines are intentionally narrow: 1–64 bytes, a published character set, no
 
 - Authority: app-documentation, contract-release
 
-The human can preserve a candidate locally, discard it, or move toward minting. Minting adds two explicit consent boundaries: a signature that authorizes one defined $PATH use, then a wallet transaction that can change chain state.
+The plain creation surface lets the human review, save, export, load, or discard a candidate; it does not offer minting. In the separate contract-enabled flow, minting adds two explicit consent boundaries: a signature that authorizes one defined $PATH use, then a wallet transaction that can change chain state. The following steps describe that contract flow, not the browser-local plain work.
 
 1. Read the prompt, response, Agent record, model record when available, and visual preview.
 2. Choose a $PATH with available THOUGHT capacity.
@@ -240,23 +240,21 @@ The active Claude Code handoff is an ordinary one-run request. It states what th
 
 For Claude Code, use a fresh chat with "No folder". THOUGHT is a standalone artwork task and needs no repository access. A repository-attached chat may carry unrelated instructions or permissions. This recommendation does not change Claude's permissions or guarantee that it will accept a run.
 
-The Agent validates the run through its exact endpoint, one-run bearer values, response shapes, and hashes. App operation requests send credentials only in Authorization headers, and the handoff never asks for a private key or seed phrase.
+The ordinary /thought entry supplies the complete private brief and a short-lived return capability up front. Existing links with transport=plain reach the same creation surface. The Agent creates one exact line and submits those same raw text bytes once through an already installed native curl executable, under the host's normal permissions. Before submission, the Agent checks those permissions and requests any required scoped network approval in the delivery tool invocation, covering the entire command including an interpreter launching curl. Auto mode or a curl-prefix allow rule does not establish network permission for that enclosing command. Delivery uses curl's default client identity with config-file loading, redirects, and automatic retries disabled; no alternative HTTP transport is permitted. If curl or host permission is unavailable, delivery stops before submission. No downloaded worker, control handshake, repository change, or automatic regeneration is required.
 
-The THOUGHT App does not place the creative prompt in the handoff. After the claim and readiness checks succeed, exact response data supplies and binds the prompt, specification, creative brief, release identity, and output boundary to that run. The Agent returns one exact candidate line. It does not choose a $PATH, select an account, approve a signature, or submit the mint transaction.
+The return capability is sent only to the exact App endpoint in an Authorization header. The handoff never asks for a private key or seed phrase. The Agent verifies the acknowledgement's schema, run identity, accepted state, and exact returned line. After an uncertain delivery, check the App rather than generating or submitting again.
 
-The App records an exact model only when the Agent host reports one for that run. If exact model metadata is unavailable, the returned candidate can still be previewed and kept through browser-local Save and Load; its model remains explicitly unknown rather than being filled from a requested or configured value. That candidate is not eligible for the current App-attested mint path, and another run cannot retrofit the original candidate's missing provenance.
+The App validates the artistic bytes and displays the work for review and browser-local Save and Load. Provider and model remain unknown; external prompt fidelity, transcript purity, and internal inference count are not established. Start-only creation is not claimed. A successful HTTP acknowledgement proves receipt, not those missing creation facts. These records retain their experimental schema and cannot enter the App mint path, even though this is the ordinary creation entry.
 
-A run begun under an older control schema must be started again with the current handoff. This changes the fresh-run handshake; it does not rewrite saved works or accepted historical receipts.
+Earlier saved works remain in their original browser store. Compatible exact-line works can be loaded as read-only previews; loading does not create a plain return, change historical provenance, or confer mint eligibility. Records that cannot be displayed remain stored unchanged. Existing authenticated run links and return handlers remain available for in-flight recovery, but new legacy run creation is retired. Changing the entry does not replay, cancel, migrate, or delete an existing task.
 
-After the return, the App checks the exact bytes and assembles the creation record. The human reviews the candidate and canonical preview, decides whether to keep it, chooses the $PATH, and asks the wallet to sign and mint. This keeps creative participation, App orchestration, human selection, wallet consent, and contract validation as separate boundaries.
-
-The ordinary App flow can bind its record through a Creation Attestation. ThoughtNFT also permits a direct mint that satisfies its public contract checks without an App proof; that result is recorded as Unattested rather than being presented as an App-attested run.
+Creation Attestations belong to the separate attested protocol and contract boundary, not to plain HTTP receipt. ThoughtNFT also permits a direct mint that satisfies its public contract checks without an App proof; that contract result is Unattested. Neither contract capability makes a browser-local plain work mintable through this App.
 
 - Agent: receives a bounded task and returns one candidate line.
 - App: validates bytes, builds the preview, and assembles the creation record.
-- Human: accepts or discards the candidate and selects the $PATH.
-- Wallet: signs the narrow permission and confirms the transaction.
-- Contracts: enforce uniqueness, permission, movement use, and mint validity.
+- Human: reviews the candidate and chooses whether to keep it locally.
+- Wallet, in the separate contract flow: signs the narrow permission and confirms the transaction.
+- Contracts, in that separate flow: enforce uniqueness, permission, movement use, and mint validity.
 
 > A transport receipt proves that the App accepted one protocol result. It does not give the Agent wallet authority or prove hidden model reasoning.
 
@@ -285,7 +283,7 @@ This is strong evidence that the accepted mint was bound to those exact recorded
 
 - Authority: app-documentation
 
-Save and Load are browser conveniences for unfinished or remembered works. They do not mint, reserve uniqueness, consume $PATH capacity, create a portable account, or synchronize to another browser. Agent run state is likewise temporary unless a later public record explicitly preserves part of it.
+Save and Load are browser conveniences for unfinished or remembered works. They do not mint, reserve uniqueness, consume $PATH capacity, create a portable account, or synchronize to another browser. Export work downloads the displayed plain artwork record and its local review state as JSON, without connection credentials or task history. The file contains the artistic text and is private unless you share it; exporting does not attest the Agent or establish mint eligibility. Agent run state is likewise temporary unless a later public record explicitly preserves part of it.
 
 
 ## Links

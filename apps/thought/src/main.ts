@@ -56,6 +56,7 @@ import {
   THOUGHT_AGENT_RESULT_VERSION,
   THOUGHT_AGENT_PROTOCOL_VERSION,
   THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
+  THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
   THOUGHT_SHA256_PREFIX,
   THOUGHT_V2_PROTOCOL_RELEASE,
   buildThoughtCodexTask,
@@ -64,6 +65,7 @@ import {
   type ThoughtAgentMetadataSource,
   type ThoughtAgentReasoningEffort,
   type ThoughtClaudeSurface,
+  type ThoughtCodexBootstrapBinding,
   type ThoughtCodexReleaseBinding,
   type ThoughtCodexResultContractBinding,
   type ThoughtSha256,
@@ -776,6 +778,7 @@ type ThoughtAgentRunCreateResponse = {
   statusUrl?: string;
   createdAt?: string;
   claimExpiresAt?: string;
+  codexBootstrap?: ThoughtCodexBootstrapBinding;
   devAutoRun?: boolean;
   release?: ThoughtCodexReleaseBinding;
   resultContract?: ThoughtCodexResultContractBinding;
@@ -2702,6 +2705,7 @@ type AgentDemoRun = {
   promptHash: string;
   launchUri: string;
   launchToken: string;
+  codexBootstrap?: ThoughtCodexBootstrapBinding;
   browserToken: string;
   statusUrl: string;
   agentStatusUrl?: string;
@@ -2996,8 +3000,32 @@ const thoughtAgentCreateSupportsBoundedControl = (
   payload.controlContract.mode === "bounded-preflight" &&
   payload.controlContract.claimCreativeInput === "sealed-absent" &&
   payload.controlContract.creativeInputEndpoint === "start" &&
+  payload.codexBootstrap?.workerSha256 === THOUGHT_CODEX_TRANSPORT_WORKER_SHA256 &&
+  /^sha256:[0-9a-f]{64}$/.test(payload.codexBootstrap.configSha256 ?? "") &&
+  typeof payload.codexBootstrap?.url === "string" &&
   Boolean(payload.release) &&
   Boolean(payload.resultContract);
+
+const resolveThoughtCodexBootstrap = (
+  payload: ThoughtAgentRunCreateResponse,
+  agentStatusUrl: string,
+): ThoughtCodexBootstrapBinding => {
+  const bootstrap = payload.codexBootstrap;
+  if (!bootstrap) {
+    throw new Error("THOUGHT Agent API returned no Codex bootstrap binding.");
+  }
+  const resolvedStatusUrl = new URL(agentStatusUrl, window.location.href)
+    .toString()
+    .replace(/\/+$/g, "");
+  const resolvedBootstrapUrl = new URL(bootstrap.url, resolvedStatusUrl).toString();
+  if (resolvedBootstrapUrl !== `${resolvedStatusUrl}/bootstrap`) {
+    throw new Error("THOUGHT Agent API returned a Codex bootstrap from another run.");
+  }
+  return {
+    ...bootstrap,
+    url: resolvedBootstrapUrl,
+  };
+};
 
 const rejectIncompatibleThoughtAgentRun = async (
   payload: ThoughtAgentRunCreateResponse,
@@ -3111,9 +3139,6 @@ const buildAgentDemoSealedTask = (
   adapterId: ThoughtDockAgentAdapterId = "codex",
 ) => {
   const product = thoughtAgentProductLabel(adapterId);
-  const buildTask = adapterId === "claude"
-    ? buildThoughtClaudeTask
-    : buildThoughtCodexTask;
   const launchApiOrigin = (() => {
     try {
       return new URL(run.launchUri).searchParams.get("api_origin") || "";
@@ -3126,18 +3151,28 @@ const buildAgentDemoSealedTask = (
     : "";
   const statusUrl = run.agentStatusUrl || run.statusUrl || derivedStatusUrl;
   const absoluteStatusUrl = new URL(statusUrl, window.location.href).toString().replace(/\/+$/g, "");
-  return buildTask({
+  const common = {
     product,
     runId: run.runId,
     runUrl: absoluteStatusUrl,
     launchToken: run.launchToken,
-    ...(adapterId === "claude"
-      ? { surface: thoughtClaudeSurface(run.surface) }
-      : {}),
     // A V2 run must carry its exact release and result contract from creation.
     // The create-response gate rejects older services before any Agent opens.
     release: run.release!,
     resultContract: run.resultContract!,
+  };
+  if (adapterId === "claude") {
+    return buildThoughtClaudeTask({
+      ...common,
+      surface: thoughtClaudeSurface(run.surface),
+    });
+  }
+  if (!run.codexBootstrap) {
+    throw new Error("THOUGHT Codex bootstrap binding is unavailable.");
+  }
+  return buildThoughtCodexTask({
+    ...common,
+    bootstrap: run.codexBootstrap,
   });
 };
 
@@ -3180,6 +3215,7 @@ const buildAgentDemoRun = async (): Promise<AgentDemoRun> => {
         client: {
           surface: "thought-agent-demo",
           appVersion: `${APP_VERSION}+${APP_BUILD}`,
+          agentApiOrigin: thoughtDockAgentPublicApiOrigin(),
         },
         devAutoRun: false,
       }),
@@ -3203,6 +3239,7 @@ const buildAgentDemoRun = async (): Promise<AgentDemoRun> => {
     throw new Error("THOUGHT Agent API returned a launch URI without a token.");
   }
   const promptHash = await agentDemoSha256(prompt);
+  const agentStatusUrl = thoughtDockAgentPublicRunUrl(createPayload.runId, statusUrl);
   const baseRun = {
     runId: createPayload.runId,
     surface: "codex" as const,
@@ -3210,9 +3247,10 @@ const buildAgentDemoRun = async (): Promise<AgentDemoRun> => {
     promptHash,
     launchUri,
     launchToken,
+    codexBootstrap: resolveThoughtCodexBootstrap(createPayload, agentStatusUrl),
     browserToken: createPayload.browserToken,
     statusUrl,
-    agentStatusUrl: thoughtDockAgentPublicRunUrl(createPayload.runId, statusUrl),
+    agentStatusUrl,
     claimUrl: agentDemoRunActionUrl(statusUrl, "claim"),
     readyUrl: agentDemoRunActionUrl(statusUrl, "ready"),
     startUrl: agentDemoRunActionUrl(statusUrl, "start"),
@@ -5560,6 +5598,7 @@ const createThoughtDockRun = async (
         client: {
           surface: "thought-dock:chooser",
           appVersion: `${APP_VERSION}+${APP_BUILD}`,
+          agentApiOrigin: thoughtDockAgentPublicApiOrigin(),
         },
         devAutoRun: false,
       }),
@@ -5583,15 +5622,17 @@ const createThoughtDockRun = async (
     throw new Error("THOUGHT Agent API returned a launch URI without a token.");
   }
   const promptHash = await agentDemoSha256(prompt);
+  const agentStatusUrl = thoughtDockAgentPublicRunUrl(createPayload.runId, statusUrl);
   const baseRun = {
     runId: createPayload.runId,
     prompt,
     promptHash,
     launchUri,
     launchToken,
+    codexBootstrap: resolveThoughtCodexBootstrap(createPayload, agentStatusUrl),
     browserToken: createPayload.browserToken,
     statusUrl,
-    agentStatusUrl: thoughtDockAgentPublicRunUrl(createPayload.runId, statusUrl),
+    agentStatusUrl,
     claimUrl: agentDemoRunActionUrl(statusUrl, "claim"),
     readyUrl: agentDemoRunActionUrl(statusUrl, "ready"),
     startUrl: agentDemoRunActionUrl(statusUrl, "start"),

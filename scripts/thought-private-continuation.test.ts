@@ -7,9 +7,16 @@ import test from "node:test";
 import {
   buildThoughtClaudeTask,
   buildThoughtCodexTask,
+  THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
   THOUGHT_HANDOFF_OPERATION_DIAGNOSTICS,
   THOUGHT_HANDOFF_OPERATION_RECOVERY,
 } from "../packages/thought-agent-protocol/src/index";
+
+const codexBootstrapFor = (runUrl: string) => ({
+  url: `${runUrl.replace(/\/+$/g, "")}/bootstrap`,
+  workerSha256: THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
+  configSha256: `sha256:${"b".repeat(64)}` as const,
+});
 
 const LAUNCH_TOKEN = "synthetic-launch-token-never-print";
 const BRIDGE_TOKEN = "synthetic-bridge-token-never-print";
@@ -461,19 +468,19 @@ test("fake diagnostics do not trust JSON, unknown codes, or 5xx as no-commit", (
 });
 
 test("Codex handoff binds composition to verified post-start input", () => {
+  const runUrl = `https://preview.inshell.art/api/thought-agent/v2/runs/tar_${"p".repeat(24)}`;
   const task = buildThoughtCodexTask({
     product: "ChatGPT",
     runId: `tar_${"p".repeat(24)}`,
-    runUrl: `https://preview.inshell.art/api/thought-agent/v2/runs/tar_${"p".repeat(24)}`,
+    runUrl,
     launchToken: "q".repeat(43),
+    bootstrap: codexBootstrapFor(runUrl),
   });
-  assert.match(task, /only after valid \/start/);
-  assert.match(task, /same worker shows input\/rules; CANDIDATE via write_stdin/);
-  assert.match(task, /validate\/hash\/PUT/);
-  assert.match(task, /promptLine\.\{text,sha256\},agentInput\.\{text,sha256\}/);
-  assert.match(task, /promptLine=agentInput text\+hash/);
-  assert.match(task, /Candidate=.*agentLine=ONE_EXACT_LINE/);
-  assert.doesNotMatch(task, /agentLine=(?!ONE_EXACT_LINE)[^;\n]+/);
+  assert.match(task, /Wait for `OK:start` and `THOUGHT_INPUT_READY`/);
+  assert.match(task, /Only then compose from displayed verified input/);
+  assert.match(task, /the exact `THOUGHT_END` line/);
+  assert.match(task, /No CR\/extra line\/JSON\/trim\/repair\/retry\/replacement/);
+  assert.doesNotMatch(task, /precomputed agentLine|hardcoded agentLine/i);
 });
 
 test("synthetic closed input is terminal before claim", async (context) => {
@@ -544,6 +551,7 @@ test("Codex keeps its executable continuation boundary without inventing one for
       const codex = buildThoughtCodexTask({
         ...input,
         product: "ChatGPT",
+        bootstrap: codexBootstrapFor(input.runUrl),
         networkAuthorization,
         resultContract: { declarationLabelField },
       });
@@ -551,29 +559,14 @@ test("Codex keeps its executable continuation boundary without inventing one for
         Buffer.byteLength(codex) <= 7_000,
         `Codex ${networkAuthorization}/${declarationLabelField} handoff is ${Buffer.byteLength(codex)} bytes`,
       );
-      assert.match(codex, /one exec_command\(tty:true\) starts final noninteractive worker/);
-      assert.match(codex, /all source secret-free in initial cmd/);
-      assert.match(codex, /ECHO\+ECHONL off before ECHO_READY/);
-      assert.match(codex, /No child\/replacement after proof/);
-      assert.match(codex, /never write_stdin code\/command/);
-      assert.match(codex, /After fake nonce absent\+ECHO_OK, send LAUNCH_CREDENTIAL once/);
-      assert.match(codex, /Bridge stays in worker/);
-      assert.match(codex, /worker GET CONNECTIVITY_ENDPOINT unauthenticated/);
-      assert.match(codex, /permission fix may fresh worker/);
-      assert.match(codex, /Possible claim dispatch=>no replace\/reclaim/);
-      assert.match(codex, /sandbox_permissions=require_escalated once for origin/);
-      assert.match(codex, /Labels never bypass host/);
-      assert.match(codex, /only after valid \/start/);
-      assert.match(codex, /same worker shows input\/rules; CANDIDATE via write_stdin/);
-      assert.match(codex, /validate\/hash\/PUT/);
-      assert.match(codex, /Candidate=.*release\.\{protocolReleaseId=.*manifestKeccak256=/);
-      assert.match(codex, /declaration\.\{schema=.*status=.*(?:label|agentLabel)=AGENT_PRODUCT,declaredOneCreativeResult=true\}/);
-      assert.equal(codex.split(THOUGHT_HANDOFF_OPERATION_DIAGNOSTICS).length - 1, 1);
-      assert.match(codex, /THOUGHT_STOP\(N\/R\) or THOUGHT_UNCERTAIN\(U\)/);
-      assert.match(codex, /Endpoint\+valid protocol error insufficient/);
-      assert.match(codex, /R needs 4xx\+known no-commit code;else U/);
-      assert.match(codex, /Report actual receipt/);
-      assert.match(codex, /Never raw error\/body\/headers\/URL\/credential/);
+      assert.match(codex, /exec_command\(tty:true\)/);
+      assert.match(codex, /request one origin\/network escalation on that first call/);
+      assert.match(codex, /reconstruct\/edit\/save\/install\/fallback\/manual HTTP/);
+      assert.match(codex, /nonce must be absent onscreen/);
+      assert.match(codex, /`OK:preflight` and `CREDENTIAL_READY`/);
+      assert.match(codex, /Wait for `OK:start` and `THOUGHT_INPUT_READY`/);
+      assert.match(codex, /the exact `THOUGHT_END` line/);
+      assert.match(codex, /unproven 429=U/);
       assert.doesNotMatch(codex, /precomputed agentLine|hardcoded agentLine/i);
     }
   }

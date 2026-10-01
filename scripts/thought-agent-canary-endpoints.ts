@@ -1,6 +1,53 @@
+import {
+  THOUGHT_CODEX_TRANSPORT_WORKER_LAUNCHER,
+  THOUGHT_CODEX_TRANSPORT_WORKER_LOADER,
+  THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
+} from "../packages/thought-agent-protocol/src/index";
+import { Buffer } from "node:buffer";
+
 const requireTransport = (condition: unknown, message: string): void => {
   // Never include transport values in failures: the capsule carries credentials.
   if (!condition) throw new Error(message);
+};
+
+export const inspectThoughtCodexFixedWorkerHandoff = (handoff: string) => {
+  const credentialLines = handoff.split(/\r?\n/).filter((line) => line.startsWith("Credential="));
+  requireTransport(credentialLines.length === 1, "Codex handoff must contain exactly one launch credential.");
+  const launchToken = credentialLines[0].slice("Credential=".length);
+  requireTransport(launchToken.length > 0, "Codex handoff launch credential is missing.");
+  requireTransport(
+    !/^(?:RUN_ID|LAUNCH_CREDENTIAL|APP_ENDPOINT|CLAIM_ENDPOINT|READY_ENDPOINT|START_ENDPOINT|RESULT_ENDPOINT|FAIL_ENDPOINT) = /m.test(handoff),
+    "Codex handoff contains an unexpected legacy transport binding.",
+  );
+  const commandLines = handoff.split(/\r?\n/).filter((line) => line.startsWith("node -e "));
+  requireTransport(commandLines.length === 1, "Codex handoff must contain exactly one worker command.");
+  const match = commandLines[0].match(/^node -e '([^']*)' -- '([^']*)' '([^']*)' '([^']*)'$/);
+  requireTransport(match?.length === 5, "Codex handoff worker command is invalid.");
+  const [, launcher, encodedBootstrapUrl, workerHash, configHash] = match!;
+  requireTransport(
+    launcher === THOUGHT_CODEX_TRANSPORT_WORKER_LAUNCHER &&
+      !/[\\_]/.test(launcher) &&
+      !/[\\_]/.test(encodedBootstrapUrl),
+    "Codex handoff worker launcher differs from the formatting-safe release.",
+  );
+  const bootstrapUrl = Buffer.from(encodedBootstrapUrl, "base64").toString("utf8");
+  requireTransport(
+    Buffer.from(bootstrapUrl, "utf8").toString("base64") === encodedBootstrapUrl,
+    "Codex handoff bootstrap URL encoding is invalid.",
+  );
+  requireTransport(
+    THOUGHT_CODEX_TRANSPORT_WORKER_LAUNCHER.endsWith(THOUGHT_CODEX_TRANSPORT_WORKER_LOADER),
+    "Codex handoff worker launcher does not contain the fixed loader.",
+  );
+  requireTransport(
+    workerHash === THOUGHT_CODEX_TRANSPORT_WORKER_SHA256 &&
+      /^sha256:[0-9a-f]{64}$/.test(configHash),
+    "Codex handoff bootstrap integrity binding differs from the fixed release.",
+  );
+  return {
+    bootstrap: { url: bootstrapUrl, workerSha256: workerHash, configSha256: configHash },
+    launchToken,
+  };
 };
 
 const parseTransportUrl = (value: string): URL => {
@@ -69,6 +116,31 @@ export const thoughtAgentCanaryHandoffTransport = (input: {
   explicitEndpoints: boolean;
 }) => {
   const { handoff, runId, launchToken, expectedApiOrigin } = input;
+  if (handoff.startsWith("THOUGHT ") && handoff.includes(": fixed worker.\n")) {
+    requireTransport(!input.explicitEndpoints, "Codex fixed-worker handoff cannot use explicit operation endpoints.");
+    const delivered = inspectThoughtCodexFixedWorkerHandoff(handoff);
+    requireTransport(
+      delivered.launchToken === launchToken,
+      "Agent handoff launch credential differs from creation.",
+    );
+    requireTransport(
+      delivered.bootstrap.url.endsWith("/bootstrap"),
+      "Codex handoff bootstrap URL is invalid.",
+    );
+    const runUrl = validateThoughtAgentCanaryRunUrl(
+      delivered.bootstrap.url.slice(0, -"/bootstrap".length),
+      runId,
+      expectedApiOrigin,
+    );
+    return {
+      runUrl,
+      launchToken: delivered.launchToken,
+      endpoints: Object.fromEntries(
+        (["claim", "ready", "start", "result", "fail"] as const)
+          .map((action) => [action, `${runUrl}/${action}`]),
+      ) as Record<"claim" | "ready" | "start" | "result" | "fail", string>,
+    };
+  }
   requireTransport(thoughtAgentCapsuleValue(handoff, "RUN_ID") === runId, "Agent handoff run ID differs from creation.");
   const deliveredToken = thoughtAgentCapsuleValue(handoff, "LAUNCH_CREDENTIAL");
   requireTransport(deliveredToken.length > 0 && deliveredToken === launchToken, "Agent handoff launch credential differs from creation.");
