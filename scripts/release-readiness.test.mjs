@@ -182,6 +182,14 @@ test("smoke workflow uses lock-driven checks in both branches and tests before p
   }
 });
 
+test("qualification CI jobs retain history for exact historical delta regressions", () => {
+  const workflow = load(readFileSync(new URL("../.github/workflows/test.yml", import.meta.url), "utf8"));
+  for (const name of ["build", "fast-feedback"]) {
+    const checkout = workflow.jobs[name].steps.find(step => step.uses?.startsWith("actions/checkout@"));
+    assert.equal(checkout.with?.["fetch-depth"], 0, name);
+  }
+});
+
 test("candidate preview uses pinned Pages runtime without inherited deployment authority", () => {
   const invocation = candidatePreviewInvocation("/fixture/repo", {
     PATH: "/fixture/path", HOME: "/operator/home",

@@ -1,8 +1,8 @@
 {
   "schema": "inshell.thought.release-evidence.v2",
   "candidateCommit": "cb4c287a0c841dd222e13a37e7018dac44a58fab",
-  "reviewedBy": "bigu: direct Applications approval of bounded composite correction; independent OPS acceptance of r4 reported by DEPLOY-SUPERVISOR 01a04296-91c2-7300-ae02-aa63873fe4a1, recorded locally; publication approval separate",
-  "reviewedAt": "2026-10-01T12:01:10.000Z",
+  "reviewedBy": "bigu: approved bounded qualification and staging publication; OPS accepted r4; Applications reviewed narrow full-history CI correction after PR 225 failure; amended CI bytes pending OPS review before production",
+  "reviewedAt": "2026-10-01T12:13:11.849Z",
   "carryForward": {
     "id": "codex57-action-row-20261001",
     "baseCommit": "3968b7c09c689e090ac851173ab351358f4692c2",
@@ -10,11 +10,12 @@
     "diffSha256": "sha256:cf7157242ba901601bb3714417c8e4949480145877ed34c00973f1cb13324508",
     "qualificationFiles": {
       ".github/workflows/deploy-pages.yml": "sha256:bcac6a8f55d0712dcbee874143aa7b148aaa5624faa51a2852210f01a5262e80",
+      ".github/workflows/test.yml": "sha256:7ca4902bef47f20d272c2f045a94d63843695c2f8389085aa1fac75dac812d90",
       "scripts/smoke-cloudflare-api-routes.mjs": "sha256:67953c987ea233e923cdfd01acb772db00c1cdc0f1fac34bede7e43d27c17503",
-      "scripts/check-release-evidence.mjs": "sha256:8dbecc2b046d039ba6dc2175234f47ae5e60721542af9272a380914a729cad1c",
-      "scripts/release-readiness.test.mjs": "sha256:4e62bca765fb0d90d402c1ca8b1305d678641c29b59aa8d9d1d5357a630da9a0",
-      "apps/home/public/docs/agent-index.json": "sha256:9385efbe0322bc1ff035550bf3dfcdc2685b0c92d4927b7da9c74be2d3b9d1a2",
-      "apps/home/public/docs/source-lock.json": "sha256:15813c5a71b5b3a1ef316c5a65e4ed83ddf9720f881060e098e17264d0bcbbd3",
+      "scripts/check-release-evidence.mjs": "sha256:a906a50cb0ea698fad8c0226567530cbe1db8bfb30cdb63ca2feb94e6b0db8d0",
+      "scripts/release-readiness.test.mjs": "sha256:00fa5a83f813023391b806c741fe2003c5b87c55515a6c7562f454252a1d83e9",
+      "apps/home/public/docs/agent-index.json": "sha256:98ecfd4fb393f8dcf6bfdb8ae7ab4e1a833db20032b6e26511b197767a710c53",
+      "apps/home/public/docs/source-lock.json": "sha256:83f35b38cf223f6fdb9eaee12de3109981b888faf07fa1c7fd90eebd2d73ed32",
       "release-evidence/history/thought-canaries-20260924.json": "sha256:ce4c8921beca9a830af390fa321124b7c1110ae974633411793de668f9e7f566",
       "release-evidence/plain-20261001-observations.json": "sha256:4dc3b92ae07fbdae83938c19368516be0e8fffb53a1066f2fd4ee2777423cccf"
     }

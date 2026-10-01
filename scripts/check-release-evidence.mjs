@@ -63,6 +63,7 @@ export const COMPOSITE57_RUNS = Object.freeze({
 // matching path alone never permits a difference, including in this checker.
 export const QUALIFICATION_FILES = Object.freeze([
   ".github/workflows/deploy-pages.yml",
+  ".github/workflows/test.yml",
   "scripts/smoke-cloudflare-api-routes.mjs",
   "scripts/check-release-evidence.mjs",
   "scripts/release-readiness.test.mjs",

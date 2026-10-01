@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "29e2bf1d90923060ed72c5da2bf4b63831271714199886d7144c7855a4cdea49",
+  "sourceTreeSha256": "fe79f96f99727706ceb9bbcde39f38cb3578b01f15e0f374e9a6f14978bc3e5d",
   "groups": [
     {
       "id": "public-docs",
@@ -605,7 +605,7 @@
       "title": "Documentation gates",
       "owner": "inshell.art repository automation",
       "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
-      "groupSha256": "1cb9d2356b36f9f6ba7a4a28214b39f847a3732d2171c509ee35e93861e1769f",
+      "groupSha256": "708dee5c328e8d50bb69b219d2aebb146f47e9c7e79ce254fd71f98a74995de4",
       "files": [
         {
           "path": ".github/workflows/deploy-pages.yml",
@@ -619,8 +619,8 @@
         },
         {
           "path": ".github/workflows/test.yml",
-          "byteLength": 4230,
-          "sha256": "bc087566d52561d3a2354f818a45323224b711db89ebc37c53ea05b25b81933d"
+          "byteLength": 4269,
+          "sha256": "7ca4902bef47f20d272c2f045a94d63843695c2f8389085aa1fac75dac812d90"
         },
         {
           "path": ".husky/pre-commit",
@@ -649,8 +649,8 @@
         },
         {
           "path": "scripts/check-release-evidence.mjs",
-          "byteLength": 16391,
-          "sha256": "8dbecc2b046d039ba6dc2175234f47ae5e60721542af9272a380914a729cad1c"
+          "byteLength": 16423,
+          "sha256": "a906a50cb0ea698fad8c0226567530cbe1db8bfb30cdb63ca2feb94e6b0db8d0"
         },
         {
           "path": "scripts/check-thought-root-surface-contract.mjs",
