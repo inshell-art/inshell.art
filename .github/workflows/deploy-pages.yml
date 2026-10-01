@@ -112,6 +112,8 @@ jobs:
         run: pnpm run check:deployment
       - name: Check PUB path boundary
         run: pnpm run pub-boundary:check
+      - name: Test deployment smoke regressions
+        run: node --test --test-name-pattern=smoke scripts/release-readiness.test.mjs
       - name: Lint home
         run: pnpm --filter @inshell/home lint
       - name: Test home launch surface
@@ -136,7 +138,7 @@ jobs:
           if [ "${{ github.event.inputs.branch }}" = "main" ]; then
             pnpm run smoke:api-routes -- --scope home --home-base https://inshell.art
           else
-            pnpm run smoke:api-routes -- --scope home --home-base https://staging.inshell-art.pages.dev --allow-unavailable-contracts
+            pnpm run smoke:api-routes -- --scope home --home-base https://staging.inshell-art.pages.dev
           fi
 
   deploy-thought:
@@ -230,6 +232,8 @@ jobs:
         run: pnpm run check:deployment
       - name: Check PUB path boundary
         run: pnpm run pub-boundary:check
+      - name: Test deployment smoke regressions
+        run: node --test --test-name-pattern=smoke scripts/release-readiness.test.mjs
       - name: Test shared Home and Pages API surfaces
         run: pnpm run test:unit
       - name: Test THOUGHT runtime payloads
@@ -258,5 +262,5 @@ jobs:
           if [ "${{ github.event.inputs.branch }}" = "main" ]; then
             pnpm run smoke:api-routes -- --scope thought --thought-base https://thought.inshell.art
           else
-            pnpm run smoke:api-routes -- --scope thought --thought-base https://staging.thought-inshell-art.pages.dev --allow-unavailable-contracts
+            pnpm run smoke:api-routes -- --scope thought --thought-base https://staging.thought-inshell-art.pages.dev
           fi
