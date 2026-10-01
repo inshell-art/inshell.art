@@ -119,7 +119,18 @@ test("both launch paths retain the shared native-curl-only handoff and frozen cr
   assert.ok(view.includes('[["ChatGPT", "codex://new?", "prompt"], ["Claude", "claude://code/new?", "q"]]'));
   assert.ok(view.includes('link.href = prefix + new URLSearchParams({ [key]: task })'));
   for (const [prefix, key] of [["codex://new?", "prompt"], ["claude://code/new?", "q"]]) {
-    assert.equal(new URL(prefix + new URLSearchParams({ [key]: task })).searchParams.get(key), task);
+    const delivered = new URL(prefix + new URLSearchParams({ [key]: task })).searchParams.get(key)!;
+    assert.equal(delivered, task);
+    // These are generated-instruction checks, not a simulated desktop approval gate.
+    const permission = delivered.slice(delivered.indexOf("PHASE 2 — DELIVER THAT SAME LINE"), delivered.indexOf("Method: POST"));
+    for (const requirement of [
+      "Before the single credential-bearing POST", "inspect the host-provided execution and network permissions",
+      "request normal host approval scoped to this delivery in the delivery tool invocation, before the command executes",
+      "entire execution command, including any interpreter invoking native curl",
+      "Do not assume a curl child inherits a curl-prefix allow rule or that Auto mode grants network access",
+      "If permission is denied or unavailable, report the blocker and stop before submission",
+      "Do not probe connectivity with the capability or add a handshake",
+    ]) assert.ok(permission.includes(requirement), `${prefix}: ${requirement}`);
   }
 });
 test("native curl ignores config redirects/retries/extra destinations; ACK and uncertain boundaries stay strict", async () => {
