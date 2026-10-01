@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "587834e66cc3fed83ddd5920f5a46d36540b94b4a1842d433b68d0d4469b4b33",
+  "sourceTreeSha256": "29e2bf1d90923060ed72c5da2bf4b63831271714199886d7144c7855a4cdea49",
   "groups": [
     {
       "id": "public-docs",
@@ -605,12 +605,12 @@
       "title": "Documentation gates",
       "owner": "inshell.art repository automation",
       "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
-      "groupSha256": "a8240f143b5487104b57f3f9a3c9a37b7daf759de50e9149ed060da5a42ceaa2",
+      "groupSha256": "1cb9d2356b36f9f6ba7a4a28214b39f847a3732d2171c509ee35e93861e1769f",
       "files": [
         {
           "path": ".github/workflows/deploy-pages.yml",
-          "byteLength": 14130,
-          "sha256": "4f3ec1a3630b5ed8b68ae31fea9800f908795d028302d3e3578f4d092225439a"
+          "byteLength": 14338,
+          "sha256": "bcac6a8f55d0712dcbee874143aa7b148aaa5624faa51a2852210f01a5262e80"
         },
         {
           "path": ".github/workflows/rollback-pages.yml",
@@ -649,8 +649,8 @@
         },
         {
           "path": "scripts/check-release-evidence.mjs",
-          "byteLength": 9672,
-          "sha256": "2a8bc90b117c2dd2ffd982229d9f18167c528b6dff62a424f597e96eeffb525f"
+          "byteLength": 16391,
+          "sha256": "8dbecc2b046d039ba6dc2175234f47ae5e60721542af9272a380914a729cad1c"
         },
         {
           "path": "scripts/check-thought-root-surface-contract.mjs",
