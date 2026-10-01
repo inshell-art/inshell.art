@@ -188,12 +188,12 @@ try {
     await lockedEditor("cancel-uncertain");
     failCancel = false; cancelReturnsWork = true;
     await button("Cancel").click(); await wait("Return received"); cancelReturnsWork = false;
-    await capture("return-wins-cancel", { prompt: "Race?", readOnly: true, actions: ["Review complete", "Check return", "Export work", "Load", "Reset"], progress: 0 });
+    await capture("return-wins-cancel", { prompt: "Race?", readOnly: true, actions: ["Review complete", "Load", "Reset", "Export work"], progress: 0 });
     await lockedEditor("returned");
     await button("Review complete").click(); await wait("Work reviewed");
-    await capture("reviewed", { actions: ["Save", "Check return", "Export work", "Load", "Reset"] });
+    await capture("reviewed", { actions: ["Save", "Load", "Reset", "Export work"] });
     await button("Save").click(); await wait("Work saved");
-    const saved = await capture("saved", { actions: ["Saved", "Check return", "Export work", "Load", "Reset"], disabledActions: ["Saved"] });
+    const saved = await capture("saved", { actions: ["Saved", "Load", "Reset", "Export work"], disabledActions: ["Saved"] });
     check(`${theme}/saved-next`, saved.text.includes("next:"), false);
     await button("Reset").click(); await button("Send to your Agent").waitFor();
     await capture("reset", { prompt: "", readOnly: false, focus: "thought-dock-prompt" });
@@ -205,7 +205,7 @@ try {
     await capture("load-panel", { focus: "thought-dock-works-select" });
     check(`${theme}/load-guidance`, (await latest().textContent()).includes("Saved in this browser only—not on-chain or synced."), true);
     await page.locator("#thought-dock-works-select").selectOption({ label: "Race?" }); await wait("Work loaded");
-    await capture("loaded", { prompt: "Race?", readOnly: true, actions: ["Saved", "Export work", "Load", "Reset"], disabledActions: ["Saved"] });
+    await capture("loaded", { prompt: "Race?", readOnly: true, actions: ["Saved", "Load", "Reset", "Export work"], disabledActions: ["Saved"] });
     for (const width of [390, 924]) {
       await page.setViewportSize({ width, height: 900 });
       await capture(`loaded-${width}`, { prompt: "Race?" });
