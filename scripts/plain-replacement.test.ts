@@ -27,6 +27,8 @@ test("entry includes plain default independently of obsolete transport queries",
   const source = readFileSync(new URL("../apps/thought/scripts/plain-return-entry.ts", import.meta.url), "utf8");
   assert.match(source, /if\(p==="\/thought"\|\|p===""\)/);
   assert.doesNotMatch(source, /searchParams.get/);
+  assert.match(source, /return `import \$\{JSON\.stringify\(path\.resolve\(root, "src\/plain-return\/view\.css"\)\)\};/,
+    "Scoped layout CSS must be an eager entry dependency, not only a lazy branch dependency");
 });
 
 test("old saved works are previewed separately and never written or converted", () => {

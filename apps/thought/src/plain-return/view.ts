@@ -376,15 +376,6 @@ function render() {
       : "Review the returned work above. Provider and model are unknown; start-only creation is not established. This work cannot be minted.", "success");
     if (client.state === "review") button(client.reviewed ? "Save" : "Review complete", () => { if (client.reviewed) client.save(); else client.review(); });
     if (client.state === "saved") button("Saved", () => {}, { disabled: true });
-    if (client.canInspect) button("Check return", () => client.check());
-    button("Export work", () => {
-      const record = client.exportWork();
-      const url = URL.createObjectURL(new Blob([JSON.stringify(record, null, 2)], { type: "application/json" }));
-      const link = document.createElement("a");
-      link.href = url; link.download = `${record.work.runId}-${record.stage}.json`;
-      link.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    }, { ariaLabel: "Export artwork record without credentials" });
   } else if (client.state === "preparation-uncertain") {
     task = "";
     message("Preparation uncertain", "A task may have been prepared, but this page has no recovery access. It cannot check or cancel that task. Do not submit it again.", "warning", "Keep this page open and check the Agent task before starting another work");
@@ -419,6 +410,16 @@ function render() {
       message("Work reset", "Prompt, current work, and open panels cleared.");
       window.requestAnimationFrame(() => prompt.focus({ preventScroll: true }));
     });
+    // Primary work controls keep the formal Save / Load / Reset order. Export
+    // is secondary and wraps after them; accepted work needs no delivery check.
+    if (!historical && enabled && !client.conflict && (client.state === "review" || client.state === "saved")) button("Export work", () => {
+      const record = client.exportWork();
+      const url = URL.createObjectURL(new Blob([JSON.stringify(record, null, 2)], { type: "application/json" }));
+      const link = document.createElement("a");
+      link.href = url; link.download = `${record.work.runId}-${record.stage}.json`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }, { ariaLabel: "Export artwork record without credentials" });
     if (libraryOpen) {
       const saved = [...readSaved(savedStorage)].reverse();
       const earlierWorks = [...readEarlierWorks(savedStorage)].reverse();

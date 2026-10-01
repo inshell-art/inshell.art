@@ -30,7 +30,11 @@ export function plainReturnEntryPlugin(root: string): Plugin {
     load(id) {
       const original = entries.get(id.slice(1));
       if (!id.startsWith("\0") || !original) return null;
-      return `const u=new URL(location.href);const p=u.pathname.replace(/\\/+$/,"");
+      // Keep scoped layout CSS on the eager entry. The build optimizer can fold
+      // the two conditional imports into one preload call and retain only the
+      // legacy branch's CSS dependencies. HTML must load this for either path.
+      return `import ${JSON.stringify(path.resolve(root, "src/plain-return/view.css"))};
+const u=new URL(location.href);const p=u.pathname.replace(/\\/+$/,"");
 if(p==="/thought"||p===""){
   import(${JSON.stringify(path.resolve(root, "src/plain-return/view.ts"))});
 }else{import(${JSON.stringify(original)});}`;
