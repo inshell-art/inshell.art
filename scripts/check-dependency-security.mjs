@@ -4,9 +4,9 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { load } from "js-yaml";
 
-// Floors from GitHub alerts 121/122/123/125/126/127/129/130. Check the
+// Floors from GitHub alerts 121/122/123/125/126/127/129/130/133/134. Check the
 // resolved graph, not just overrides: a second transitive version must not
-// escape the check. Current js-yaml alerts 133/134 are a separate follow-up.
+// escape the check. js-yaml 4.3.2 fixes GHSA-2883-xcg3-v3hh.
 export function dependencySecurityErrors(lock) {
   if (!lock || lock.lockfileVersion !== "9.0" || !lock.packages || !lock.snapshots) return ["Expected a complete pnpm v9 lockfile."];
   const errors = [];
@@ -24,7 +24,7 @@ export function dependencySecurityErrors(lock) {
       (name === "browserslist" && atLeast(4, 28, 7)) ||
       (name === "nanoid" && ((major === 3 && atLeast(3, 3, 18)) || (major === 5 && atLeast(5, 1, 6)))) ||
       (name === "postcss" && major === 8 && atLeast(8, 5, 23)) ||
-      (name === "js-yaml" && major === 4 && atLeast(4, 3, 1))
+      (name === "js-yaml" && major === 4 && atLeast(4, 3, 2))
     );
     if (!safe) errors.push(`${name}@${version}: vulnerable or unreviewed version; review the advisory before changing this guard.`);
   }
