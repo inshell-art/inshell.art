@@ -74,7 +74,7 @@ jobs:
         run: pnpm run check:deployment
       - name: Validate deployment integrity and separate activation policy
         env:
-          DEPLOYMENT_LOCK_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD' }}
+          DEPLOYMENT_LOCK_BASE_REF: ${{ github.event.pull_request.base.sha || 'origin/staging' }}
         run: pnpm run check:thought-production-readiness
       - name: Check PUB path boundary
         run: pnpm run pub-boundary:check
