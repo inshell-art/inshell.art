@@ -11,7 +11,7 @@
     "test:thought-plain": "node --import tsx --test apps/thought/src/plain-return/plain-return.test.ts && tsc -p apps/thought/src/plain-return/tsconfig.json",
     "test:thought-plain:browser": "node scripts/test-thought-plain-browser.mjs",
     "test:thought-plain:state-parity": "node --import tsx scripts/test-thought-plain-state-parity.mjs",
-    "check:dependency-security": "node scripts/check-dependency-security.mjs",
+    "check:dependency-security": "node scripts/check-dependency-security.mjs && node scripts/check-surface-shell-dependency.mjs",
     "check:release-evidence": "node scripts/check-release-evidence.mjs",
     "test:release-readiness": "node --test scripts/release-readiness.test.mjs && node --import tsx --test scripts/plain-replacement.test.ts && pnpm run test:thought-failure-report",
     "dev:home": "pnpm --filter @inshell/home dev",

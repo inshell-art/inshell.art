@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "fe79f96f99727706ceb9bbcde39f38cb3578b01f15e0f374e9a6f14978bc3e5d",
+  "sourceTreeSha256": "fe256fd83031f46d019a2781e1221632c59e3cb83980288c5554fce368833feb",
   "groups": [
     {
       "id": "public-docs",
@@ -605,7 +605,7 @@
       "title": "Documentation gates",
       "owner": "inshell.art repository automation",
       "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
-      "groupSha256": "708dee5c328e8d50bb69b219d2aebb146f47e9c7e79ce254fd71f98a74995de4",
+      "groupSha256": "eec1bd626cde7aa1d2c84585229f63cef50794b0efd40a5141639b2f1b85c3a5",
       "files": [
         {
           "path": ".github/workflows/deploy-pages.yml",
@@ -634,8 +634,8 @@
         },
         {
           "path": "package.json",
-          "byteLength": 13813,
-          "sha256": "3dbf8d8ff148beaec0daeeb995f2b15b38362b97634f293afc654c11b44b8eb4"
+          "byteLength": 13864,
+          "sha256": "4addbc7521f2b6f5e916d08280bfb114be3252a61a22654dbcaa2b244fa6892f"
         },
         {
           "path": "scripts/check-dependency-security.mjs",
@@ -1079,7 +1079,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "7297ecfd4adb40bde09b78cd75b6f8d24555460f8f01640b51ab802d9607365e",
+      "groupSha256": "ffbd228eeab568350e945354a8495d9815ea168d44eaa63e30d738ff1dd3a65d",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1088,8 +1088,8 @@
         },
         {
           "path": "apps/thought/package.json",
-          "byteLength": 1286,
-          "sha256": "a86e0efd5942c0e3e236719f3c6b3159b07de86d2daf5d82845cc5afa33c85d6"
+          "byteLength": 1306,
+          "sha256": "eb3ca1cf2eccb4d93cb294253703a38f5eacb2e616e9f669067f2b0807528f83"
         },
         {
           "path": "apps/thought/production/README.md",

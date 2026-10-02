@@ -9,6 +9,13 @@ updates:
       time: "00:10"
       timezone: "Asia/Shanghai"
     open-pull-requests-limit: 5
+    ignore:
+      # Dependabot's pnpm updater drops the Git source when updating this
+      # repository dependency and runs `pnpm update surface-shell@<commit>`,
+      # which pnpm resolves through the npm registry. Keep this visible via
+      # `pnpm run check:dependency-security` and update it manually with:
+      # `pnpm update "surface-shell@git+https://github.com/inshell-art/surface-shell.git#<tag>" --lockfile-only --no-save -r`.
+      - dependency-name: "surface-shell"
     groups:
       npm-production:
         dependency-type: "production"

@@ -284,7 +284,7 @@ importers:
         specifier: ^19.2.8
         version: 19.2.8(react@19.2.8)
       surface-shell:
-        specifier: github:inshell-art/surface-shell#0.1.0
+        specifier: git+https://github.com/inshell-art/surface-shell.git#0.1.0
         version: https://codeload.github.com/inshell-art/surface-shell/tar.gz/fbb3039416b3e01a24545aa4e9dada3399762550
       vite:
         specifier: ^8.2.2
