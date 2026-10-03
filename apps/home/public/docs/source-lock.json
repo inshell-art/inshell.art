@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "ff0e4f2df41ff56365b202ec5502ffd41f76055fb6654cf4f234d05e5cdaf161",
+  "sourceTreeSha256": "dd9ede4bd3d7356be5b250b7fec34c6a8dd470c533659e1683a809ea58025013",
   "groups": [
     {
       "id": "public-docs",
@@ -605,7 +605,7 @@
       "title": "Documentation gates",
       "owner": "inshell.art repository automation",
       "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
-      "groupSha256": "2e2b1e2234a2cc2dee5596954f90056be7d1c2cc8e448948591cacacb2fc2494",
+      "groupSha256": "7c521d3d9ec284ede2f6dcebdb92f420d34f439c90abaccdf8410e33b69a23dc",
       "files": [
         {
           "path": ".github/workflows/deploy-pages.yml",
@@ -654,8 +654,8 @@
         },
         {
           "path": "scripts/check-surface-shell-dependency.mjs",
-          "byteLength": 4923,
-          "sha256": "d21e440dcb23a7f066bf111813f02cee3e13805b643ca72e132e6469d121ba56"
+          "byteLength": 5726,
+          "sha256": "196fc06773903474bd8e0ade25654a03a7c295ab57140dd35aa9fd1eb3627b2d"
         },
         {
           "path": "scripts/check-thought-root-surface-contract.mjs",
