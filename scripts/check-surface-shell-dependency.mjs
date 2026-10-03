@@ -10,10 +10,26 @@ export const SURFACE_SHELL_SPEC = "git+https://github.com/inshell-art/surface-sh
 export const SURFACE_SHELL_LOCK_TARBALL =
   "https://codeload.github.com/inshell-art/surface-shell/tar.gz/fbb3039416b3e01a24545aa4e9dada3399762550";
 
-function matchesDependency(pattern) {
-  if (typeof pattern !== "string") return false;
-  const escaped = pattern.replace(/[|\\{}()[\]^$+?.]/g, "\\$&").replace(/\*/g, ".*");
-  return new RegExp(`^${escaped}$`).test("surface-shell");
+function hasOnlyKeys(value, keys) {
+  return value !== null && typeof value === "object" && !Array.isArray(value) &&
+    Object.keys(value).every((key) => keys.includes(key));
+}
+
+function approvedIgnoreRules(ignore) {
+  // A native Dependabot comment can hold this policy outside the repository.
+  // Absence here proves nothing about that service-side state.
+  return ignore === undefined || (Array.isArray(ignore) && (ignore.length === 0 || (
+    ignore.length === 1 && hasOnlyKeys(ignore[0], ["dependency-name"]) &&
+    ignore[0]["dependency-name"] === "surface-shell"
+  )));
+}
+
+function preservesDefaultCoverage(allow) {
+  return allow === undefined || (Array.isArray(allow) && allow.length === 1 &&
+    hasOnlyKeys(allow[0], ["dependency-name", "dependency-type"]) &&
+    (allow[0]["dependency-name"] === undefined || allow[0]["dependency-name"] === "*") &&
+    (allow[0]["dependency-type"] === undefined || ["direct", "all"].includes(allow[0]["dependency-type"])) &&
+    Object.keys(allow[0]).length > 0);
 }
 
 export function surfaceShellDependencyErrors({ thoughtPackage, dependabot, lock }) {
@@ -36,16 +52,12 @@ export function surfaceShellDependencyErrors({ thoughtPackage, dependabot, lock 
   require(npm?.schedule?.interval === "daily", "Dependabot must retain the active daily npm schedule.");
   require(Number.isInteger(npm?.["open-pull-requests-limit"]) && npm["open-pull-requests-limit"] > 0, "Dependabot npm version updates must remain enabled.");
   require(
-    npm?.ignore === undefined || (Array.isArray(npm.ignore) && !npm.ignore.some((rule) => matchesDependency(rule?.["dependency-name"]))),
-    "Do not exclude surface-shell from Dependabot without an explicit operator-approved upkeep decision.",
+    approvedIgnoreRules(npm?.ignore),
+    "Dependabot npm ignore rules may exclude only the exact surface-shell package, once and without version or update-type filters, under the approved manual-upkeep policy.",
   );
   require(
-    npm?.allow === undefined || (Array.isArray(npm.allow) && npm.allow.some((rule) =>
-      (rule?.["dependency-name"] === undefined || matchesDependency(rule["dependency-name"])) &&
-      (rule?.["dependency-type"] === undefined || ["all", "direct", "production"].includes(rule["dependency-type"])) &&
-      (rule?.["update-types"] === undefined || (Array.isArray(rule["update-types"]) &&
-        ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"].every((type) => rule["update-types"].includes(type)))))),
-    "Dependabot allow rules must not exclude the direct production surface-shell dependency.",
+    preservesDefaultCoverage(npm?.allow),
+    "Dependabot npm allow rules must retain default coverage for all declared dependencies or explicitly allow all dependencies.",
   );
   require(
     npm?.["exclude-paths"] === undefined || (Array.isArray(npm["exclude-paths"]) && npm["exclude-paths"].length === 0),
@@ -71,14 +83,21 @@ export function surfaceShellDependencyErrors({ thoughtPackage, dependabot, lock 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
   try {
+    const dependabot = load(read(".github/dependabot.yml"));
     const errors = surfaceShellDependencyErrors({
       thoughtPackage: JSON.parse(read("apps/thought/package.json")),
-      dependabot: load(read(".github/dependabot.yml")),
+      dependabot,
       lock: load(read("pnpm-lock.yaml")),
     });
     for (const error of errors) console.error(error);
     if (errors.length) process.exitCode = 1;
-    else console.log("surface-shell declared source, importer and resolution agree; Dependabot remains enabled. This does not prove updater success or upstream freshness.");
+    else {
+      const npm = dependabot.updates.find((entry) => entry["package-ecosystem"] === "npm" && entry.directory === "/");
+      const policy = npm.ignore?.length
+        ? "Local npm config excludes only surface-shell under the approved manual-upkeep policy."
+        : "Local npm config has no package exclusion; any native service-side ignore must be verified separately.";
+      console.log(`surface-shell declared source, importer and resolution agree. ${policy} Other declared dependencies retain automatic update coverage. Local checks do not verify Dependabot service-side ignore state, Releases-only watch, hosted updater success or upstream freshness.`);
+    }
   } catch (error) {
     console.error(`Cannot check surface-shell dependency: ${error.message}`);
     process.exitCode = 1;

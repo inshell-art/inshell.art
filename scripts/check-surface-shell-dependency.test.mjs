@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { dump, load } from "js-yaml";
 import {
   SURFACE_SHELL_LOCK_TARBALL,
@@ -23,7 +25,7 @@ const npm = (value) => value.dependabot.updates.find((entry) => entry["package-e
 const importer = (value) => value.lock.importers["apps/thought"].dependencies["surface-shell"];
 const packageKey = `surface-shell@${SURFACE_SHELL_LOCK_TARBALL}`;
 
-test("reviewed repository source has a connected lock binding and active updater", () => {
+test("reviewed repository source has a connected lock binding and active npm policy", () => {
   assert.deepEqual(surfaceShellDependencyErrors(fixture()), []);
 });
 
@@ -51,12 +53,35 @@ for (const [name, change, expected] of [
   ["invalid version-update limit", (value) => { npm(value)["open-pull-requests-limit"] = "5"; }, /remain enabled/],
   ["missing schedule", (value) => { delete npm(value).schedule; }, /daily npm schedule/],
   ["duplicate root npm entries", (value) => { value.dependabot.updates.push(structuredClone(npm(value))); }, /one active root npm/],
-  ["exact ignore", (value) => { npm(value).ignore = [{ "dependency-name": "surface-shell" }]; }, /Do not exclude/],
-  ["wildcard ignore", (value) => { npm(value).ignore = [{ "dependency-name": "surface-*" }]; }, /Do not exclude/],
-  ["all-dependency ignore", (value) => { npm(value).ignore = [{ "dependency-name": "*" }]; }, /Do not exclude/],
+  ["wildcard ignore", (value) => { npm(value).ignore = [{ "dependency-name": "surface-*" }]; }, /ignore rules may exclude only/],
+  ["all-dependency ignore", (value) => { npm(value).ignore = [{ "dependency-name": "*" }]; }, /ignore rules may exclude only/],
+  ["unrelated package ignore", (value) => { npm(value).ignore = [{ "dependency-name": "react" }]; }, /ignore rules may exclude only/],
+  ["additional package ignore", (value) => { npm(value).ignore = [{ "dependency-name": "surface-shell" }, { "dependency-name": "react" }]; }, /ignore rules may exclude only/],
+  ["duplicate exact ignore", (value) => { npm(value).ignore = [{ "dependency-name": "surface-shell" }, { "dependency-name": "surface-shell" }]; }, /ignore rules may exclude only/],
+  ["case-changed ignore", (value) => { npm(value).ignore = [{ "dependency-name": "Surface-Shell" }]; }, /ignore rules may exclude only/],
+  ["version-filtered ignore", (value) => { npm(value).ignore = [{ "dependency-name": "surface-shell", versions: ["0.2.0"] }]; }, /without version or update-type filters/],
+  ["update-type-filtered ignore", (value) => { npm(value).ignore = [{ "dependency-name": "surface-shell", "update-types": ["version-update:semver-major"] }]; }, /without version or update-type filters/],
+  ["empty version-filtered ignore", (value) => { npm(value).ignore = [{ "dependency-name": "surface-shell", versions: [] }]; }, /without version or update-type filters/],
+  ["malformed ignore collection", (value) => { npm(value).ignore = { "dependency-name": "surface-shell" }; }, /ignore rules may exclude only/],
+  ["null ignore collection", (value) => { npm(value).ignore = null; }, /ignore rules may exclude only/],
+  ["null ignore rule", (value) => { npm(value).ignore = [null]; }, /ignore rules may exclude only/],
+  ["missing ignore package", (value) => { npm(value).ignore = [{}]; }, /ignore rules may exclude only/],
+  ["string ignore rule", (value) => { npm(value).ignore = ["surface-shell"]; }, /ignore rules may exclude only/],
+  ["unknown ignore property", (value) => { npm(value).ignore = [{ "dependency-name": "surface-shell", unrelated: true }]; }, /ignore rules may exclude only/],
   ["allow excludes package", (value) => { npm(value).allow = [{ "dependency-name": "react" }]; }, /allow rules/],
+  ["allow only surface-shell", (value) => { npm(value).allow = [{ "dependency-name": "surface-shell" }]; }, /allow rules/],
+  ["allow only matching wildcard", (value) => { npm(value).allow = [{ "dependency-name": "surface-*" }]; }, /allow rules/],
   ["allow excludes production dependencies", (value) => { npm(value).allow = [{ "dependency-type": "development" }]; }, /allow rules/],
+  ["allow excludes development dependencies", (value) => { npm(value).allow = [{ "dependency-type": "production" }]; }, /allow rules/],
+  ["allow only indirect dependencies", (value) => { npm(value).allow = [{ "dependency-type": "indirect" }]; }, /allow rules/],
   ["allow excludes update types", (value) => { npm(value).allow = [{ "dependency-name": "surface-shell", "update-types": [] }]; }, /allow rules/],
+  ["all-package allow with unsupported update-type filter", (value) => { npm(value).allow = [{ "dependency-name": "*", "update-types": ["version-update:semver-patch"] }]; }, /allow rules/],
+  ["empty allow collection", (value) => { npm(value).allow = []; }, /allow rules/],
+  ["empty allow rule", (value) => { npm(value).allow = [{}]; }, /allow rules/],
+  ["malformed allow collection", (value) => { npm(value).allow = { "dependency-type": "all" }; }, /allow rules/],
+  ["null allow collection", (value) => { npm(value).allow = null; }, /allow rules/],
+  ["null allow rule", (value) => { npm(value).allow = [null]; }, /allow rules/],
+  ["unknown allow property", (value) => { npm(value).allow = [{ "dependency-type": "all", unrelated: true }]; }, /allow rules/],
   ["manifest path excluded from updates", (value) => { npm(value)["exclude-paths"] = ["apps/thought/**"]; }, /path exclusions/],
   ["manifest source mismatch", (value) => { value.thoughtPackage.dependencies["surface-shell"] = "^0.1.0"; }, /must declare/],
   ["wrong active importer with expected specifier in a comment", (value) => {
@@ -90,11 +115,38 @@ for (const [name, change, expected] of [
   });
 }
 
-test("unrelated ignore and explicit production allow retain surface-shell coverage", () => {
-  const value = fixture();
-  npm(value).ignore = [{ "dependency-name": "unrelated-*" }];
-  npm(value).allow = [{ "dependency-name": "surface-*", "dependency-type": "production" }];
-  assert.deepEqual(surfaceShellDependencyErrors(value), []);
+for (const [name, ignore] of [
+  ["no config exclusion", undefined],
+  ["empty config exclusion", []],
+  ["exact unconditional surface-shell exclusion", [{ "dependency-name": "surface-shell" }]],
+]) {
+  test(`accepts ${name} without inferring native service-side state`, () => {
+    const value = fixture();
+    npm(value).ignore = ignore;
+    assert.deepEqual(surfaceShellDependencyErrors(value), []);
+  });
+}
+
+for (const allow of [
+  [{ "dependency-name": "*" }],
+  [{ "dependency-type": "direct" }],
+  [{ "dependency-type": "all" }],
+  [{ "dependency-name": "*", "dependency-type": "direct" }],
+  [{ "dependency-name": "*", "dependency-type": "all" }],
+]) {
+  test(`accepts allow rules preserving default or broader coverage: ${JSON.stringify(allow)}`, () => {
+    const value = fixture();
+    npm(value).ignore = [{ "dependency-name": "surface-shell" }];
+    npm(value).allow = allow;
+    assert.deepEqual(surfaceShellDependencyErrors(value), []);
+  });
+}
+
+test("CLI distinguishes checked local policy from unverified hosted policy and freshness", () => {
+  const output = execFileSync(process.execPath, [fileURLToPath(new URL("./check-surface-shell-dependency.mjs", import.meta.url))], { encoding: "utf8" });
+  assert.match(output, /Local npm config has no package exclusion|Local npm config excludes only surface-shell/);
+  assert.match(output, /Other declared dependencies retain automatic update coverage/);
+  assert.match(output, /Local checks do not verify Dependabot service-side ignore state, Releases-only watch, hosted updater success or upstream freshness/);
 });
 
 test("missing parsed files fail closed", () => {
