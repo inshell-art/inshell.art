@@ -9,6 +9,8 @@ updates:
       time: "00:10"
       timezone: "Asia/Shanghai"
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "surface-shell"
     groups:
       npm-production:
         dependency-type: "production"
