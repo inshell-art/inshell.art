@@ -33,16 +33,16 @@ cannot activate a new default-branch updater policy. The relevant official
 references are [configuration location](https://docs.github.com/en/code-security/concepts/supply-chain-security/about-the-dependabot-yml-file#where-to-store-the-dependabotyml-file)
 and [target-branch behavior](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference#target-branch).
 
-The default-branch configuration has **not** been changed. OPS submitted the
+Before the repository configuration change, OPS submitted the
 native grouped-update command `@dependabot ignore surface-shell` on
 [PR #228](https://github.com/inshell-art/inshell.art/pull/228#issuecomment-5965835727).
 OPS subsequently reported the bot's
 [show-conditions response](https://github.com/inshell-art/inshell.art/pull/228#issuecomment-5965870226)
 at 2026-10-03 05:16:14 UTC: no ignore conditions were found for `surface-shell`.
-PR #228 remained open. Native activation is therefore **not verified**; a
-submitted comment is not a stored ignore. A new hosted check is pending, and
-OPS is checking whether an existing Shell update PR supports the native rule.
-OPS owns activation and verification; do not duplicate its commands.
+PR #228 remained open. That response did not verify a stored native ignore;
+a submitted comment is not a stored condition. Preserve this failed attempt as
+historical evidence. OPS owns service-side verification; do not duplicate its
+commands.
 
 [GitHub's native commands](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-pull-request-comment-commands)
 provide per-dependency ignore and `@dependabot show surface-shell ignore
@@ -62,11 +62,19 @@ is successfully activated. Excluding the package is deliberate mitigation, not
 proof of resolver repair. Local checks and a frozen install establish neither
 native policy activation nor hosted updater success.
 
-The config-only main candidate is on hold: the required production
-`check:release-evidence` gate includes `.github/dependabot.yml` in its source
-identity. Do not weaken that check, rebind historical canaries, or publish main
-to activate this policy. A provider-only deployment skip cannot waive required
-GitHub checks or qualification. Production remains outside this change.
+The exact one-package YAML exclusion was subsequently committed in
+`1e725d478444e7ec9d1898fb168c19a1ae7576b2` and merged into the recorded main
+source `028b170996f5f3b70978f1c809c8a1c2b5ffdcf6` through PR #236. The combined
+maintenance candidate preserves that configuration alongside staging's
+declared-source guard. This establishes repository configuration, not a fresh
+observation of hosted updater behavior, native ignore conditions or release
+notifications. OPS retains that verification boundary.
+
+The required production `check:release-evidence` gate includes dependency and
+configuration source. Historical qualification for the config-only candidate
+does not qualify a new combined dependency candidate. Do not weaken that check
+or rebind historical canaries. A provider-only deployment skip cannot waive
+required GitHub checks or qualification; publication remains a separate approval.
 
 ## Reviewed source identity
 
@@ -127,6 +135,7 @@ does not select a tag or authorize advancing staging or production.
 This alignment changes internal maintenance policy documentation and semantic
 guards, not dependency declarations, resolved source content or public App
 behavior. Public documentation needs fingerprint regeneration only; no article
-text, capability or release claim changes. This candidate does not activate the
-native ignore, modify default-branch config, deploy, use provider credentials,
-or run real Agent trials. OPS retains native-policy verification ownership.
+text, capability or release claim changes. Local combined-candidate preparation
+preserves the recorded default-branch exclusion without changing the remote
+branch, activating a native ignore, deploying, using provider credentials or
+running real Agent trials. OPS retains service-side policy verification ownership.

@@ -12,7 +12,7 @@ import {
 } from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import yaml from "js-yaml";
+import { load } from "js-yaml";
 import {
   DOCS_AUTHORITY_MAP,
   DOCS_SOURCE,
@@ -102,7 +102,7 @@ export function assertRequiredCommands(
 }
 
 export function workflowRunCommands(source: string, job: string, label: string) {
-  const document = yaml.load(source) as {
+  const document = load(source) as {
     jobs?: Record<string, { steps?: Array<{ run?: unknown }> }>;
   } | null;
   invariant(document && typeof document === "object", `${label} must parse as YAML`);
