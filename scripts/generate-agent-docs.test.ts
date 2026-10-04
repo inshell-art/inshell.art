@@ -168,6 +168,29 @@ test("requires documentation gates in executable workflow steps", () => {
   );
 });
 
+test("reads workflow scalar forms through the named YAML API and rejects duplicate jobs", () => {
+  const source = [
+    "on: [push, pull_request]",
+    "jobs:",
+    "  build:",
+    "    steps:",
+    "      - uses: actions/checkout@pinned",
+    "      - run: 'pnpm run docs:check'",
+    "      - run: |",
+    "          pnpm run build:home",
+    "          pnpm run build:thought",
+    "",
+  ].join("\n");
+  assert.deepEqual(workflowRunCommands(source, "build", "fixture workflow"), [
+    "pnpm run docs:check",
+    "pnpm run build:home\npnpm run build:thought",
+  ]);
+  assert.throws(
+    () => workflowRunCommands(`${source}jobs: {}\n`, "build", "fixture workflow"),
+    /duplicat/i,
+  );
+});
+
 test("generates exact shared route metadata and a non-sensitive gate manifest", () => {
   const runtimeMetadata = JSON.parse(
     readFileSync(

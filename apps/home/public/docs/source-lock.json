@@ -11,14 +11,14 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "dd9ede4bd3d7356be5b250b7fec34c6a8dd470c533659e1683a809ea58025013",
+  "sourceTreeSha256": "ff1ee4b193a39214be13d4a8939be165dbb17d4adc5fc1c9c9cc6e3d631b3c15",
   "groups": [
     {
       "id": "public-docs",
       "title": "Public documentation sources",
       "owner": "inshell.art docs",
       "reason": "Human articles, Agent-readable content, authority maps, and machine-handoff selection.",
-      "groupSha256": "e789651566841f54bae4e61fbc98496a4f5383e6d4ffe9a2386bc29b5b81d135",
+      "groupSha256": "3dcd7b9dd3717b13cc60cfd6a09427ccc6d5fa5687332c4d7f86743d8c363987",
       "files": [
         {
           "path": "apps/home/src/content/AGENTS.md",
@@ -57,8 +57,8 @@
         },
         {
           "path": "scripts/generate-agent-docs.ts",
-          "byteLength": 119281,
-          "sha256": "b6adbbb67bc28880ea7b6ddd1224d84b5bcf180fad1be17c50546be6b8f644b5"
+          "byteLength": 119280,
+          "sha256": "5c0b06896665d5b969146f5d01342e022c96397a179fbd4650e5b433f7c8e36a"
         }
       ]
     },
@@ -67,7 +67,7 @@
       "title": "Home, $PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "13d61d26bf342bad3f8629cd90c82b5dbd94a0526da3cdb5da3f320fba1ad383",
+      "groupSha256": "ced427653ad2798f597bd4133c329092275a7337692291cd803bc8f2245c90a6",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -76,8 +76,8 @@
         },
         {
           "path": "apps/home/package.json",
-          "byteLength": 3214,
-          "sha256": "4d9133f2c88e6bcbb723ebbcbf30ee4c0e65d0fe7755f6a9e9a416ba86a3e619"
+          "byteLength": 3211,
+          "sha256": "fd2bbb3476665f28906bddb3bd08dc5d378963cc05b98608b47ca106266092b9"
         },
         {
           "path": "apps/home/src/App.tsx",
@@ -605,7 +605,7 @@
       "title": "Documentation gates",
       "owner": "inshell.art repository automation",
       "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
-      "groupSha256": "7c521d3d9ec284ede2f6dcebdb92f420d34f439c90abaccdf8410e33b69a23dc",
+      "groupSha256": "808921a7bee66796b995e18fe3179aafcb529818d8e9ab56ece4e34959cd531b",
       "files": [
         {
           "path": ".github/workflows/deploy-pages.yml",
@@ -634,13 +634,13 @@
         },
         {
           "path": "package.json",
-          "byteLength": 14012,
-          "sha256": "7b878da1a13e8fa12171685307bd9a1a3ec042999940161e7b6d8cada1dc7a14"
+          "byteLength": 14087,
+          "sha256": "f74845e8e7ed04793a6ce169263baa3984e1ad15e1f65d2564a979b2f5419b0c"
         },
         {
           "path": "scripts/check-dependency-security.mjs",
-          "byteLength": 2214,
-          "sha256": "0ae83cc83f1fc1d5b26b675bbbeec33fa34bde8a2d01dfb72fb38cd37e0324d1"
+          "byteLength": 2463,
+          "sha256": "caf8f9f519db7ac08e12bed377344dd375ffbcf75e7773e52f051dca3c2351d0"
         },
         {
           "path": "scripts/check-detail-surface-contract.mjs",
@@ -1084,7 +1084,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "ffbd228eeab568350e945354a8495d9815ea168d44eaa63e30d738ff1dd3a65d",
+      "groupSha256": "b62c02bf49ede59032e199995f2c106f5bb3a2e4df34f67dfdc2f0e4b8ff854b",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1093,8 +1093,8 @@
         },
         {
           "path": "apps/thought/package.json",
-          "byteLength": 1306,
-          "sha256": "eb3ca1cf2eccb4d93cb294253703a38f5eacb2e616e9f669067f2b0807528f83"
+          "byteLength": 1305,
+          "sha256": "3ab6b8e6b6797789eea46f8dd70f74143fa7a853776738332350c1c70f60ecba"
         },
         {
           "path": "apps/thought/production/README.md",

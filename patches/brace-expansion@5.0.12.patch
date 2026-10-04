@@ -1,0 +1,11 @@
+diff --git a/dist/commonjs/index.js b/dist/commonjs/index.js
+--- a/dist/commonjs/index.js
++++ b/dist/commonjs/index.js
+@@ -330,4 +330,7 @@
+     }
+     return acc;
+ }
++// Preserve the callable CommonJS API expected by minimatch 3/5/9 without
++// dropping any named exports, including the depth and rewrite limits.
++module.exports = Object.assign(expand, exports);
+ //# sourceMappingURL=index.js.map
