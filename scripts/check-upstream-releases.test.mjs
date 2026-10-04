@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import yaml from "js-yaml";
+import { load } from "js-yaml";
 import {
   assertPathPublication,
   latestPathTag,
@@ -129,7 +129,7 @@ test("authenticates PATH checksum inventories byte-for-byte", async (t) => {
 test("required build and deploy jobs execute the full upstream gates", async () => {
   const readWorkflow = async (fileName) => {
     const source = await fs.readFile(path.join(root, ".github/workflows", fileName), "utf8");
-    const workflow = yaml.load(source);
+    const workflow = load(source);
     assert.ok(workflow && typeof workflow === "object", `${fileName} must parse as YAML`);
     return workflow;
   };
