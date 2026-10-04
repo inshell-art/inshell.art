@@ -9,10 +9,10 @@ overrides:
   '@tootallnate/once@^2.0.0': 3.0.1
   '@babel/core@^7.0.0': 7.29.6
   ajv@^6.0.0: 6.14.0
-  axios@^1.0.0: 1.18.0
-  brace-expansion@^1.0.0: 5.0.9
-  brace-expansion@^2.0.0: 5.0.9
-  brace-expansion@^5.0.0: 5.0.9
+  axios@^1.0.0: 1.20.0
+  brace-expansion@^1.0.0: 5.0.12
+  brace-expansion@^2.0.0: 5.0.12
+  brace-expansion@^5.0.0: 5.0.12
   browserslist: 4.28.7
   defu@^6.0.0: 6.1.5
   diff@^4.0.0: 4.0.4
@@ -46,9 +46,9 @@ overrides:
   yaml@^2.0.0: 2.8.4
 
 patchedDependencies:
-  brace-expansion@5.0.9:
-    hash: muhikfcwdas4rqwajtwlrqwfjq
-    path: patches/brace-expansion@5.0.9.patch
+  brace-expansion@5.0.12:
+    hash: xuwrol4gofvmnxe7gpp5ghetb4
+    path: patches/brace-expansion@5.0.12.patch
 
 importers:
 
@@ -2779,10 +2779,10 @@ packages:
   axios-retry@4.5.0:
     resolution: {integrity: sha512-aR99oXhpEDGo0UuAlYcn2iGRds30k366Zfa05XWScR9QaQD4JYiP3/1Qt1u7YlefUOK+cn0CcwoL1oefavQUlQ==}
     peerDependencies:
-      axios: 1.18.0
+      axios: 1.20.0
 
-  axios@1.18.0:
-    resolution: {integrity: sha512-E32NzpYKp++W7XRe52rHiXV2ehxmh3wbdgO7MHeFM+vqxLBYHzt0ElkiImtOBxtOmyp0yoC8C6uESVV84Y2/hw==}
+  axios@1.20.0:
+    resolution: {integrity: sha512-r8aOh8j9cGKpgQAqpzrUHnSIc6a59Y3Xf/cv8sy1DrHCkZHzQGEuoq1tARk6qSyDdtQGSDgpb9kFlruzPvrgwg==}
 
   babel-jest@30.0.5:
     resolution: {integrity: sha512-mRijnKimhGDMsizTvBTWotwNpzrkHr+VvZUQBof2AufXKB8NXrL1W69TG20EvOz7aevx6FTJIaBuBkYxS8zolg==}
@@ -2853,8 +2853,8 @@ packages:
   bluebird@3.7.2:
     resolution: {integrity: sha512-XpNj6GDQzdfW+r2Wnn7xiSAd7TM3jzkxGXBGTtWKuSXv1xUV+azxAm8jdWZN06QTQk+2N2XB9jRDkvbmQmcRtg==}
 
-  brace-expansion@5.0.9:
-    resolution: {integrity: sha512-ScQ4IuvIEF1TMlP7Zt+vjJ//9zlPb2SDcxWxM3bk8s6t6GGdJ7KO1dCcTidOPJKePW30LE/2cT7wCyPho9/Wxg==}
+  brace-expansion@5.0.12:
+    resolution: {integrity: sha512-YovQ3rzhaLMIrDjNDMkNS01tea93qhEhG5xy8f6+R0l+dw3Ki+5sCoIoI942iuLZTHWogWktgwVDhU09iNEimQ==}
     engines: {node: 20 || >=22}
 
   braces@3.0.3:
@@ -3689,7 +3689,7 @@ packages:
 
   glob@7.2.3:
     resolution: {integrity: sha512-nFR0zLpU2YCaRxwoCJvL6UvCH2JFyFVIvwTLsIf21AuHlMskA1hhTdk+LlYJtOlYt9v6dvszD2BGRqBL+iQK9Q==}
-    deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+    deprecated: Glob versions prior to v9 are no longer supported
 
   global-dirs@3.0.1:
     resolution: {integrity: sha512-NBcGGFbBA9s1VzD41QXDG+3++t9Mn5t1FpLdhESY6oKY4gYTFpX4wO3sqGUa0Srjtbfj3szX0RnemmrVRUdULA==}
@@ -5927,8 +5927,8 @@ snapshots:
       '@solana-program/token': 0.9.0(@solana/kit@5.5.1(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@6.0.6))
       '@solana/kit': 5.5.1(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@6.0.6)
       abitype: 1.0.6(typescript@5.8.3)(zod@3.25.76)
-      axios: 1.18.0
-      axios-retry: 4.5.0(axios@1.18.0)
+      axios: 1.20.0
+      axios-retry: 4.5.0(axios@1.20.0)
       bs58: 6.0.0
       jose: 6.2.4
       md5: 2.3.0
@@ -9340,13 +9340,13 @@ snapshots:
 
   aws4@1.13.2: {}
 
-  axios-retry@4.5.0(axios@1.18.0):
+  axios-retry@4.5.0(axios@1.20.0):
     dependencies:
-      axios: 1.18.0
+      axios: 1.20.0
       is-retry-allowed: 2.2.0
     optional: true
 
-  axios@1.18.0:
+  axios@1.20.0:
     dependencies:
       follow-redirects: 1.16.0
       form-data: 4.0.6
@@ -9451,7 +9451,7 @@ snapshots:
 
   bluebird@3.7.2: {}
 
-  brace-expansion@5.0.9(patch_hash=muhikfcwdas4rqwajtwlrqwfjq):
+  brace-expansion@5.0.12(patch_hash=xuwrol4gofvmnxe7gpp5ghetb4):
     dependencies:
       balanced-match: 4.0.4
 
@@ -11265,15 +11265,15 @@ snapshots:
 
   minimatch@3.1.4:
     dependencies:
-      brace-expansion: 5.0.9(patch_hash=muhikfcwdas4rqwajtwlrqwfjq)
+      brace-expansion: 5.0.12(patch_hash=xuwrol4gofvmnxe7gpp5ghetb4)
 
   minimatch@5.1.8:
     dependencies:
-      brace-expansion: 5.0.9(patch_hash=muhikfcwdas4rqwajtwlrqwfjq)
+      brace-expansion: 5.0.12(patch_hash=xuwrol4gofvmnxe7gpp5ghetb4)
 
   minimatch@9.0.7:
     dependencies:
-      brace-expansion: 5.0.9(patch_hash=muhikfcwdas4rqwajtwlrqwfjq)
+      brace-expansion: 5.0.12(patch_hash=xuwrol4gofvmnxe7gpp5ghetb4)
 
   minimist@1.2.8: {}
 
