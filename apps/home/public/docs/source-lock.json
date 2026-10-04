@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "dd9ede4bd3d7356be5b250b7fec34c6a8dd470c533659e1683a809ea58025013",
+  "sourceTreeSha256": "d6593a7b2bfb267ad271d7f3f9a2f23e58c43638167eebecb72f58830945e127",
   "groups": [
     {
       "id": "public-docs",
@@ -605,7 +605,7 @@
       "title": "Documentation gates",
       "owner": "inshell.art repository automation",
       "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
-      "groupSha256": "7c521d3d9ec284ede2f6dcebdb92f420d34f439c90abaccdf8410e33b69a23dc",
+      "groupSha256": "808921a7bee66796b995e18fe3179aafcb529818d8e9ab56ece4e34959cd531b",
       "files": [
         {
           "path": ".github/workflows/deploy-pages.yml",
@@ -634,13 +634,13 @@
         },
         {
           "path": "package.json",
-          "byteLength": 14012,
-          "sha256": "7b878da1a13e8fa12171685307bd9a1a3ec042999940161e7b6d8cada1dc7a14"
+          "byteLength": 14087,
+          "sha256": "f74845e8e7ed04793a6ce169263baa3984e1ad15e1f65d2564a979b2f5419b0c"
         },
         {
           "path": "scripts/check-dependency-security.mjs",
-          "byteLength": 2214,
-          "sha256": "0ae83cc83f1fc1d5b26b675bbbeec33fa34bde8a2d01dfb72fb38cd37e0324d1"
+          "byteLength": 2463,
+          "sha256": "caf8f9f519db7ac08e12bed377344dd375ffbcf75e7773e52f051dca3c2351d0"
         },
         {
           "path": "scripts/check-detail-surface-contract.mjs",
