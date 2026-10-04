@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "dd9ede4bd3d7356be5b250b7fec34c6a8dd470c533659e1683a809ea58025013",
+  "sourceTreeSha256": "7d026fe7f70a6e891014fc89e556a3232ca9d4e9900d27bc1d264016ea3ca65a",
   "groups": [
     {
       "id": "public-docs",
@@ -67,7 +67,7 @@
       "title": "Home, $PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "13d61d26bf342bad3f8629cd90c82b5dbd94a0526da3cdb5da3f320fba1ad383",
+      "groupSha256": "ced427653ad2798f597bd4133c329092275a7337692291cd803bc8f2245c90a6",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -76,8 +76,8 @@
         },
         {
           "path": "apps/home/package.json",
-          "byteLength": 3214,
-          "sha256": "4d9133f2c88e6bcbb723ebbcbf30ee4c0e65d0fe7755f6a9e9a416ba86a3e619"
+          "byteLength": 3211,
+          "sha256": "fd2bbb3476665f28906bddb3bd08dc5d378963cc05b98608b47ca106266092b9"
         },
         {
           "path": "apps/home/src/App.tsx",
@@ -1084,7 +1084,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "ffbd228eeab568350e945354a8495d9815ea168d44eaa63e30d738ff1dd3a65d",
+      "groupSha256": "b62c02bf49ede59032e199995f2c106f5bb3a2e4df34f67dfdc2f0e4b8ff854b",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1093,8 +1093,8 @@
         },
         {
           "path": "apps/thought/package.json",
-          "byteLength": 1306,
-          "sha256": "eb3ca1cf2eccb4d93cb294253703a38f5eacb2e616e9f669067f2b0807528f83"
+          "byteLength": 1305,
+          "sha256": "3ab6b8e6b6797789eea46f8dd70f74143fa7a853776738332350c1c70f60ecba"
         },
         {
           "path": "apps/thought/production/README.md",
