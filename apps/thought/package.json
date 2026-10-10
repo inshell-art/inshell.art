@@ -22,7 +22,7 @@
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "surface-shell": "git+https://github.com/inshell-art/surface-shell.git#0.1.0",
-    "vite": "^8.3.2"
+    "vite": "^8.3.3"
   },
   "devDependencies": {
     "@types/node": "^24.2.0",
