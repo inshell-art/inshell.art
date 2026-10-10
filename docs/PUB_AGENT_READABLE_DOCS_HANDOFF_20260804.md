@@ -2,6 +2,12 @@
 
 Date: 2026-08-04
 
+> Historical handoff. Its PUB publication/proxy requests and PUB acceptance
+> criteria are superseded by the operator's 2026-10-10 retirement decision.
+> The retirement candidate returns real 404s for legacy PUB paths and retains the
+> site's own `/docs/` resources. This notice does not claim deployment or hosting
+> deletion. The original handoff below is preserved as evidence.
+
 ## Decision
 
 Retire **Ask Inshell** as a product concept. Inshell will not operate a site chatbot or require visitors to install a dedicated tool. Visitors should be able to give public, read-only Inshell sources to the Agent they already use.

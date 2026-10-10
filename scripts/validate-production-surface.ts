@@ -222,7 +222,10 @@ function checkPackageScripts() {
     "/llms.txt",
     "/pub.manifest.json",
     "/pub/contract/pub-path-boundary.json",
-    "checkPubBoundarySmoke",
+    "checkRetiredPublicSmoke",
+    "validateRetiredRouteResponse",
+    "RETIRED_PUB_SMOKE_PATHS",
+    "RETIRED_FEED_SMOKE_PATHS",
     "staging.inshell-art.pages.dev",
     "staging.thought-inshell-art.pages.dev",
   ]) {
@@ -548,10 +551,11 @@ function checkSharedSurfaceLayer() {
   ]);
   requireSnippets("apps/home/src/main.tsx", ["@inshell/shared/design.css"]);
   requireSnippets("apps/home/src/App.tsx", ["<FloatingReportBug />"]);
-  requireSnippets("apps/home/index.html", ["https://inshell.art/rss.sepolia.xml"]);
-  requireSnippets("apps/home/src/components/Footer/Footer.tsx", [
-    'const DEFAULT_PUBLIC_FEED_RSS_URL = "/rss.sepolia.xml"',
-  ]);
+  for (const path of ["apps/home/index.html", "apps/home/src/components/Footer/Footer.tsx"]) {
+    if (/rss\.sepolia\.xml|application\/rss\+xml|PUBLIC_FEED/.test(read(path))) {
+      fail(`${path} must not advertise the retired public feed`);
+    }
+  }
   requireSnippets("apps/home/src/components/FloatingReportBug.tsx", [
     "inshell-report-bug-link--floating",
     "buildReportBugLink",
@@ -577,43 +581,37 @@ function checkSharedSurfaceLayer() {
 
 function checkCloudflareRpcProxy() {
   requireSnippets("functions/_middleware.ts", [
-    "PUBLIC_FEED_RSS_URL",
-    "PUBLIC_FEED_ALIAS_URL",
-    "PUBLIC_FEED_SEPOLIA_RSS_URL",
-    "PUBLIC_FEED_BASE_URL",
     "APP_SHELL_CACHE_CONTROL",
-    "PUB_UPSTREAM_DEFAULT",
-    "https://inshell-pub.pages.dev",
-    "isPubReservedPathname",
-    "isPubRouteHost",
-    "proxyPubArtifact",
-    "pubMethodNotAllowed",
-    "pub-proxy",
-    "x-inshell-dev-path-boundary",
+    "isRetiredPublicPathname",
+    "retiredPublicNotFound",
+    "/llms.txt",
+    "/pub.manifest.json",
+    '"/pub"',
+    'decodedPathname.startsWith(`${root}/`)',
+    "status: 404",
     "temporarySepoliaHostRedirect",
     "sepolia.inshell.art",
-    "getPublicFeedArtifactUrl",
-    "proxyPublicFeedArtifact",
     "isAppShellRoute",
     "serveAppShell",
     "withAppShellHeaders",
-    "proxyFeed",
     "/rss.xml",
     "/feed.xml",
     "/rss.sepolia.xml",
     "/events.json",
-    "/source/",
-    "/source-assets/",
+    '"/source"',
+    '"/source-assets"',
     "/pulse",
     "/color-font",
     "/path",
     "/gallery",
     "/thought",
-    "application/rss+xml; charset=utf-8",
-    "public, max-age=60",
-    "stale-while-revalidate=300",
     'headers.delete("clear-site-data")',
   ]);
+  for (const path of ["functions/_middleware.ts", "apps/home/src/components/AuctionCanvas.tsx"]) {
+    if (/inshell-(?:pub|public-feed)\.pages\.dev|PUBLIC_FEED|PUB_UPSTREAM|PUB_BOUNDARY_CONTRACT_URL|proxyPubArtifact|proxyFeed|sourcePageExists/.test(read(path))) {
+      fail(`${path} must not depend on retired PUB or public feed`);
+    }
+  }
   requireSnippets("functions/api/rpc-gate.ts", [
     "PATH_PRIMARY_RPC_UPSTREAM",
     "THOUGHT_PRIMARY_RPC_UPSTREAM",

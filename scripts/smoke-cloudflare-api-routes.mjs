@@ -10,10 +10,16 @@ const STAGING_THOUGHT_BASE = "https://staging.thought-inshell-art.pages.dev";
 const SEPOLIA_CHAIN_ID = "0xaa36a7";
 const ATTEMPT_DELAYS_MS = [0, 1_000, 3_000, 6_000];
 const REQUEST_TIMEOUT_MS = 12_000;
-const PUB_BOUNDARY_SMOKE_PATHS = [
+export const RETIRED_PUB_SMOKE_PATHS = [
   "/llms.txt",
   "/pub.manifest.json",
+  "/pub", "/pub/",
   "/pub/contract/pub-path-boundary.json",
+];
+export const RETIRED_FEED_SMOKE_PATHS = [
+  "/rss.xml", "/feed.xml", "/rss.sepolia.xml", "/events.json",
+  "/source", "/source/", "/source/sepolia/path.minted/retired",
+  "/source-assets", "/source-assets/", "/source-assets/feed.css",
 ];
 
 export function parseArgs(argv) {
@@ -273,44 +279,23 @@ function isDevAppShellResponse(response, text) {
   );
 }
 
-async function checkPubBoundarySmoke(base) {
-  for (const path of PUB_BOUNDARY_SMOKE_PATHS) {
-    await retry(`home PUB boundary ${path}`, async () => {
-      const { response, text } = await fetchTextWithTimeout(urlFor(base, path), {
-        method: "GET",
+export function validateRetiredRouteResponse(path, response, text) {
+  if (response.status !== 404) {
+    throw new Error(`${path} must return HTTP 404, received ${response.status}`);
+  }
+  if (response.headers.has("location") || isDevAppShellResponse(response, text)) {
+    throw new Error(`${path} must not redirect or serve the DEV app shell`);
+  }
+}
+
+async function checkRetiredPublicSmoke(base) {
+  for (const path of [...RETIRED_PUB_SMOKE_PATHS, ...RETIRED_FEED_SMOKE_PATHS]) {
+    for (const method of ["GET", "HEAD"]) {
+      await retry(`retired public route ${method} ${path}`, async () => {
+        const { response, text } = await fetchTextWithTimeout(urlFor(base, path), { method });
+        validateRetiredRouteResponse(path, response, text);
       });
-      if (!response.ok) {
-        throw new Error(`${path} returned HTTP ${response.status}`);
-      }
-      if (isDevAppShellResponse(response, text)) {
-        throw new Error(`${path} is being served by the DEV app shell`);
-      }
-      const contentType = response.headers.get("content-type") ?? "";
-      if (path === "/llms.txt" && !contentType.includes("text/plain")) {
-        throw new Error(`${path} returned unexpected content-type ${contentType || "(missing)"}`);
-      }
-      if ((path === "/pub.manifest.json" || path === "/pub/contract/pub-path-boundary.json") && response.ok) {
-        let payload;
-        try {
-          payload = JSON.parse(text);
-        } catch {
-          throw new Error(`${path} returned HTTP ${response.status} but not JSON`);
-        }
-        if (path === "/pub/contract/pub-path-boundary.json") {
-          if (
-            payload?.schemaVersion !== 1 ||
-            payload?.origin !== "https://inshell.art" ||
-            payload?.owner !== "PUB" ||
-            !Array.isArray(payload?.paths?.exact) ||
-            !Array.isArray(payload?.paths?.prefixes)
-          ) {
-            throw new Error(`${path} returned an invalid PUB boundary contract`);
-          }
-        } else if (payload?.schemaVersion !== 1 || !Array.isArray(payload?.files)) {
-          throw new Error(`${path} returned an invalid PUB manifest`);
-        }
-      }
-    });
+    }
   }
 }
 
@@ -359,7 +344,7 @@ export function validatePreviewAliasRejection(status, payload) {
 
 export async function checkHome(base) {
   const closed = await checkOpsStatus(base, "home /api/ops/status");
-  await checkPubBoundarySmoke(base);
+  await checkRetiredPublicSmoke(base);
   await checkRpcChainId(base, "/api/path-rpc", "home /api/path-rpc");
   await checkGetArrayField(base, "/api/pulse-auction", "bids", "home /api/pulse-auction");
   await checkContractArrayField(
@@ -386,6 +371,7 @@ export async function checkHome(base) {
 
 export async function checkThought(base) {
   const closed = await checkOpsStatus(base, "thought /api/ops/status");
+  await checkRetiredPublicSmoke(base);
   await checkRpcChainId(base, "/api/path-rpc", "thought /api/path-rpc");
   await checkRpcChainId(base, "/api/thought-rpc", "thought /api/thought-rpc");
   await checkThoughtPreview(base);

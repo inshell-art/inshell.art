@@ -1,1 +1,1 @@
-# SPA and feed routes are served by functions/_middleware.ts.
+# SPA routing and retired feed 404s are handled by functions/_middleware.ts.

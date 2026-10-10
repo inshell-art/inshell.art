@@ -148,33 +148,26 @@
 - If OPS reports an RPC/read-model/config mismatch, first check `/api/ops/status` and API route diagnostic headers before asking the operator to relay state.
 - Keep `scripts/smoke-cloudflare-api-routes.mjs` checking `/api/ops/status` for both home and THOUGHT deployments.
 
-## PUB Path Boundary
+## Retired PUB and Public Feed Boundary
 
-PUB owns the PUB path boundary contract.
+Operator decision, 2026-10-10: retire the legacy PUB and public-feed surfaces.
+This supersedes the former PUB proxy ownership rule for this retirement candidate;
+it does not authorize deployment or removal of hosting, credentials, or databases.
 
-Source of truth:
-
-https://inshell-pub.pages.dev/pub/contract/pub-path-boundary.json
-
-Shared-origin smoke target:
-
-https://inshell.art/pub/contract/pub-path-boundary.json
-
-Before changing static output, app routes, API routes, workers, redirects, rewrites, edge routing, sitemap generation, or deploy config, check the PUB path boundary.
-
-DEV owns the shared `inshell.art` route layer for PUB paths. DEV may proxy reserved paths to the PUB upstream, but must not define, serve, redirect to DEV-owned content, catch with the SPA fallback, or statically emit any path reserved by the PUB contract.
-
-For the current contract, DEV must not claim:
-
-- /llms.txt
-- /pub.manifest.json
-- /pub/**
-
-DEV may link to, fetch, or route PUB paths to the PUB upstream. DEV may not own, recreate, or overwrite PUB content.
-
-If a requested change needs a PUB-reserved path, stop and ask for a PUB boundary change. Do not work around the contract.
-
-Run the DEV PUB-boundary check before commit/deploy.
+- `/llms.txt`, `/pub.manifest.json`, `/pub` and descendants, `/rss.xml`, `/feed.xml`,
+  `/rss.sepolia.xml`, `/events.json`, `/source` and descendants, and `/source-assets`
+  and descendants must return genuine HTTP 404s, not a redirect or HTTP 200 SPA.
+- Do not restore legacy upstream proxies, discovery links, or mint source polling.
+  Do not repurpose these paths or emit static content under them without a new
+  operator decision. The site's own human and Agent-readable `/docs/` remains.
+- Keep `pnpm pub-boundary:check`: the existing command now checks local retirement
+  invariants without fetching the retired PUB contract. Run it before commit/deploy
+  and verify real GET/HEAD 404s in Pages middleware before accepting a release.
+- Preserve shared D1 `inshell-public-feed-console`, `inshell-chain-read-model-worker`,
+  application D1/KV, retained APIs and shared Access credentials/protection.
+  OPS owns separately approved hosting removal after production verification.
+- Keep historical PUB handoffs as evidence, explicitly superseded rather than
+  silently rewritten. Source changes alone do not prove production retirement.
 
 ## Security and Quality Routine
 - GitHub security/quality alerts are handled on `staging` first, then promoted to `main` only after operator review.

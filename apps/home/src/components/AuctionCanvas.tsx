@@ -168,8 +168,6 @@ type MintReviewQuote = {
   requiresApproval: boolean;
 };
 
-type MintProofSourceStatus = "indexing" | "ready" | "unavailable";
-
 type MintProofReceipt = {
   tokenId: number;
   epoch: number;
@@ -178,8 +176,6 @@ type MintProofReceipt = {
   priceLabel: string;
   txHash: string;
   blockNumber: number | null;
-  sourceUrl: string;
-  sourceStatus: MintProofSourceStatus;
 };
 
 type StoredMintProofReceipt = {
@@ -191,15 +187,9 @@ type StoredMintProofReceipt = {
   priceLabel: string;
   txHash: string;
   blockNumber: number | null;
-  sourceUrl: string;
-  sourceStatus: MintProofSourceStatus;
 };
 
 const PATH_MINT_PROOF_STORAGE_KEY = "inshell.pathMintProof.v1";
-
-function isMintProofSourceStatus(value: unknown): value is MintProofSourceStatus {
-  return value === "indexing" || value === "ready" || value === "unavailable";
-}
 
 function serializeMintProof(proof: MintProofReceipt): StoredMintProofReceipt {
   return {
@@ -211,8 +201,6 @@ function serializeMintProof(proof: MintProofReceipt): StoredMintProofReceipt {
     priceLabel: proof.priceLabel,
     txHash: proof.txHash,
     blockNumber: proof.blockNumber,
-    sourceUrl: proof.sourceUrl,
-    sourceStatus: proof.sourceStatus,
   };
 }
 
@@ -226,8 +214,6 @@ function parseStoredMintProof(raw: string | null): MintProofReceipt | null {
     if (!Number.isFinite(epoch) || epoch <= 0) return null;
     if (typeof parsed.owner !== "string" || !parsed.owner.trim()) return null;
     if (typeof parsed.txHash !== "string" || !parsed.txHash.trim()) return null;
-    if (typeof parsed.sourceUrl !== "string" || !parsed.sourceUrl.trim()) return null;
-    if (!isMintProofSourceStatus(parsed.sourceStatus)) return null;
     const price =
       typeof parsed.priceDec === "string" && parsed.priceDec.trim()
         ? toU256Num(readU256(parsed.priceDec))
@@ -246,8 +232,6 @@ function parseStoredMintProof(raw: string | null): MintProofReceipt | null {
         typeof parsed.blockNumber === "number" && Number.isFinite(parsed.blockNumber)
           ? parsed.blockNumber
           : null,
-      sourceUrl: parsed.sourceUrl,
-      sourceStatus: parsed.sourceStatus,
     };
   } catch {
     return null;
@@ -904,31 +888,6 @@ function resolveExplorerBase(): string | null {
 function resolveExplorerTxUrl(hash: string): string | null {
   const base = resolveExplorerBase();
   return base ? `${base.replace(/\/$/, "")}/tx/${hash}` : null;
-}
-
-function resolvePublicFeedSourceBaseUrl(): string {
-  const direct = getEnvValue("VITE_PUBLIC_FEED_SOURCE_BASE_URL");
-  if (typeof direct === "string" && /^https:\/\//i.test(direct.trim())) {
-    return direct.trim().replace(/\/$/, "");
-  }
-  return "https://inshell-public-feed.pages.dev/source";
-}
-
-function buildPathMintSourceUrl(txHash: string, network = "sepolia"): string {
-  const base = resolvePublicFeedSourceBaseUrl();
-  const normalizedNetwork = String(network || "sepolia").toLowerCase();
-  const eventId = `${normalizedNetwork}_3Apath.minted_3A${txHash}`;
-  return `${base}/${normalizedNetwork}/path.minted/${eventId}`;
-}
-
-async function sourcePageExists(url: string): Promise<boolean> {
-  if (typeof fetch !== "function") return false;
-  try {
-    const response = await fetch(url, { method: "HEAD", cache: "no-store" });
-    return response.ok;
-  } catch {
-    return false;
-  }
 }
 
 function findInjectedWallet(): { request?: (...args: any[]) => Promise<any> } | null {
@@ -3632,10 +3591,6 @@ export default function AuctionCanvas({
       priceLabel: price ? formatTokenAmount(price, decimals) : "—",
       txHash: pendingMint.txHash,
       blockNumber: proofBid?.blockNumber ?? null,
-      sourceUrl: localAnvil
-        ? new URL(`/path/${tokenId}`, window.location.origin).toString()
-        : buildPathMintSourceUrl(pendingMint.txHash, network ?? "sepolia"),
-      sourceStatus: localAnvil ? "ready" : "indexing",
     });
     updatePathMintReturnTokenId(pendingMint.txHash, tokenId);
     queueToast({ kind: "info", text: `$PATH #${tokenId} minted.` });
@@ -3648,8 +3603,6 @@ export default function AuctionCanvas({
     bids,
     maxTokenId,
     decimals,
-    network,
-    localAnvil,
     queueToast,
     pullBidsOnce,
     refreshCore,
@@ -3659,23 +3612,6 @@ export default function AuctionCanvas({
 
   useEffect(() => {
     if (mintProof) writeStoredMintProof(mintProof);
-  }, [mintProof]);
-
-  useEffect(() => {
-    if (!mintProof || mintProof.sourceStatus !== "indexing" || isTestRuntime()) {
-      return;
-    }
-    const id = window.setTimeout(() => {
-      void sourcePageExists(mintProof.sourceUrl).then((exists) => {
-        if (!exists) return;
-        setMintProof((current) =>
-          current?.txHash === mintProof.txHash
-            ? { ...current, sourceStatus: "ready" }
-            : current
-        );
-      });
-    }, 4_000);
-    return () => window.clearTimeout(id);
   }, [mintProof]);
 
   useEffect(() => {
@@ -4377,20 +4313,6 @@ export default function AuctionCanvas({
   const handleLeaveMintProofPanel = useCallback(() => {
     if (mintProof) writeStoredMintProof(mintProof);
   }, [mintProof]);
-  const handleRetryMintProofSource = useCallback(async () => {
-    if (!mintProof) return;
-    setMintProof((current) =>
-      current?.txHash === mintProof.txHash
-        ? { ...current, sourceStatus: "indexing" }
-        : current
-    );
-    const exists = await sourcePageExists(mintProof.sourceUrl);
-    setMintProof((current) =>
-      current?.txHash === mintProof.txHash
-        ? { ...current, sourceStatus: exists ? "ready" : "unavailable" }
-        : current
-    );
-  }, [mintProof]);
   const handleCopyMintProof = useCallback(async () => {
     if (!mintProof) return;
     const chainIdNumber =
@@ -4413,7 +4335,6 @@ export default function AuctionCanvas({
         { contract: "PathPulseAdapter", event: "EpochMinted" },
         { contract: "PathNFT", event: "Transfer" },
       ],
-      sourceUrl: mintProof.sourceUrl,
       explorerUrl: resolveExplorerTxUrl(mintProof.txHash),
     };
     try {
@@ -7149,16 +7070,6 @@ export default function AuctionCanvas({
             <span>confirmed</span>
             <strong>{resolveExplorerTxUrl(mintProof.txHash) ? "explorer ready" : "local receipt ready"}</strong>
           </div>
-          <div className="dotfield__mint-proof-status">
-            <span>indexed</span>
-            <strong>
-              {mintProof.sourceStatus === "ready"
-                ? "source ready"
-                : mintProof.sourceStatus === "unavailable"
-                  ? "source unavailable"
-                  : "source indexing..."}
-            </strong>
-          </div>
           <div className="dotfield__mint-proof-actions">
             <a
               href={`/path/${mintProof.tokenId}`}
@@ -7167,26 +7078,6 @@ export default function AuctionCanvas({
             >
               view PATH
             </a>
-            {mintProof.sourceStatus === "ready" ? (
-              <a
-                href={mintProof.sourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                source ↗
-              </a>
-            ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  void handleRetryMintProofSource();
-                }}
-              >
-                {mintProof.sourceStatus === "unavailable"
-                  ? "retry source"
-                  : "source indexing"}
-              </button>
-            )}
             {resolveExplorerTxUrl(mintProof.txHash) ? (
               <a
                 href={resolveExplorerTxUrl(mintProof.txHash) ?? undefined}

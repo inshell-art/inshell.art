@@ -1975,6 +1975,7 @@ describe("chain cache Pages functions", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(payload.routes?.event?.route).toBe("/api/indexer/event");
+    expect(payload.routes).not.toHaveProperty("publicFeed");
     expect(payload.ok).toBe(true);
     expect(payload.contract.version).toBe(2);
     expect(payload.deploymentLock).toMatchObject({
