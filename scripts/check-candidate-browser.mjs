@@ -2,10 +2,12 @@
 // Real local-browser acceptance for the composed Studio Preview build.
 // External requests are blocked; this is not a hosted Agent/wallet canary.
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
+import { RETIRED_PUB_SMOKE_PATHS, RETIRED_FEED_SMOKE_PATHS, validateRetiredRouteResponse } from "./smoke-cloudflare-api-routes.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const base = new URL(process.env.CANDIDATE_BASE_URL || "http://127.0.0.1:4175");
@@ -15,10 +17,22 @@ const output = path.join(root, "tmp/candidate-browser");
 await mkdir(output, { recursive: true });
 const metadata = JSON.parse(await readFile(path.join(root,
   "packages/shared/generated/docs-route-metadata.json"), "utf8"));
-const browser = await chromium.launch({ channel: "chrome", headless: true });
+// macOS review must use the regular Chrome app, never Beta or a profile fallback.
+if (process.platform === "darwin") {
+  assert.equal(execFileSync("/usr/libexec/PlistBuddy", ["-c", "Print :CFBundleIdentifier",
+    "/Applications/Google Chrome.app/Contents/Info.plist"], { encoding: "utf8" }).trim(), "com.google.Chrome");
+}
+const browser = await chromium.launch({ headless: true, ...(process.platform === "darwin"
+  ? { executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" }
+  : { channel: "chrome" }) });
 const results = [];
 const coverage = new Map();
 const failures = [];
+const requests = [];
+const capabilityResponses = [];
+const disabledCapabilityRequests = new WeakSet();
+const capabilityBodyCancellations = [];
+const localCapabilitiesPath = "/api/thought-plain/v1/capabilities";
 let active = "";
 const recordFailure = (kind, detail) => failures.push({ check: active, kind, detail });
 
@@ -35,6 +49,11 @@ async function check(name, body) {
 }
 
 try {
+  await check("HTTP local capabilities remain disabled", async () => {
+    const response = await fetch(new URL(localCapabilitiesPath, base), { redirect: "manual" });
+    assert.equal(response.status, 404);
+    assert.deepEqual(await response.json(), { code: "NOT_FOUND" });
+  });
   for (const [label, viewport] of [
     ["desktop", { width: 1440, height: 900 }],
     ["mobile", { width: 390, height: 844 }],
@@ -53,12 +72,17 @@ try {
     });
     await context.route("**/*", async (route) => {
       const requestUrl = new URL(route.request().url());
+      requests.push({ origin: requestUrl.origin, path: requestUrl.pathname, method: route.request().method() });
       if (["data:", "blob:"].includes(requestUrl.protocol)) return route.continue();
       if (requestUrl.origin !== base.origin) {
         recordFailure("external-request", requestUrl.origin + requestUrl.pathname);
         return route.abort("blockedbyclient");
       }
       if (requestUrl.pathname.startsWith("/api/")) {
+        // The App probes availability on entry. This credential-free preview
+        // keeps the endpoint disabled; validate its real response below.
+        if (requestUrl.pathname === localCapabilitiesPath && !requestUrl.search
+          && route.request().method() === "GET") return route.continue();
         recordFailure("unexpected-api-request", requestUrl.pathname);
         return route.abort("blockedbyclient");
       }
@@ -68,9 +92,27 @@ try {
     page.setDefaultTimeout(7000);
     page.setDefaultNavigationTimeout(12000);
     page.on("pageerror", (error) => recordFailure("page-error", error.message));
-    page.on("requestfailed", (request) => recordFailure("failed-request",
-      request.url() + " " + request.failure()?.errorText));
+    page.on("requestfailed", (request) => {
+      // PlainClient throws on non-OK headers without consuming the body; its
+      // existing eight-second signal later cancels that unread 404 response.
+      // Record only this proven case separately, never a missing/failed response.
+      if (disabledCapabilityRequests.has(request) && request.failure()?.errorText === "net::ERR_ABORTED") {
+        capabilityBodyCancellations.push({ path: localCapabilitiesPath, status: 404,
+          reason: "unread disabled response cancelled by existing client timeout" });
+        return;
+      }
+      recordFailure("failed-request", request.url() + " " + request.failure()?.errorText);
+    });
     page.on("response", (response) => {
+      const url = new URL(response.url());
+      if (url.origin === base.origin && url.pathname === localCapabilitiesPath
+        && !url.search && response.request().method() === "GET") {
+        capabilityResponses.push({ status: response.status(), contentType: response.headers()["content-type"] });
+        if (response.status() === 404 && response.headers()["content-type"]?.startsWith("application/json")) {
+          disabledCapabilityRequests.add(response.request());
+        } else recordFailure("local-capabilities", "expected disabled JSON 404 response");
+        return;
+      }
       if (response.status() >= 400) recordFailure("http-error", response.status() + " " + response.url());
     });
 
@@ -90,6 +132,10 @@ try {
       for (const link of links) {
         if (!link.href || link.href === "#" || !/^https?:/.test(link.resolved)) continue;
         const target = new URL(link.resolved);
+        assert.ok(![...RETIRED_PUB_SMOKE_PATHS, ...RETIRED_FEED_SMOKE_PATHS].includes(target.pathname),
+          "visible link advertises a retired public route");
+        assert.ok(!/(?:^|\.)inshell-(?:pub|public-feed)\.pages\.dev$/.test(target.hostname),
+          "visible link advertises a retired upstream");
         if (target.origin === base.origin) coverage.set(target.pathname + target.search + target.hash, link.text);
         if (["thought.inshell.art", "gallery.inshell.art",
           "thought.preview.inshell.art", "gallery.preview.inshell.art"].includes(target.hostname)) {
@@ -246,17 +292,28 @@ try {
       assert.ok(!(await response.text()).includes('<div id="root">'), "404 must not load Home");
     });
   }
+  for (const retired of [...RETIRED_PUB_SMOKE_PATHS, ...RETIRED_FEED_SMOKE_PATHS]) {
+    for (const method of ["GET", "HEAD"]) {
+      await check("HTTP retired path " + method + " " + retired, async () => {
+        const response = await fetch(new URL(retired, base), { method, redirect: "manual" });
+        const text = await response.text();
+        validateRetiredRouteResponse(retired, response, text);
+        if (method === "HEAD") assert.equal(text, "");
+      });
+    }
+  }
 } finally {
   await browser.close();
   const report = {
     scope: "Local composed Studio Preview: real browser navigation, route matrix, guidance controls, responsive geometry",
     baseUrl: base.href,
-    results, failures,
+    results, failures, requests, capabilityResponses, capabilityBodyCancellations,
     discoveredLocalLinks: [...coverage].map(([url, text]) => ({ url, text })),
     limitations: [
       "No hosted deployment or production-host routing attestation",
       "No real Agent session, wallet, transaction, RPC or contract interaction",
-      "External/API requests are blocked and recorded as failures, not simulated successes",
+      "External and all other API requests are blocked and recorded as failures, not simulated successes",
+      "Only the local GET capabilities probe is allowed: full JSON 404/NOT_FOUND is checked directly, browser 404 headers are checked, and the existing client's unread-body timeout cancellations are reported separately; this does not qualify a hosted Agent integration",
       "Screenshots require separate visual inspection",
     ],
   };

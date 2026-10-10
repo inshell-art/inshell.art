@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "12f0cea1e983bb45b95b627778ad5a044f5e10745055e9b5be96bd572a993b40",
+  "sourceTreeSha256": "50ca118e542a10571959489de1be9af6f75155adc726f6935a0bc263db3006ad",
   "groups": [
     {
       "id": "public-docs",
@@ -67,12 +67,12 @@
       "title": "Home, $PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "2301d904062118ecc059bdf47e0255d17e975591b600da34a8fa781dd6df8633",
+      "groupSha256": "dd908749ca1c91968bb7807d5f81d6905baf3d61885e7b699c45de3ad4edfdfb",
       "files": [
         {
           "path": "apps/home/index.html",
-          "byteLength": 2138,
-          "sha256": "e6b3a8fe97d0d977852c11b52c46a03610014ce220e4e8f47c6b89341b127d6e"
+          "byteLength": 2011,
+          "sha256": "bdb517a748a5c2e9f486caae938f940cc07e8516c652844f77cca9409d6e86fc"
         },
         {
           "path": "apps/home/package.json",
@@ -101,8 +101,8 @@
         },
         {
           "path": "apps/home/src/components/AuctionCanvas.tsx",
-          "byteLength": 272385,
-          "sha256": "7d41dc53e5131b799e4b9a15ebf42f9cf54bf0e3c3331ef106dffba66cb2c8b1"
+          "byteLength": 268544,
+          "sha256": "0830636868a697799533eb6554e6ed3a4337b1c34d3d544370ea0da785f48ca7"
         },
         {
           "path": "apps/home/src/components/ColorFontPage.tsx",
@@ -131,8 +131,8 @@
         },
         {
           "path": "apps/home/src/components/Footer/Footer.tsx",
-          "byteLength": 6233,
-          "sha256": "5cda8f06d338a87e429ad8ad50545472855a996656839c8f361624befc1d32bd"
+          "byteLength": 5571,
+          "sha256": "96b50d77e9d368ef8c869328a37a00d004d6963d6ae3c19a70246cfc650bb349"
         },
         {
           "path": "apps/home/src/components/HeaderWalletCTA.tsx",
@@ -336,7 +336,7 @@
       "title": "Public routes and read-only resource contracts",
       "owner": "inshell.art shared App infrastructure",
       "reason": "The Agent index advertises these routes and their read-only semantics.",
-      "groupSha256": "e252141c77f2424e159578bdc8b7cdb6c90d702f36353e6fb570860f02fb3db6",
+      "groupSha256": "3e69ee5c332bf0f7488f3c83500a139d8631d92cc3807786744ea009ab30bdbe",
       "files": [
         {
           "path": "apps/home/public/_headers",
@@ -345,8 +345,8 @@
         },
         {
           "path": "functions/_middleware.ts",
-          "byteLength": 31942,
-          "sha256": "548c601d5fbc17d047d5e2731ca4f88e56af0e17ebec76a8080207d374372ae2"
+          "byteLength": 23806,
+          "sha256": "56f882c89d6a179472d8d60c43123b5fade13de02b870f6e9dbe214d94b252c8"
         },
         {
           "path": "functions/api/analytics/event.ts",
@@ -400,8 +400,8 @@
         },
         {
           "path": "functions/api/ops/status.ts",
-          "byteLength": 11288,
-          "sha256": "6c2bdb3a4b9201ba00e98ccab03a50d84e4f21ba1bf02afcfac93143ab6b1b99"
+          "byteLength": 11147,
+          "sha256": "9afb8c79807c902f30e70b3a42345f119e99ea2699a5337d1d0e889e01084bbc"
         },
         {
           "path": "functions/api/path-record.ts",
@@ -605,7 +605,7 @@
       "title": "Documentation gates",
       "owner": "inshell.art repository automation",
       "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
-      "groupSha256": "808921a7bee66796b995e18fe3179aafcb529818d8e9ab56ece4e34959cd531b",
+      "groupSha256": "e63539d49dc3a57b3f7719383153f60fef3df4af91e35d401651c5be28ed3f37",
       "files": [
         {
           "path": ".github/workflows/deploy-pages.yml",
@@ -634,8 +634,8 @@
         },
         {
           "path": "package.json",
-          "byteLength": 14087,
-          "sha256": "f74845e8e7ed04793a6ce169263baa3984e1ad15e1f65d2564a979b2f5419b0c"
+          "byteLength": 14123,
+          "sha256": "07c30edb80795e6b22d70f57f3d35abee3e81ef2efa33493890c3de370796657"
         },
         {
           "path": "scripts/check-dependency-security.mjs",
@@ -1084,7 +1084,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "1acb905047d5fab1edcb8521008e183bdc99dbe03dbab9d4d8f2b498c4fa1c4b",
+      "groupSha256": "e3ea7151db0368b1526330714033b03a6937ce203d09e9799d5036804d18aa9d",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1438,8 +1438,8 @@
         },
         {
           "path": "docs/DEPLOYMENT_LOCK_RUNBOOK.md",
-          "byteLength": 16748,
-          "sha256": "5b360de8019278970355caf164e0e89d777cebb287593192750f72fa05f3d98e"
+          "byteLength": 16906,
+          "sha256": "9f5589f1b58397bb7fbff08765fdeb3c2661945c5127dccf2acd360dfb8684a5"
         },
         {
           "path": "scripts/deployment-lock-evidence.ts",

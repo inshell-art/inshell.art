@@ -4431,15 +4431,19 @@ describe("AuctionCanvas", () => {
       "href",
       expect.stringContaining("/tx/0xmint")
     );
-    expect(proofScope.getByText("source indexing...")).toBeTruthy();
+    expect(proofScope.queryByRole("link", { name: /source/i })).toBeNull();
+    expect(proofScope.queryByRole("button", { name: /source/i })).toBeNull();
+    expect(proofScope.queryByText(/source (?:indexing|ready|unavailable)/i)).toBeNull();
     expect(proof).toHaveTextContent("PulseAuction.Sale");
     expect(proof).toHaveTextContent("PathPulseAdapter.EpochMinted");
     expect(proof).toHaveTextContent("PathNFT.Transfer");
     expect(proofScope.getByRole("button", { name: "copy proof JSON" })).toBeTruthy();
-    expect(
-      JSON.parse(window.localStorage.getItem("inshell.pathMintProof.v1") ?? "{}")
-        .tokenId
-    ).toBe(5);
+    const storedProof = JSON.parse(
+      window.localStorage.getItem("inshell.pathMintProof.v1") ?? "{}"
+    );
+    expect(storedProof.tokenId).toBe(5);
+    expect(storedProof).not.toHaveProperty("sourceUrl");
+    expect(storedProof).not.toHaveProperty("sourceStatus");
     jest.useRealTimers();
   });
 
@@ -4455,8 +4459,6 @@ describe("AuctionCanvas", () => {
         priceLabel: "0.4",
         txHash: "0xstoredmint",
         blockNumber: 123,
-        sourceUrl: "https://inshell-public-feed.pages.dev/source/sepolia/path.minted/example",
-        sourceStatus: "ready",
       })
     );
 
@@ -4481,6 +4483,96 @@ describe("AuctionCanvas", () => {
     expect(screen.queryByText("$path minted")).toBeNull();
     expect(window.localStorage.getItem("inshell.pathMintProof.v1")).toBeNull();
   });
+
+  test.each(["indexing", "ready", "unavailable"])(
+    "restores a legacy %s mint proof without requesting or exposing the retired feed",
+    async (sourceStatus) => {
+      jest.useFakeTimers();
+      const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValue({
+        ok: true,
+      } as Response);
+      const writeText = jest.fn<(...args: string[]) => Promise<void>>()
+        .mockResolvedValue(undefined);
+      const previousClipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText },
+      });
+      // Exercise the production timer path: the old source HEAD poll was skipped
+      // in NODE_ENV=test and fired four seconds after restoring an indexing proof.
+      (globalThis as any).__VITE_ENV__.NODE_ENV = "production";
+      (globalThis as any).__VITE_ENV__.VITE_PUBLIC_FEED_SOURCE_BASE_URL =
+        "https://retired-preview.inshell-public-feed.pages.dev/source";
+      window.localStorage.setItem(
+        "inshell.pathMintProof.v1",
+        JSON.stringify({
+          version: 1,
+          tokenId: 18,
+          epoch: 18,
+          owner: DEFAULT_WALLET_ADDRESS,
+          priceDec: "400000000000000000",
+          priceLabel: "0.4",
+          txHash: "0xstoredmint",
+          blockNumber: 123,
+          sourceUrl:
+            "https://retired-preview.inshell-public-feed.pages.dev/source/sepolia/path.minted/example",
+          sourceStatus,
+        })
+      );
+      const { container, unmount } = render(
+        <AuctionCanvas address="0xabc" provider={mockProvider as any} />
+      );
+      try {
+        await act(async () => {
+          jest.advanceTimersByTime(5000);
+          await Promise.resolve();
+        });
+        const proof = screen.getByText("$path minted").closest(".dotfield__mint-proof");
+        const proofScope = within(proof as HTMLElement);
+        expect(proofScope.getByRole("link", { name: "view PATH" })).toHaveAttribute(
+          "href", "/path/18"
+        );
+        expect(proofScope.getByRole("link", { name: "explorer ↗" })).toHaveAttribute(
+          "href", "https://sepolia.etherscan.io/tx/0xstoredmint"
+        );
+        expect(proofScope.queryByRole("link", { name: /source/i })).toBeNull();
+        expect(proofScope.queryByRole("button", { name: /source/i })).toBeNull();
+        expect(container.querySelector('a[href*="inshell-public-feed"]')).toBeNull();
+        expect(screen.getByRole("img", { name: "Pulse auction curve" })).toBeTruthy();
+
+        fireEvent.click(proofScope.getByText("proof details"));
+        await act(async () => {
+          fireEvent.click(proofScope.getByRole("button", { name: "copy proof JSON" }));
+        });
+        expect(writeText).toHaveBeenCalledTimes(1);
+        const copiedProof = JSON.parse(writeText.mock.calls[0][0]);
+        expect(copiedProof).toMatchObject({
+          type: "path.minted",
+          pathTokenId: "18",
+          txHash: "0xstoredmint",
+          explorerUrl: "https://sepolia.etherscan.io/tx/0xstoredmint",
+        });
+        expect(copiedProof).not.toHaveProperty("sourceUrl");
+        expect(copiedProof).not.toHaveProperty("sourceStatus");
+        const savedProof = JSON.parse(
+          window.localStorage.getItem("inshell.pathMintProof.v1") ?? "{}"
+        );
+        expect(savedProof.tokenId).toBe(18);
+        expect(savedProof).not.toHaveProperty("sourceUrl");
+        expect(savedProof).not.toHaveProperty("sourceStatus");
+        expect(fetchSpy).not.toHaveBeenCalled();
+      } finally {
+        unmount();
+        fetchSpy.mockRestore();
+        if (previousClipboard) {
+          Object.defineProperty(navigator, "clipboard", previousClipboard);
+        } else {
+          Reflect.deleteProperty(navigator, "clipboard");
+        }
+        jest.useRealTimers();
+      }
+    }
+  );
 
   test("shows inline error when balance is insufficient", async () => {
     const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});

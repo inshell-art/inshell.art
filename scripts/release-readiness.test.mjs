@@ -10,7 +10,7 @@ import { load } from "js-yaml";
 import { checkReleaseEvidence, CODEX57_CARRY_FORWARD, COMPOSITE57, COMPOSITE57_RUNS, EVIDENCE_PATH, QUALIFICATION_FILES, validateReleaseEvidence } from "./check-release-evidence.mjs";
 import { dependencySecurityErrors } from "./check-dependency-security.mjs";
 import { candidatePreviewInvocation } from "./preview-candidate.mjs";
-import { checkHome, checkThought, parseArgs, validateOpsStatus, validateContractArrayResponse, validatePlainCapabilities, validatePreviewAliasRejection } from "./smoke-cloudflare-api-routes.mjs";
+import { checkHome, checkThought, parseArgs, validateOpsStatus, validateContractArrayResponse, validatePlainCapabilities, validatePreviewAliasRejection, RETIRED_FEED_SMOKE_PATHS, RETIRED_PUB_SMOKE_PATHS, validateRetiredRouteResponse } from "./smoke-cloudflare-api-routes.mjs";
 
 const commit = "a".repeat(40);
 const hash = `sha256:${"b".repeat(64)}`;
@@ -94,7 +94,15 @@ test("smoke staging alias proves only exact origin rejection, never canonical av
   for (const status of [200, 302, 401, 404, 500, 503]) assert.throws(() => validatePreviewAliasRejection(status, { code: "ORIGIN_NOT_ALLOWED" }));
   for (const payload of [{ code: "NOT_FOUND" }, { code: "NOT_CONFIGURED" }, { code: "STORE_UNAVAILABLE" }, { code: "ORIGIN_NOT_ALLOWED", enabled: true }, null]) assert.throws(() => validatePreviewAliasRejection(403, payload));
 });
-test("smoke Home and THOUGHT sequences retain PUB/RPC/read-model checks and never create runs", async t => {
+test("smoke retired public routes require a real 404, not a shell, redirect, or upstream failure", () => {
+  assert.doesNotThrow(() => validateRetiredRouteResponse("/source", new Response("Not found.", { status: 404 }), "Not found."));
+  for (const status of [200, 204, 301, 302, 403, 410, 500, 502, 503]) {
+    assert.throws(() => validateRetiredRouteResponse("/source", new Response(null, { status }), ""), /HTTP 404/);
+  }
+  assert.throws(() => validateRetiredRouteResponse("/source", new Response(null, { status: 404, headers: { location: "https://example.invalid" } }), ""), /must not redirect/);
+  assert.throws(() => validateRetiredRouteResponse("/source", new Response(null, { status: 404, headers: { "content-type": "text/html" } }), '<div id="root"></div>'), /app shell/);
+});
+test("smoke Home and THOUGHT sequences retain RPC/read-model checks, prove PUB/feed retirement and never create runs", async t => {
   const calls = [];
   const logs = [];
   t.mock.method(console, "log", line => { logs.push(line); });
@@ -102,6 +110,7 @@ test("smoke Home and THOUGHT sequences retain PUB/RPC/read-model checks and neve
     const u = new URL(url); calls.push({ host: u.host, path: u.pathname, method: init.method });
     assert.equal(init.redirect, "error");
     let payload, status = 200;
+    if ([...RETIRED_PUB_SMOKE_PATHS, ...RETIRED_FEED_SMOKE_PATHS].includes(u.pathname)) return new Response(init.method === "HEAD" ? null : "Not found.", { status: 404 });
     if (u.pathname === "/api/ops/status") payload = smokeStatus();
     else if (u.pathname.endsWith("-rpc")) { assert.equal(JSON.parse(init.body).method, "eth_chainId"); payload = { result: "0xaa36a7" }; }
     else if (u.pathname === "/api/pulse-auction") payload = { bids: [] };
@@ -112,9 +121,7 @@ test("smoke Home and THOUGHT sequences retain PUB/RPC/read-model checks and neve
       if (u.host.includes("thought")) { payload = { code: "NOT_FOUND" }; status = 404; }
       else if (u.host === "staging.inshell-art.pages.dev") { payload = { code: "ORIGIN_NOT_ALLOWED" }; status = 403; }
       else payload = capabilities(u.origin);
-    } else if (u.pathname === "/llms.txt") return new Response("PUB test fixture", { headers: { "content-type": "text/plain" } });
-    else if (u.pathname === "/pub.manifest.json") payload = { schemaVersion: 1, files: [] };
-    else if (u.pathname === "/pub/contract/pub-path-boundary.json") payload = { schemaVersion: 1, origin: "https://inshell.art", owner: "PUB", paths: { exact: [], prefixes: [] } };
+    }
     else assert.fail(`unexpected request ${u.pathname}`);
     return Response.json(payload, { status });
   });
@@ -127,13 +134,17 @@ test("smoke Home and THOUGHT sequences retain PUB/RPC/read-model checks and neve
   assert.equal(calls.filter(c => c.path === "/api/thought-gallery").length, 3);
   assert.equal(calls.filter(c => c.path === "/api/path-rpc").length, 3);
   assert.equal(calls.filter(c => c.path === "/api/thought-rpc").length, 1);
-  assert.equal(calls.filter(c => c.path.startsWith("/pub/")).length, 2);
   assert.equal(calls.filter(c => c.path.endsWith("/capabilities")).length, 3);
   assert.equal(calls.some(c => c.host === "preview.inshell.art"), false);
   assert.equal(logs.filter(line => line.includes("NOT CHECKED preview canonical plain capabilities") && line.includes("OPS authenticated verification")).length, 1);
   assert.equal(calls.some(c => c.path.includes("/runs")), false);
+  for (const path of [...RETIRED_PUB_SMOKE_PATHS, ...RETIRED_FEED_SMOKE_PATHS]) {
+    for (const method of ["GET", "HEAD"]) {
+      assert.equal(calls.filter(c => c.path === path && c.method === method).length, 3, `${method} ${path}`);
+    }
+  }
 });
-for (const failure of ["lock", "PUB", "RPC", "auction", "gallery", "plain-config", "redirect"]) {
+for (const failure of ["lock", "PUB", "feed", "RPC", "auction", "gallery", "plain-config", "redirect"]) {
   test(`smoke full Home sequence blocks ${failure} failure before reporting success`, async t => {
     const timer = globalThis.setTimeout;
     const paths = [], logs = [];
@@ -144,20 +155,19 @@ for (const failure of ["lock", "PUB", "RPC", "auction", "gallery", "plain-config
       paths.push(path);
       assert.equal(init.redirect, "error");
       if (failure === "redirect") throw new Error("redirect rejected");
+      if (RETIRED_FEED_SMOKE_PATHS.includes(path)) return new Response(null, { status: failure === "feed" ? 200 : 404 });
+      if (RETIRED_PUB_SMOKE_PATHS.includes(path)) return new Response(null, { status: failure === "PUB" ? 200 : 404 });
       if (path === "/api/ops/status") {
         const value = smokeStatus(); if (failure === "lock") value.deploymentLock.integrity = "drift";
         return Response.json(value);
       }
-      if (path === "/llms.txt") return new Response(failure === "PUB" ? '<div id="root"></div>' : "PUB", { headers: { "content-type": failure === "PUB" ? "text/html" : "text/plain" } });
-      if (path === "/pub.manifest.json") return Response.json({ schemaVersion: 1, files: [] });
-      if (path === "/pub/contract/pub-path-boundary.json") return Response.json({ schemaVersion: 1, origin: "https://inshell.art", owner: "PUB", paths: { exact: [], prefixes: [] } });
       if (path === "/api/path-rpc") return Response.json({ result: failure === "RPC" ? "0x1" : "0xaa36a7" });
       if (path === "/api/pulse-auction") return Response.json(failure === "auction" ? {} : { bids: [] });
       if (path === "/api/thought-gallery") return Response.json(failure === "gallery" ? { code: "OTHER" } : inactiveGallery, { status: 503 });
       if (path === "/api/thought-plain/v1/capabilities") return Response.json({ code: "STORE_UNAVAILABLE" }, { status: 503 });
       assert.fail(`unexpected request ${path}`);
     });
-    const reason = { lock: /reference/, PUB: /DEV app shell/, RPC: /chain id/, auction: /array field/, gallery: /exact inactive/, "plain-config": /capabilities/, redirect: /redirect/ }[failure];
+    const reason = { lock: /reference/, PUB: /HTTP 404/, feed: /HTTP 404/, RPC: /chain id/, auction: /array field/, gallery: /exact inactive/, "plain-config": /capabilities/, redirect: /redirect/ }[failure];
     await assert.rejects(checkHome("https://inshell.art"), reason);
     assert.equal(paths[0], "/api/ops/status");
     if (failure === "lock" || failure === "redirect") {
