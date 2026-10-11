@@ -85,11 +85,16 @@ function curlArguments(task: string): string[] {
 // Test-only invocation of the handoff's arguments, not a second delivery client.
 function nativeCurl(task: string, body: string, curlHome?: string, shellCommand = false) {
   assert.ok(task.includes("append --data-raw followed by the exact artwork line as ONE literal argument"));
-  const args = [...curlArguments(task), "--data-raw", body];
+  const args = curlArguments(task);
   // Exercise both argument-array tools and the handoff's POSIX-shell quoting recipe.
   const quote = (arg: string) => "'" + arg.replaceAll("'", "'\"'\"'") + "'";
+  // Server-produced URL/header values stay in argv, never in shell source.
+  // Only the test's locally authored artwork fixture exercises literal quoting.
+  const invocation = shellCommand
+    ? ["-c", 'exec /usr/bin/curl "$@" --data-raw ' + quote(body), "thought-curl-test", ...args]
+    : [...args, "--data-raw", body];
   return new Promise<{ exit: number | null; stdout: string }>((resolve, reject) => {
-    const child = spawn(shellCommand ? "/bin/sh" : "/usr/bin/curl", shellCommand ? ["-c", ["/usr/bin/curl", ...args].map(quote).join(" ")] : args, {
+    const child = spawn(shellCommand ? "/bin/sh" : "/usr/bin/curl", invocation, {
       shell: false,
       env: { ...process.env, ...(curlHome ? { CURL_HOME: curlHome } : {}), NO_PROXY: "127.0.0.1", no_proxy: "127.0.0.1" },
       stdio: ["ignore", "pipe", "pipe"], // EOF from launch: no later stdin write is possible.
