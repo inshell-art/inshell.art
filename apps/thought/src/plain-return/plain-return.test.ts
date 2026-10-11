@@ -84,19 +84,18 @@ function curlArguments(task: string): string[] {
 }
 // Test-only invocation of the handoff's arguments, not a second delivery client.
 function nativeCurl(task: string, body: string, curlHome?: string) {
+  assert.ok(task.includes("append --data-raw followed by the exact artwork line as ONE literal argument"));
   return new Promise<{ exit: number | null; stdout: string }>((resolve, reject) => {
-    const child = spawn("/usr/bin/curl", curlArguments(task), {
+    const child = spawn("/usr/bin/curl", [...curlArguments(task), "--data-raw", body], {
       shell: false,
       env: { ...process.env, ...(curlHome ? { CURL_HOME: curlHome } : {}), NO_PROXY: "127.0.0.1", no_proxy: "127.0.0.1" },
-      stdio: ["pipe", "pipe", "pipe"],
+      stdio: ["ignore", "pipe", "pipe"], // EOF from launch: no later stdin write is possible.
     });
     let stdout = "";
     child.stdout.setEncoding("utf8").on("data", chunk => { stdout += chunk; });
     child.stderr.resume(); // No capability-bearing diagnostics in test output.
     child.on("error", reject);
     child.on("close", exit => resolve({ exit, stdout }));
-    child.stdin.on("error", reject);
-    child.stdin.end(Buffer.from(body, "utf8"));
   });
 }
 function verifiedCurlAck(result: Awaited<ReturnType<typeof nativeCurl>>, runId: string, line: string) {
@@ -110,8 +109,9 @@ function verifiedCurlAck(result: Awaited<ReturnType<typeof nativeCurl>>, runId: 
 test("both launch paths retain the shared native-curl-only handoff and frozen creative brief", async () => {
   const task = handoff("plain_test0001", "Hello?", origin, "a".repeat(43), Date.now()).text;
   const args = curlArguments(task);
-  assert.deepEqual(args.slice(0, -6), ["-q", "--silent", "--show-error", "--request", "POST", "--no-location", "--max-redirs", "0", "--retry", "0", "--connect-timeout", "10", "--max-time", "30", "--data-binary", "@-", "--write-out", "\\n%{http_code}"]);
-  for (const text of ["already installed native curl executable", "not a shell alias or wrapper", "do not override User-Agent", "No Python urllib, requests, fetch or other HTTP transport fallback", "stop before submission", "normal host approval", "Keep -q as the first argument", "do not interpolate artwork into shell code or use echo", "must not perform HTTP itself", "do not regenerate or automatically resend", "identical original bytes", "safe error code"]) assert.ok(task.includes(text), text);
+  assert.deepEqual(args.slice(0, -6), ["-q", "--silent", "--show-error", "--request", "POST", "--no-location", "--max-redirs", "0", "--retry", "0", "--connect-timeout", "10", "--max-time", "30", "--write-out", "\\n%{http_code}"]);
+  for (const text of ["already installed native curl executable", "not a shell alias or wrapper", "do not override User-Agent", "No Python urllib, requests, fetch or other HTTP transport fallback", "stop before submission", "normal host approval", "Keep -q as the first argument", "Do not use unquoted interpolation or echo", "must not perform HTTP itself", "do not regenerate or automatically resend", "identical original bytes", "safe error code"]) assert.ok(task.includes(text), text);
+  for (const text of ["ONE literal argument in the SAME invocation", "present, nonempty and satisfies the creative brief", "stop without a POST or replacement artwork", "Never use --data-binary @-", "a later write_stdin call", "single-quote each literal argument", "encode each embedded apostrophe as '\"'\"'"]) assert.ok(task.includes(text), text);
   assert.ok(task.includes(createBrief("plain_test0001", "Hello?").text));
   assert.equal(task.split("Authorization: Bearer").length, 2, "Capability is not duplicated into a generated client");
   // The UI uses the identical server handoff for both installed-app launch URLs.
@@ -132,6 +132,46 @@ test("both launch paths retain the shared native-curl-only handoff and frozen cr
       "Do not probe connectivity with the capability or add a handshake",
     ]) assert.ok(permission.includes(requirement), `${prefix}: ${requirement}`);
   }
+});
+test("handoff body argument preserves all allowed punctuation with closed stdin, direct and shell execution", async () => {
+  const bodies: Buffer[] = [];
+  const runId = "plain_closedstdin01";
+  const server = createServer(async (req, res) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) chunks.push(Buffer.from(chunk));
+    const body = Buffer.concat(chunks); bodies.push(body);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ schema: ACK_SCHEMA, runId, state: "returned", agentLine: body.toString("utf8") }));
+  });
+  await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address(); assert.ok(address && typeof address !== "string");
+  const task = handoff(runId, "Silver tide", `http://127.0.0.1:${address.port}`, "a".repeat(43), Date.now() + 60000).text;
+  // Shell quoting is exercised only with locally generated fixtures, never an
+  // API response. API-produced handoffs above always execute curl directly.
+  const shellFixture = (line: string) => new Promise<{ exit: number | null; stdout: string }>((resolve, reject) => {
+    const quote = (arg: string) => "'" + arg.replaceAll("'", "'\"'\"'") + "'";
+    const command = ["/usr/bin/curl", ...curlArguments(task), "--data-raw", line].map(quote).join(" ");
+    const child = spawn("/bin/sh", ["-c", command], {
+      shell: false, stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, NO_PROXY: "127.0.0.1", no_proxy: "127.0.0.1" },
+    });
+    let stdout = "";
+    child.stdout.setEncoding("utf8").on("data", chunk => { stdout += chunk; });
+    child.stderr.resume();
+    child.on("error", reject);
+    child.on("close", exit => resolve({ exit, stdout }));
+  });
+  try {
+    for (const shellCommand of [false, true]) {
+      for (const line of ["Silver tide.", `"One's: (two), three!?;-/&"`, "'", "-q", "a".repeat(64)]) {
+        makeWork(runId, "Silver tide", line, new Date().toISOString());
+        const before = bodies.length;
+        verifiedCurlAck(await (shellCommand ? shellFixture(line) : nativeCurl(task, line)), runId, line);
+        assert.equal(bodies.length, before + 1);
+        assert.deepEqual(bodies.at(-1), Buffer.from(line, "utf8"));
+      }
+    }
+  } finally { await new Promise<void>(resolve => server.close(() => resolve())); }
 });
 test("native curl ignores config redirects/retries/extra destinations; ACK and uncertain boundaries stay strict", async () => {
   const dir = await mkdtemp(path.join(tmpdir(), "thought-curl-config-test-"));
@@ -200,7 +240,12 @@ for (const [label, body, headers] of [
     const s = setup();
     try {
       const run = await s.create();
-      assert.ok((await s.submit(run, body, headers)).status >= 400);
+      const rejection = await s.submit(run, body, headers);
+      assert.ok(rejection.status >= 400);
+      if (label === "empty") {
+        assert.equal(rejection.status, 422);
+        assert.deepEqual(await rejection.json(), { code: "ARTWORK_INVALID" });
+      }
       assert.equal((await s.submit(run, "One.")).status, 422);
       const status = await (await s.status(run)).json();
       assert.equal(status.state, "rejected"); assert.equal(status.work, null);

@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "2dc9e72bb313e68851605c013a3449ec371b14e23df1112a7e29d2ccc5006394",
+  "sourceTreeSha256": "14625366d5bdbafef8313cb118b33aaa741fa998ccf4ad373c5f77659487e47e",
   "groups": [
     {
       "id": "public-docs",
@@ -1084,7 +1084,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "e3ea7151db0368b1526330714033b03a6937ce203d09e9799d5036804d18aa9d",
+      "groupSha256": "463b24576b8597c28f20b1583cbffef653eb4a945d7adb4e7485891f2a0debb0",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1183,8 +1183,8 @@
         },
         {
           "path": "apps/thought/src/plain-return/model.ts",
-          "byteLength": 8570,
-          "sha256": "1685fbadbf4c317ccdfbfd749bb6372c91ace20a5eabb7ee04839d644882bd12"
+          "byteLength": 9344,
+          "sha256": "f0033a97737b6136e5dcae00822169855414367929a93e4aa52861739c2d0d5b"
         },
         {
           "path": "apps/thought/src/plain-return/tsconfig.json",
