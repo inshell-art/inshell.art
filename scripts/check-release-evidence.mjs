@@ -8,8 +8,11 @@ import { fileURLToPath } from "node:url";
 export const EVIDENCE_PATH = "release-evidence/thought-canaries.json";
 const sha = /^[a-f0-9]{40}$/;
 const digest = /^sha256:[a-f0-9]{64}$/;
-const requiredCells = ["mac-a/codex", "mac-a/claude"];
-const allowedCells = [...requiredCells, "mac-b/codex", "mac-b/claude"];
+// Operator-confirmed current qualification host, 2026-10-10. Never relabel
+// historical Mac A runs as Mac B. Both Agents on Mac B are required now.
+const requiredCells = ["mac-b/codex", "mac-b/claude"];
+const historicalRequiredCells = ["mac-a/codex", "mac-a/claude"];
+const allowedCells = [...requiredCells, ...historicalRequiredCells];
 const text = (value) => typeof value === "string" && value.trim().length > 0;
 const date = (value) => typeof value === "string" && Number.isFinite(Date.parse(value));
 const cellFields = new Set(["machine", "agent", "testedCommit", "mode", "execution", "surface", "state", "runId", "taskSha256", "receiptSha256", "agentLineSha256", "osVersion", "appVersion", "browserVersion", "metadataSource", "model", "launchObserved", "previewObserved", "completedAt", "origin"]);
@@ -101,6 +104,9 @@ function exactCompositeCell(evidence, cell) {
 export function validateReleaseEvidence(evidence, now = Date.now()) {
   const errors = [];
   if (!evidence || typeof evidence !== "object") return ["Release evidence is missing."];
+  // Preserve only the already-pinned historical exception under its original
+  // machine identities. It cannot qualify a different candidate or Git delta.
+  const required = exactCarryForward(evidence) ? historicalRequiredCells : requiredCells;
   if (Object.keys(evidence).some((key) => !["schema", "candidateCommit", "reviewedBy", "reviewedAt", "cells", "carryForward", "composite"].includes(key))) errors.push("Unexpected evidence fields; do not include raw sessions or credentials.");
   if (Object.hasOwn(evidence, "composite") && !exactComposite(evidence)) errors.push("Composite qualification must bind the exact reviewed candidate, handoff and separate UI proof.");
   if (Object.hasOwn(evidence, "carryForward") && !exactCarryForward(evidence)) errors.push("Carry-forward must bind the exact reviewed Codex-57 base, candidate, diff and qualification bytes.");
@@ -136,7 +142,7 @@ export function validateReleaseEvidence(evidence, now = Date.now()) {
     const carried = plain && exactCarryForward(evidence) && machineAgent === "mac-a/codex" &&
       cell.runId === codex57Run && cell.testedCommit === CODEX57_CARRY_FORWARD.baseCommit;
     const composite = plain && exactCompositeCell(evidence, cell);
-    if (evidence.composite && requiredCells.includes(machineAgent) && !composite) errors.push(`${key}: preserve exact composite run evidence and explicit historical unknowns.`);
+    if (evidence.composite && historicalRequiredCells.includes(machineAgent) && !composite) errors.push(`${key}: preserve exact composite run evidence and explicit historical unknowns.`);
     if (cell.testedCommit !== evidence.candidateCommit && !carried && !composite) errors.push(`${key}: wrong candidate commit.`);
     if (evidence.carryForward && cell.runId === codex57Run && !carried) errors.push(`${key}: preserve Codex-57's original tested source.`);
     if (cell.mode !== "real-canary") errors.push(`${key}: simulated checks cannot qualify a release.`);
@@ -180,7 +186,7 @@ export function validateReleaseEvidence(evidence, now = Date.now()) {
       if (origin.origin !== cell.origin || origin.protocol !== "https:" || origin.hostname !== "preview.inshell.art") throw new Error();
     } catch { errors.push(`${key}: production qualification must test https://preview.inshell.art.`); }
   }
-  for (const key of v2 ? transports.flatMap(transport => requiredCells.map(cell => `${transport}/${cell}`)) : requiredCells) if (!seen.has(key)) errors.push(`Missing cell: ${key}.`);
+  for (const key of v2 ? transports.flatMap(transport => required.map(cell => `${transport}/${cell}`)) : required) if (!seen.has(key)) errors.push(`Missing cell: ${key}.`);
   return errors;
 }
 
