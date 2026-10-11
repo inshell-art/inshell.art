@@ -3,46 +3,18 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const DEFAULT_CONTRACT_URL = "https://inshell-pub.pages.dev/pub/contract/pub-path-boundary.json";
 const EXPECTED_ORIGIN = "https://inshell.art";
-const EXPECTED_OWNER = "PUB";
-const REQUEST_TIMEOUT_MS = 12_000;
+const EXPECTED_OWNER = "retired";
+const LEGACY_HOST = /\b(?:[a-z0-9-]+\.)*(?:inshell-pub|inshell-public-feed)\.pages\.dev\b/i;
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "..");
 
 function parseArgs(argv) {
-  const args = {
-    contractUrl:
-      process.env.PUB_BOUNDARY_CONTRACT_URL ||
-      process.env.PUB_PATH_BOUNDARY_CONTRACT_URL ||
-      DEFAULT_CONTRACT_URL,
-    contractFile: process.env.PUB_PATH_BOUNDARY_CONTRACT_FILE || "",
-    skipContractFetch: false,
-  };
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-    const next = argv[index + 1];
-    if (arg === "--") {
-      continue;
-    }
-    if (arg === "--contract-url" && next) {
-      args.contractUrl = next;
-      index += 1;
-      continue;
-    }
-    if (arg === "--contract-file" && next) {
-      args.contractFile = next;
-      index += 1;
-      continue;
-    }
-    if (arg === "--skip-contract-fetch") {
-      args.skipContractFetch = true;
-      continue;
-    }
-    throw new Error(`Unknown or incomplete argument: ${arg}`);
+  for (const arg of argv) {
+    if (arg === "--") continue;
+    throw new Error(`Unknown argument: ${arg}; retirement checks are local and always enforced`);
   }
-  return args;
 }
 
 function normalizeRoutePath(value) {
@@ -56,50 +28,24 @@ function normalizeRoutePath(value) {
     }
   }
   if (!path.startsWith("/")) return null;
-  return path || "/";
+  return path.split(/[?#]/, 1)[0].replace(/%([0-9a-f]{2})/gi,
+    (_, byte) => String.fromCharCode(Number.parseInt(byte, 16)))
+    .replace(/\/{2,}/g, "/").replace(/\/+$/, "") || "/";
 }
 
-async function readContract(args) {
-  if (args.skipContractFetch) {
-    return {
-      schemaVersion: 1,
-      origin: EXPECTED_ORIGIN,
-      owner: EXPECTED_OWNER,
-      paths: {
-        exact: ["/llms.txt", "/pub.manifest.json"],
-        prefixes: ["/pub/"],
-      },
-    };
-  }
-
-  if (args.contractFile) {
-    const fullPath = resolve(repoRoot, args.contractFile);
-    return JSON.parse(readFileSync(fullPath, "utf8"));
-  }
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    const response = await fetch(args.contractUrl, {
-      signal: controller.signal,
-      headers: {
-        accept: "application/json",
-      },
-    });
-    const text = await response.text();
-    if (!response.ok) {
-      throw new Error(`${args.contractUrl} returned HTTP ${response.status}: ${text.slice(0, 240)}`);
-    }
-    try {
-      return JSON.parse(text);
-    } catch (error) {
-      throw new Error(
-        `${args.contractUrl} returned non-JSON. PUB must deploy the path-boundary contract before DEV can treat this URL as current. Response starts: ${text.slice(0, 120).replace(/\s+/g, " ")}`,
-      );
-    }
-  } finally {
-    clearTimeout(timer);
-  }
+function readContract() {
+  // Operator-approved retirement, 2026-10-10. Preserve the ownership guard with
+  // a fixed, fail-closed inventory; never fetch authority from a retired host.
+  return {
+    schemaVersion: 1,
+    origin: EXPECTED_ORIGIN,
+    owner: EXPECTED_OWNER,
+    paths: {
+      exact: ["/llms.txt", "/pub.manifest.json", "/pub", "/rss.xml", "/feed.xml",
+        "/rss.sepolia.xml", "/events.json", "/source", "/source-assets"],
+      prefixes: ["/pub/", "/source/", "/source-assets/"],
+    },
+  };
 }
 
 function validateContract(contract) {
@@ -158,13 +104,21 @@ function collectStaticFiles(paths, dir) {
           ? `/${rel.slice(0, -"index.html".length)}`
           : `/${rel}`;
       addOwnedPath(paths, route, relative(repoRoot, fullPath), "static");
+      if (rel.endsWith(".html")) {
+        addOwnedPath(paths, `/${rel.replace(/\.html$/, "")}`,
+          relative(repoRoot, fullPath), "static-clean-url");
+      }
+      if (!rel.startsWith("docs/") && /\.(?:html|[cm]?js|css|xml|txt)$/.test(rel)
+        && LEGACY_HOST.test(readFileSync(fullPath, "utf8"))) {
+        addOwnedPath(paths, route, relative(repoRoot, fullPath), "legacy-upstream");
+      }
     }
   };
   walk(fullDir);
 }
 
 function collectFunctionRoutes(paths) {
-  const apiDir = resolve(repoRoot, "functions/api");
+  const apiDir = resolve(repoRoot, "functions");
   if (!existsSync(apiDir)) return;
   const walk = (current) => {
     for (const name of readdirSync(current)) {
@@ -175,9 +129,13 @@ function collectFunctionRoutes(paths) {
         continue;
       }
       if (!stat.isFile() || !/\.(?:ts|js)$/.test(name)) continue;
+      if (name === "_middleware.ts" || name === "_middleware.js") continue;
       const rel = relative(apiDir, fullPath).split(sep).join("/").replace(/\.(?:ts|js)$/i, "");
-      const route = rel.endsWith("/index") ? `/api/${rel.slice(0, -"/index".length)}` : `/api/${rel}`;
+      const route = rel.endsWith("/index") ? `/${rel.slice(0, -"/index".length)}` : `/${rel}`;
       addOwnedPath(paths, route, relative(repoRoot, fullPath), "api-route");
+      if (LEGACY_HOST.test(readFileSync(fullPath, "utf8"))) {
+        addOwnedPath(paths, route, relative(repoRoot, fullPath), "legacy-upstream");
+      }
     }
   };
   walk(apiDir);
@@ -192,7 +150,8 @@ function collectRedirectRoutes(paths, filePath) {
     if (!line || line.startsWith("#")) continue;
     const [from, to] = line.split(/\s+/);
     addOwnedPath(paths, from, `${filePath}:${index + 1}`, "redirect-source");
-    if (to?.startsWith("/")) addOwnedPath(paths, to, `${filePath}:${index + 1}`, "redirect-target");
+    if (to) addOwnedPath(paths, to, `${filePath}:${index + 1}`, "redirect-target");
+    if (LEGACY_HOST.test(line)) addOwnedPath(paths, from, `${filePath}:${index + 1}`, "legacy-upstream");
   }
 }
 
@@ -206,12 +165,7 @@ function collectMiddlewareRoutes(paths) {
   let braceDepth = 0;
   for (const line of text.split(/\r?\n/)) {
     if (
-      line.includes("function isPubReservedPathname") ||
-      line.includes("function isPubRouteHost") ||
-      line.includes("function proxyPubArtifact") ||
-      line.includes("function getPubArtifactUrl") ||
-      line.includes("function pubArtifactAcceptHeader") ||
-      line.includes("function pubArtifactContentType")
+      line.includes("function isRetiredPublicPathname")
     ) {
       inPubRouteLayer = true;
       braceDepth = 0;
@@ -234,8 +188,9 @@ function collectMiddlewareRoutes(paths) {
 }
 
 function collectDeployConfigRoutes(paths) {
-  collectRedirectRoutes(paths, "apps/home/public/_redirects");
-  collectRedirectRoutes(paths, "apps/thought/public/_redirects");
+  for (const dir of ["apps/home/public", "apps/thought/public", "public", "dist/home", "dist/thought"]) {
+    collectRedirectRoutes(paths, `${dir}/_redirects`);
+  }
 }
 
 function collectOwnedPaths() {
@@ -264,6 +219,17 @@ function matchesReservedPath(path, contract) {
       return { type: "prefix", pattern: prefix };
     }
   }
+  if (path.includes("*") || path.includes(":") || path.includes("[")) {
+    const wildcard = path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+      .replace(/\\\*/g, ".*")
+      .replace(/:[a-zA-Z_][\w-]*/g, "[^/]+")
+      .replace(/\\\[\\\[[^\]]+\\\]\\\]/g, ".*")
+      .replace(/\\\[[^\]]+\\\]/g, "[^/]+");
+    const matcher = new RegExp(`^${wildcard}$`);
+    const matched = [...exact, ...prefixes.map((prefix) => `${prefix}artifact`)]
+      .find((candidate) => matcher.test(candidate));
+    if (matched) return { type: "wildcard", pattern: matched };
+  }
   return null;
 }
 
@@ -278,8 +244,8 @@ function uniqueViolations(violations) {
 }
 
 async function main() {
-  const args = parseArgs(process.argv.slice(2));
-  const contract = await readContract(args);
+  parseArgs(process.argv.slice(2));
+  const contract = readContract();
   const contractErrors = validateContract(contract);
   if (contractErrors.length > 0) {
     throw new Error(`Invalid PUB path-boundary contract:\n- ${contractErrors.join("\n- ")}`);
@@ -289,6 +255,7 @@ async function main() {
   const violations = uniqueViolations(
     ownedPaths
       .map((entry) => {
+        if (entry.kind === "legacy-upstream") return { ...entry, type: "retired-host", pattern: "legacy PUB/feed host" };
         const match = matchesReservedPath(entry.path, contract);
         return match ? { ...entry, ...match } : null;
       })
@@ -297,14 +264,10 @@ async function main() {
 
   const middleware = readFileSync(resolve(repoRoot, "functions/_middleware.ts"), "utf8");
   for (const snippet of [
-    "PUB_UPSTREAM_DEFAULT",
-    "https://inshell-pub.pages.dev",
-    "isPubRouteHost",
-    "isPubReservedPathname",
-    "proxyPubArtifact",
-    "pubMethodNotAllowed",
-    "pub-proxy",
-    "x-inshell-dev-path-boundary",
+    "isRetiredPublicPathname(url.pathname)",
+    "return retiredPublicNotFound(ctx.request)",
+    "function retiredPublicNotFound",
+    "status: 404",
   ]) {
     if (!middleware.includes(snippet)) {
       violations.push({
@@ -316,8 +279,9 @@ async function main() {
       });
     }
   }
-  for (const path of [...contract.paths.exact, ...contract.paths.prefixes]) {
-    if (!middleware.includes(path)) {
+  const retirementMatcher = middleware.match(/function isRetiredPublicPathname\([^)]*\)\s*\{([^]*?)\n\}/)?.[1] ?? "";
+  for (const path of contract.paths.exact) {
+    if (!retirementMatcher.includes(`"${path}"`) && !retirementMatcher.includes(`'${path}'`)) {
       violations.push({
         path,
         source: "functions/_middleware.ts",
@@ -326,6 +290,20 @@ async function main() {
         pattern: path,
       });
     }
+  }
+
+  const forbidden = /\b(?:PUB_UPSTREAM(?:_DEFAULT)?|PUB_BOUNDARY_CONTRACT_URL|isPubRouteHost|isPubReservedPathname|proxyPubArtifact|PUBLIC_FEED_(?:RSS_URL|ALIAS_URL|SEPOLIA_RSS_URL|BASE_URL)|proxyFeed|getPublicFeedArtifactUrl|proxyPublicFeedArtifact)\b/;
+  if (forbidden.test(middleware) || LEGACY_HOST.test(middleware)) {
+    violations.push({ path: "(runtime guard)", source: "functions/_middleware.ts",
+      kind: "legacy-proxy", type: "forbidden", pattern: "retired PUB/feed upstream or proxy" });
+  }
+  const firstRouteGuard = /export async function onRequest\([^)]*\)(?:\s*:\s*Promise<Response>)?\s*\{\s*const url = new globalThis\.URL\(ctx\.request\.url\);\s*if \(isRetiredPublicPathname\(url\.pathname\)\) \{\s*return retiredPublicNotFound\(ctx\.request\);\s*\}/;
+  const notFoundResponder = middleware.match(/function retiredPublicNotFound\([^)]*\)\s*\{([^]*?)\n\}/)?.[1] ?? "";
+  if (!firstRouteGuard.test(middleware) || !/^\s*return new Response\(/.test(notFoundResponder)
+    || !/status:\s*404\s*,/.test(notFoundResponder)
+    || !retirementMatcher.includes(".startsWith(`${root}/`)")) {
+    violations.push({ path: "(runtime guard)", source: "functions/_middleware.ts",
+      kind: "invalid-retirement-guard", type: "required", pattern: "first-route 404 and descendant matching" });
   }
 
   if (violations.length > 0) {
@@ -339,7 +317,7 @@ async function main() {
   }
 
   console.log(
-    `[pub-boundary] OK owner=${contract.owner} exact=${contract.paths.exact.length} prefixes=${contract.paths.prefixes.length} checkedPaths=${ownedPaths.length}${contract.contractVersion ? ` contractVersion=${contract.contractVersion}` : ""}`,
+    `[pub-boundary] OK owner=${contract.owner} exact=${contract.paths.exact.length} prefixes=${contract.paths.prefixes.length} checkedPaths=${ownedPaths.length} externalFetches=0`,
   );
 }
 

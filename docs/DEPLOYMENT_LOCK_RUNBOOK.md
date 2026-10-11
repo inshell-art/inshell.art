@@ -146,7 +146,9 @@ home and THOUGHT artifacts/API deployments where the workflow uses both.
 ## 5. Validate the live candidate — FE + OPS + operator
 
 - Top-left preview watermark is present. Navigation remains same-origin:
-  /, /path, /thought, /gallery, /docs, /verify. PUB-reserved paths still reach PUB.
+  /, /path, /thought, /gallery, /docs, /verify. Retired PUB/feed paths return real
+  GET/HEAD 404s, including exact /pub and its descendants, not a redirect or app
+  shell. The site's own /docs/ discovery and Agent-readable artifacts remain.
 - /api/ops/status: contract version 2; deploymentLock.enforcement = always;
   state = no-approved-deployment; integrity = valid; differences = [];
   approved network/contracts empty; activation approvals false.

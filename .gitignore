@@ -152,7 +152,7 @@ src/.DS_Store
 .firebase
 .wrangler/
 
-# Public Feed artifacts are owned/deployed by Signal Hub/Public Feed, not this repo.
+# Retired Public Feed artifacts must not be reintroduced into this repo's output.
 /public/rss.xml
 /public/feed.xml
 /public/events.json

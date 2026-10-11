@@ -6,7 +6,6 @@ const originalRequest = globalThis.Request;
 const originalResponse = globalThis.Response;
 const originalHeaders = globalThis.Headers;
 const originalFetch = globalThis.fetch;
-const publicFeedSourceBaseUrl = "https://d807d286.inshell-public-feed.pages.dev";
 
 class TestHeaders {
   private readonly values = new Map<string, string>();
@@ -267,9 +266,6 @@ describe("Pages middleware canonical routes", () => {
     "/thought/assets/does-not-exist.js",
     "/api/does-not-exist",
     "/not-a-product-page",
-    "/pub/does-not-exist",
-    "/llms.txt",
-    "/pub.manifest.json",
   ])("local candidate preserves missing-path status for %s instead of an app shell", async (route) => {
     const fetchMock = jest.fn();
     globalThis.fetch = fetchMock as unknown as typeof fetch;
@@ -651,227 +647,67 @@ describe("Pages middleware canonical routes", () => {
     expect(ctx.next).not.toHaveBeenCalled();
   });
 
-  test("routes PUB reserved paths to the PUB upstream before the app shell", async () => {
-    const fetchMock = jest.fn(
-      async () =>
-        new Response("pub", {
-          status: 200,
-          headers: {
-            "content-type": "text/plain; charset=utf-8",
-            etag: "\"pub-etag\"",
-          },
-        }),
-    );
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
-
-    for (const path of ["/llms.txt", "/pub.manifest.json", "/pub/contract/pub-path-boundary.json?check=1"]) {
-      const ctx = middlewareContext(`https://inshell.art${path}`);
-      const response = await onRequest(ctx);
-
-      expect(response.status).toBe(200);
-      expect(response.headers.get("x-inshell-dev-path-boundary")).toBe("pub-proxy");
-      expect(response.headers.get("x-inshell-frontend-recovery")).toBeNull();
-      expect(response.headers.get("etag")).toBe("\"pub-etag\"");
-      expect(ctx.next).not.toHaveBeenCalled();
-      expect(ctx.assetsFetch).not.toHaveBeenCalled();
-    }
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      1,
-      "https://inshell-pub.pages.dev/llms.txt",
-      expect.objectContaining({ method: "GET" }),
-    );
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      2,
-      "https://inshell-pub.pages.dev/pub.manifest.json",
-      expect.objectContaining({ method: "GET" }),
-    );
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      3,
-      "https://inshell-pub.pages.dev/pub/contract/pub-path-boundary.json?check=1",
-      expect.objectContaining({ method: "GET" }),
-    );
-  });
-
-  test("keeps PUB artifacts read-only at the DEV route layer", async () => {
+  test.each([
+    "/llms.txt", "/pub.manifest.json", "/pub", "/pub/",
+    "/pub/contract/pub-path-boundary.json", "/pub/does-not-exist",
+    "/%6clms.txt", "/pub%2Emanifest.json", "/%70ub", "/pub%2Fcontract/boundary.json",
+    "/%70ub/%E0%A4%A", "/pub.manifest.json/",
+    "/rss.xml", "/feed.xml", "/rss.sepolia.xml", "/events.json",
+    "/source", "/source/", "/source/thought-9.html",
+    "/source-assets", "/source-assets/", "/source-assets/feed.css",
+    "/source/sepolia/cloud/sepolia%3Acloud%3Amovement.minted%3Afixture",
+    "/source-assets/sepolia/cloud/sepolia%3Acloud%3Afixture/thought.svg",
+    "/%72ss.xml", "/%66eed.xml", "/events%2Ejson",
+    "/%73ource", "/source%2Fthought-9.html", "/%73ource-assets%2ffeed.css",
+    "/source/%E0%A4%A", "/rss.xml/",
+  ])("returns a real 404 for retired PUB/feed route %s without a proxy or fallback", async (route) => {
     const fetchMock = jest.fn();
     globalThis.fetch = fetchMock as unknown as typeof fetch;
-    const ctx = middlewareContext("https://inshell.art/pub.manifest.json", { method: "POST" });
-    const response = await onRequest(ctx);
+    for (const origin of [
+      "https://inshell.art", "https://preview.inshell.art",
+      "https://staging.inshell-art.pages.dev", "http://127.0.0.1:4175",
+      "https://thought.inshell.art", "https://sepolia.inshell.art",
+    ]) {
+      for (const method of ["GET", "HEAD", "POST"]) {
+        const ctx = middlewareContext(`${origin}${route}?via=rss`, { method });
+        const response = await onRequest(ctx);
 
-    expect(response.status).toBe(405);
-    expect(response.headers.get("allow")).toBe("GET, HEAD");
-    expect(response.headers.get("x-inshell-dev-path-boundary")).toBe("pub-method-not-allowed");
+        expect(response.status).toBe(404);
+        expect(response.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+        expect(response.headers.get("cache-control")).toBe("no-store");
+        expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+        expect(response.headers.get("location")).toBeNull();
+        expect(await response.text()).toBe(method === "HEAD" ? "" : "Not found.");
+        if (method === "HEAD") expect(response.body).toBeNull();
+        expect(ctx.next).not.toHaveBeenCalled();
+        expect(ctx.assetsFetch).not.toHaveBeenCalled();
+      }
+    }
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(ctx.next).not.toHaveBeenCalled();
-    expect(ctx.assetsFetch).not.toHaveBeenCalled();
   });
 
-  test("proxies the explicit Sepolia rehearsal RSS feed", async () => {
-    const fetchMock = jest.fn(async () => new Response("<rss />", { status: 200 }));
+  test.each([
+    "/publication", "/pub-other/page", "/pub.manifest.json.backup", "/llms.txt.backup",
+    "/sources", "/source-assets-other/file.css", "/rss.xml.backup",
+    "/assets/source-code-pro.woff2", "/docs/content.json", "/docs/agent-index.json",
+    "/api/pulse-auction", "/api/path-rpc", "/api/ops/status", "/api/source",
+  ])("leaves non-retired route %s on its current handler", async (route) => {
+    const fetchMock = jest.fn();
     globalThis.fetch = fetchMock as unknown as typeof fetch;
-    const ctx = middlewareContext("https://inshell.art/rss.sepolia.xml");
+    const ctx = middlewareContext(`https://inshell.art${route}?ref=/source/old`, {
+      headers: { "cf-access-jwt-assertion": "current-origin-only" },
+    });
+    const currentResponse = new Response("current response", { status: 200 });
+    ctx.next.mockResolvedValueOnce(currentResponse);
+
     const response = await onRequest(ctx);
 
-    expect(response.status).toBe(200);
-    expect(response.headers.get("content-type")).toBe("application/rss+xml; charset=utf-8");
-    expect(response.headers.get("cache-control")).toBe("public, max-age=60");
-    expect(fetchMock).toHaveBeenCalledWith(
-      "https://inshell-public-feed.pages.dev/rss.sepolia.xml",
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          accept: "application/rss+xml, application/xml;q=0.9, text/xml;q=0.8, */*;q=0.1",
-        }),
-      }),
-    );
-    expect(ctx.next).not.toHaveBeenCalled();
+    expect(response).toBe(currentResponse);
+    expect(ctx.request.headers.get("cf-access-jwt-assertion")).toBe("current-origin-only");
+    expect(ctx.next).toHaveBeenCalledTimes(1);
+    expect(ctx.next).toHaveBeenCalledWith();
     expect(ctx.assetsFetch).not.toHaveBeenCalled();
-  });
-
-  test("proxies Public Feed events JSON before the app shell fallback", async () => {
-    const fetchMock = jest.fn(
-      async () =>
-        new Response("[]", {
-          status: 200,
-          headers: {
-            "content-type": "application/json; charset=utf-8",
-          },
-        }),
-    );
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
-    const ctx = middlewareContext("https://inshell.art/events.json");
-    const response = await onRequest(ctx);
-
-    expect(response.status).toBe(200);
-    expect(response.headers.get("content-type")).toBe("application/json; charset=utf-8");
-    expect(response.headers.get("cache-control")).toBe("public, max-age=60");
-    expect(fetchMock).toHaveBeenCalledWith(
-      `${publicFeedSourceBaseUrl}/events.json`,
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          accept: "application/json, */*;q=0.1",
-        }),
-      }),
-    );
-    expect(ctx.next).not.toHaveBeenCalled();
-    expect(ctx.assetsFetch).not.toHaveBeenCalled();
-  });
-
-  test("proxies Public Feed source pages before the app shell fallback", async () => {
-    const fetchMock = jest.fn(
-      async () =>
-        new Response("<!doctype html><title>source</title>", {
-          status: 200,
-          headers: {
-            "content-type": "text/html; charset=utf-8",
-          },
-        }),
-    );
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
-    const ctx = middlewareContext("https://inshell.art/source/thought-9.html?via=rss");
-    const response = await onRequest(ctx);
-
-    expect(response.status).toBe(200);
-    expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8");
-    expect(response.headers.get("cache-control")).toBe("public, max-age=60");
-    expect(fetchMock).toHaveBeenCalledWith(
-      `${publicFeedSourceBaseUrl}/source/thought-9.html?via=rss`,
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          accept: "text/html, application/xhtml+xml;q=0.9, */*;q=0.1",
-        }),
-      }),
-    );
-    expect(ctx.next).not.toHaveBeenCalled();
-    expect(ctx.assetsFetch).not.toHaveBeenCalled();
-  });
-
-  test("preserves encoded Public Feed cloud source ids", async () => {
-    const fetchMock = jest.fn(
-      async () =>
-        new Response("<!doctype html><title>cloud source</title>", {
-          status: 200,
-          headers: {
-            "content-type": "text/html; charset=utf-8",
-          },
-        }),
-    );
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
-    const cloudId =
-      "sepolia%3Acloud%3Amovement.minted%3A0x88632290a357c40d8af1cb6c9edee44a02b7ce828b605613510e9a98a0a06847";
-    const ctx = middlewareContext(`https://inshell.art/source/sepolia/cloud/${cloudId}`);
-    const response = await onRequest(ctx);
-
-    expect(response.status).toBe(200);
-    expect(fetchMock).toHaveBeenCalledWith(
-      `${publicFeedSourceBaseUrl}/source/sepolia/cloud/${cloudId}`,
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          accept: "text/html, application/xhtml+xml;q=0.9, */*;q=0.1",
-        }),
-      }),
-    );
-    expect(ctx.next).not.toHaveBeenCalled();
-    expect(ctx.assetsFetch).not.toHaveBeenCalled();
-  });
-
-  test("proxies Public Feed source assets before the app shell fallback", async () => {
-    const fetchMock = jest.fn(
-      async () =>
-        new Response("body{}", {
-          status: 200,
-          headers: {
-            "content-type": "text/css; charset=utf-8",
-          },
-        }),
-    );
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
-    const ctx = middlewareContext("https://inshell.art/source-assets/feed.css");
-    const response = await onRequest(ctx);
-
-    expect(response.status).toBe(200);
-    expect(response.headers.get("content-type")).toBe("text/css; charset=utf-8");
-    expect(response.headers.get("cache-control")).toBe("public, max-age=60");
-    expect(fetchMock).toHaveBeenCalledWith(
-      `${publicFeedSourceBaseUrl}/source-assets/feed.css`,
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          accept: "*/*",
-        }),
-      }),
-    );
-    expect(ctx.next).not.toHaveBeenCalled();
-    expect(ctx.assetsFetch).not.toHaveBeenCalled();
-  });
-
-  test("preserves encoded Public Feed cloud media ids", async () => {
-    const fetchMock = jest.fn(
-      async () =>
-        new Response("<svg></svg>", {
-          status: 200,
-          headers: {
-            "content-type": "image/svg+xml",
-          },
-        }),
-    );
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
-    const cloudId =
-      "sepolia%3Acloud%3Amovement.minted%3A0x88632290a357c40d8af1cb6c9edee44a02b7ce828b605613510e9a98a0a06847";
-    const ctx = middlewareContext(
-      `https://inshell.art/source-assets/sepolia/cloud/${cloudId}/thought.svg`,
-    );
-    const response = await onRequest(ctx);
-
-    expect(response.status).toBe(200);
-    expect(fetchMock).toHaveBeenCalledWith(
-      `${publicFeedSourceBaseUrl}/source-assets/sepolia/cloud/${cloudId}/thought.svg`,
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          accept: "*/*",
-        }),
-      }),
-    );
-    expect(ctx.next).not.toHaveBeenCalled();
-    expect(ctx.assetsFetch).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   test("redirects preview THOUGHT path detail URLs to the preview same-origin work route", async () => {

@@ -98,14 +98,6 @@ const ROUTES = {
     auth: "run-scoped bearer tokens",
     bridgeLaunchScheme: "thought://",
   },
-  publicFeed: [
-    "/rss.xml",
-    "/feed.xml",
-    "/rss.sepolia.xml",
-    "/events.json",
-    "/source/**",
-    "/source-assets/**",
-  ],
 };
 
 const DIAGNOSTIC_HEADERS = [

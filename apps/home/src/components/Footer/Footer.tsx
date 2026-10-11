@@ -13,7 +13,6 @@ type FooterLink = {
 
 const INSHELL_GITHUB_URL = "https://github.com/inshell-art/";
 const DEFAULT_TELEGRAM_URL = "https://t.me/inshell_art";
-const DEFAULT_PUBLIC_FEED_RSS_URL = "/rss.sepolia.xml";
 
 function getEnvValue(name: string): unknown {
   const runtimeEnv: Record<string, any> | undefined =
@@ -34,10 +33,6 @@ function readEnvUrl(names: string[]): string | null {
 
 function isHttpsUrl(value: string): boolean {
   return /^https:\/\//i.test(value);
-}
-
-function isSafeFeedHref(value: string): boolean {
-  return isHttpsUrl(value) || /^\/(?!\/)/.test(value);
 }
 
 function isTelegramUrl(value: string): boolean {
@@ -95,12 +90,6 @@ function resolveGalleryUrl(): string {
   return defaultGalleryUrl();
 }
 
-function resolvePublicFeedRssUrl(): string {
-  const direct = readEnvUrl(["VITE_PUBLIC_FEED_RSS_URL", "PUBLIC_FEED_RSS_URL"]);
-  if (direct && isSafeFeedHref(direct)) return direct;
-  return DEFAULT_PUBLIC_FEED_RSS_URL;
-}
-
 function resolvePublicUrl(
   names: string[],
   kind: "Telegram" | "Discord",
@@ -122,7 +111,6 @@ function resolvePublicUrl(
 
 const Footer: React.FC = () => {
   const galleryUrl = useMemo(() => resolveGalleryUrl(), []);
-  const publicFeedRssUrl = useMemo(() => resolvePublicFeedRssUrl(), []);
   const telegramUrl = useMemo(
     () =>
       resolvePublicUrl(
@@ -185,15 +173,6 @@ const Footer: React.FC = () => {
       href: INSHELL_GITHUB_URL,
       ariaLabel: "Open GitHub",
       external: true,
-    },
-    {
-      key: "rss",
-      label: "rss",
-      href: publicFeedRssUrl,
-      ariaLabel: "Open Inshell Public Feed RSS",
-      external: true,
-      tooltip: "rss",
-      squares: "■■■",
     },
   ];
 
