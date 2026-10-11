@@ -83,18 +83,10 @@ function curlArguments(task: string): string[] {
     "--url", /^URL: (.+)$/m.exec(task)![1]];
 }
 // Test-only invocation of the handoff's arguments, not a second delivery client.
-function nativeCurl(task: string, body: string, curlHome?: string, shellCommand = false) {
+function nativeCurl(task: string, body: string, curlHome?: string) {
   assert.ok(task.includes("append --data-raw followed by the exact artwork line as ONE literal argument"));
-  const args = curlArguments(task);
-  // Exercise both argument-array tools and the handoff's POSIX-shell quoting recipe.
-  const quote = (arg: string) => "'" + arg.replaceAll("'", "'\"'\"'") + "'";
-  // Server-produced URL/header values stay in argv, never in shell source.
-  // Only the test's locally authored artwork fixture exercises literal quoting.
-  const invocation = shellCommand
-    ? ["-c", 'exec /usr/bin/curl "$@" --data-raw ' + quote(body), "thought-curl-test", ...args]
-    : [...args, "--data-raw", body];
   return new Promise<{ exit: number | null; stdout: string }>((resolve, reject) => {
-    const child = spawn(shellCommand ? "/bin/sh" : "/usr/bin/curl", invocation, {
+    const child = spawn("/usr/bin/curl", [...curlArguments(task), "--data-raw", body], {
       shell: false,
       env: { ...process.env, ...(curlHome ? { CURL_HOME: curlHome } : {}), NO_PROXY: "127.0.0.1", no_proxy: "127.0.0.1" },
       stdio: ["ignore", "pipe", "pipe"], // EOF from launch: no later stdin write is possible.
@@ -154,12 +146,27 @@ test("handoff body argument preserves all allowed punctuation with closed stdin,
   await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
   const address = server.address(); assert.ok(address && typeof address !== "string");
   const task = handoff(runId, "Silver tide", `http://127.0.0.1:${address.port}`, "a".repeat(43), Date.now() + 60000).text;
+  // Shell quoting is exercised only with locally generated fixtures, never an
+  // API response. API-produced handoffs above always execute curl directly.
+  const shellFixture = (line: string) => new Promise<{ exit: number | null; stdout: string }>((resolve, reject) => {
+    const quote = (arg: string) => "'" + arg.replaceAll("'", "'\"'\"'") + "'";
+    const command = ["/usr/bin/curl", ...curlArguments(task), "--data-raw", line].map(quote).join(" ");
+    const child = spawn("/bin/sh", ["-c", command], {
+      shell: false, stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, NO_PROXY: "127.0.0.1", no_proxy: "127.0.0.1" },
+    });
+    let stdout = "";
+    child.stdout.setEncoding("utf8").on("data", chunk => { stdout += chunk; });
+    child.stderr.resume();
+    child.on("error", reject);
+    child.on("close", exit => resolve({ exit, stdout }));
+  });
   try {
     for (const shellCommand of [false, true]) {
       for (const line of ["Silver tide.", `"One's: (two), three!?;-/&"`, "'", "-q", "a".repeat(64)]) {
         makeWork(runId, "Silver tide", line, new Date().toISOString());
         const before = bodies.length;
-        verifiedCurlAck(await nativeCurl(task, line, undefined, shellCommand), runId, line);
+        verifiedCurlAck(await (shellCommand ? shellFixture(line) : nativeCurl(task, line)), runId, line);
         assert.equal(bodies.length, before + 1);
         assert.deepEqual(bodies.at(-1), Buffer.from(line, "utf8"));
       }
