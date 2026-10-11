@@ -240,7 +240,7 @@ function evidence() {
   return {
     schema: "inshell.thought.release-evidence.v1", candidateCommit: commit,
     reviewedBy: "test-reviewer", reviewedAt: "2026-08-26T01:00:00.000Z",
-    cells: ["mac-a"].flatMap((machine) => ["codex", "claude"].map((agent) => ({
+    cells: ["mac-b"].flatMap((machine) => ["codex", "claude"].map((agent) => ({
       machine, agent, testedCommit: commit, mode: "real-canary", execution: "desktop-deep-link",
       surface: agent === "claude" ? "code" : "codex", state: "returned", runId: `tar_${machine}_${agent}`,
       taskSha256: hash, receiptSha256: `sha256:${(machine === "mac-a" ? (agent === "codex" ? "1" : "2") : (agent === "codex" ? "3" : "4")).repeat(64)}`, agentLineSha256: hash,
@@ -276,7 +276,7 @@ test("replacement qualification requires actual plain records; historical v1 sta
 function carriedEvidence() {
   const value = plainEvidence();
   value.candidateCommit = CODEX57_CARRY_FORWARD.candidateCommit;
-  value.cells.forEach(c => { c.testedCommit = value.candidateCommit; });
+  value.cells.forEach(c => { c.testedCommit = value.candidateCommit; c.machine = "mac-a"; });
   value.cells[0].testedCommit = CODEX57_CARRY_FORWARD.baseCommit;
   value.cells[0].runId = "plain_8f798ee8-9a50-442a-8032-cdec312e21b6";
   value.carryForward = { ...CODEX57_CARRY_FORWARD, qualificationFiles: Object.fromEntries(QUALIFICATION_FILES.map(p => [p, hash])) };
@@ -432,7 +432,7 @@ for (const [name, mutate] of Object.entries({
   assert.ok(validateReleaseEvidence(value).length);
 });
 
-test("two reviewed operator-Mac cells pass; an unqualified template never does", () => {
+test("two reviewed Mac B cells pass; an unqualified template never does", () => {
   assert.deepEqual(validateReleaseEvidence(evidence()), []);
   assert.ok(validateReleaseEvidence({ schema: "inshell.thought.release-evidence.v1", cells: [] }).length);
 });
@@ -513,12 +513,21 @@ test("CLI protocol evidence remains valid with separately recorded launch/previe
 
 test("optional second-Mac evidence is validated, never required or substituted", () => {
   const value = evidence();
-  value.cells.push({ ...value.cells[0], machine: "mac-b", runId: "tar_mac_b_codex", receiptSha256: "sha256:" + "3".repeat(64) });
+  value.cells.push({ ...value.cells[0], machine: "mac-a", runId: "tar_mac_a_codex", receiptSha256: "sha256:" + "1".repeat(64) });
   assert.deepEqual(validateReleaseEvidence(value), []);
   value.cells[2].mode = "simulated";
   assert.ok(validateReleaseEvidence(value).length);
   value.cells.shift();
   assert.ok(validateReleaseEvidence(value).some((error) => error.includes("Missing cell")));
+});
+
+test("Mac A-only and split-machine runs cannot substitute for the current Mac B pair", () => {
+  for (const machines of [["mac-a", "mac-a"], ["mac-a", "mac-b"], ["mac-b", "mac-a"]]) {
+    const value = plainEvidence();
+    value.cells.forEach((cell, index) => { cell.machine = machines[index]; });
+    assert.ok(validateReleaseEvidence(value).some(error => error.includes("Missing cell: plain-http/mac-b/")));
+  }
+  assert.deepEqual(validateReleaseEvidence(plainEvidence()), []);
 });
 
 test("git gate permits evidence-only commits and content-identical promotions, rejects drift and missing history", () => {
@@ -537,6 +546,13 @@ test("git gate permits evidence-only commits and content-identical promotions, r
     assert.deepEqual(checkReleaseEvidence(root), []);
     value.reviewedBy = "second test reviewer"; save(); git("add", EVIDENCE_PATH); git("commit", "-m", "evidence review only");
     assert.deepEqual(checkReleaseEvidence(root), []);
+    // A machine-policy correction is not an implicit source-drift waiver.
+    for (const path of ["scripts/check-release-evidence.mjs", "scripts/release-readiness.test.mjs", "release-evidence/history/old.json"]) {
+      mkdirSync(dirname(join(root, path)), { recursive: true });
+      writeFileSync(join(root, path), "synthetic unreviewed correction\n");
+      assert.match(checkReleaseEvidence(root).join(), /differs/);
+      rmSync(join(root, path));
+    }
     writeFileSync(join(root, "app.txt"), "drift");
     assert.match(checkReleaseEvidence(root).join(), /differs/);
     git("add", "app.txt"); git("commit", "-m", "source drift");
