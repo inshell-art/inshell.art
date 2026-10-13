@@ -10,7 +10,7 @@
   "dependencies": {
     "@inshell/contracts": "workspace:*",
     "@inshell/ethereum": "workspace:*",
-    "@walletconnect/ethereum-provider": "^2.25.0",
+    "@walletconnect/ethereum-provider": "^2.26.0",
     "react": "^19.3.0"
   },
   "devDependencies": {
