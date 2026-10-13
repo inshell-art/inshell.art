@@ -6,14 +6,26 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { load } from "js-yaml";
 
-// Exercise the actual pnpm graph, not a stub: these legacy minimatch majors
-// call require("brace-expansion") directly after our security override.
+// Exercise every minimatch version in the actual pnpm graph, including newer
+// consumers of the overridden brace-expansion, rather than a fixed major list.
 const store = fileURLToPath(new URL("../node_modules/.pnpm/", import.meta.url));
 const lock = load(readFileSync(new URL("../pnpm-lock.yaml", import.meta.url), "utf8"));
-const consumers = Object.keys(lock.packages).filter(name => /^minimatch@(3|5|9)\./.test(name));
+const consumers = Object.keys(lock.packages).filter(name => /^minimatch@/.test(name));
 
-test("all overridden legacy minimatch consumers are installed", () => {
-  assert.deepEqual([...new Set(consumers.map(name => name.split("@")[1].split(".")[0]))].sort(), ["3", "5", "9"]);
+test("all installed minimatch consumers of overridden brace-expansion are covered", () => {
+  assert.ok(consumers.length > 0, "Expected applicable minimatch compatibility coverage");
+  const overriddenVersions = new Set(Object.entries(lock.overrides)
+    .filter(([name]) => name.startsWith("brace-expansion@"))
+    .map(([, version]) => version));
+  assert.ok(overriddenVersions.size > 0, "Expected brace-expansion overrides");
+  for (const consumer of consumers) {
+    const dependency = lock.snapshots[consumer]?.dependencies?.["brace-expansion"];
+    assert.ok(dependency, `${consumer}: missing brace-expansion dependency coverage`);
+    assert.ok(overriddenVersions.has(dependency.split("(")[0]), `${consumer}: dependency escaped the override`);
+    const installed = JSON.parse(readFileSync(join(store, consumer, "node_modules/minimatch/package.json"), "utf8"));
+    assert.equal(installed.name, "minimatch");
+    assert.equal(installed.version, consumer.slice("minimatch@".length));
+  }
 });
 
 for (const consumer of consumers) {
