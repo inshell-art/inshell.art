@@ -104,18 +104,18 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.64.0",
-    "@types/node": "^24.2.0",
+    "@types/node": "^26.6.5",
     "@typescript-eslint/eslint-plugin": "^8.71.1",
     "@typescript-eslint/parser": "^8.71.1",
-    "cypress": "^15.20.1",
-    "dotenv": "^17.2.0",
-    "eslint": "^9.31.0",
-    "eslint-plugin-react-hooks": "^5.2.0",
-    "eslint-plugin-react-refresh": "^0.4.20",
+    "cypress": "^16.1.1",
+    "dotenv": "^18.0.7",
+    "eslint": "^10.12.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
     "husky": "^9.1.7",
-    "js-yaml": "4.3.2",
+    "js-yaml": "5.4.3",
     "tsx": "^4.23.15",
-    "typescript": "^5.8.3"
+    "typescript": "^7.0.2"
   },
   "pnpm": {
     "overrides": {
@@ -135,7 +135,7 @@
       "form-data@^4.0.0": "4.0.6",
       "glob@^10.0.0": "10.5.0",
       "h3@^1.0.0": "1.15.9",
-      "js-yaml": "4.3.2",
+      "js-yaml": "5.4.3",
       "nanoid@^3.0.0": "3.3.18",
       "lodash@^4.0.0": "4.18.1",
       "minimatch@^3.0.0": "3.1.4",
