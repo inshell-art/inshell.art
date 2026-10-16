@@ -1,3 +1,5 @@
+ > Historical reference — executable Agent v1/v2 handoff tooling is retired. Do not run the commands below. Use `docs/THOUGHT_RELEASE_TESTING.md` for current plain THOUGHT checks. Historical evidence is unchanged.
+
 # THOUGHT Claude Handoff Lab
 
 ## Purpose

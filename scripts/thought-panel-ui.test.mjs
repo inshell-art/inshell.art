@@ -81,10 +81,6 @@ const homeThoughtGallery = await readFile(
   new URL("../apps/home/src/services/thoughtGallery.ts", import.meta.url),
   "utf8",
 );
-const thoughtBrowserReleaseCanary = await readFile(
-  new URL("./test-thought-agent-browser-release-canary.ts", import.meta.url),
-  "utf8",
-);
 const rootPackageJson = JSON.parse(
   await readFile(new URL("../package.json", import.meta.url), "utf8"),
 );
@@ -339,125 +335,11 @@ test("THOUGHT detail is pinned to the current release and bypasses stale gallery
   assert.doesNotMatch(thoughtMain, /const thoughtSpecCachePayload =/);
 });
 
-test("local Agent runs keep one release snapshot from creation through return", () => {
-  assert.match(
-    thoughtViteConfig,
-    /const release = run\.release;[\s\S]*?outputContract:[\s\S]*?protocolReleaseId: release\.protocol\.protocolReleaseId/,
-  );
-  assert.match(
-    thoughtViteConfig,
-    /release: activeRelease,[\s\S]*?buildThoughtV2LocalAgentTaskBinding\(run\.release\)/,
-  );
-  assert.match(
-    thoughtViteConfig,
-    /parseDevAgentOutput\(body\.output\.raw, run\.release\)/,
-  );
-  assert.match(
-    thoughtMain,
-    /release: createPayload\.release,[\s\S]*?resultContract: createPayload\.resultContract/,
-  );
-  assert.match(
-    thoughtMain,
-    /thoughtAgentCreateSupportsBoundedControl[\s\S]*?claimCreativeInput === "sealed-absent"[\s\S]*?creativeInputEndpoint === "start"/,
-  );
-  assert.match(
-    thoughtMain,
-    /release: run\.release![\s\S]*?resultContract: run\.resultContract!/,
-  );
-});
 
-test("the browser canary verifies release parity through the actual Agent deep links", () => {
-  assert.match(thoughtBrowserReleaseCanary, /deep link and stored browser handoff differ/);
-  assert.match(thoughtBrowserReleaseCanary, /inspectThoughtCodexFixedWorkerHandoff/);
-  assert.match(thoughtBrowserReleaseCanary, /THOUGHT Codex: fixed worker/);
-  assert.match(
-    thoughtBrowserReleaseCanary,
-    /Please complete one THOUGHT run with Claude/,
-  );
-  assert.match(
-    thoughtBrowserReleaseCanary,
-    /Receive the creative input from THOUGHT, make one short text artwork/,
-  );
-  assert.match(thoughtBrowserReleaseCanary, /No repository files are needed/);
-  assert.match(thoughtBrowserReleaseCanary, /request\\\.authority exactly equal to RUN_AUTHORITY/);
-  assert.match(thoughtBrowserReleaseCanary, /Serialize the compact candidate once/);
-  assert.match(thoughtBrowserReleaseCanary, /Do not sort keys or apply JCS/);
-  assert.match(
-    thoughtBrowserReleaseCanary,
-    /output\\\.rawSha256 to sha256: followed by 64 lowercase hex digits/,
-  );
-  assert.match(
-    thoughtBrowserReleaseCanary,
-    /decoded output\\\.agentLine string, not its JSON-escaped literal/,
-  );
-  assert.match(thoughtBrowserReleaseCanary, /general trust\|safety question\|permission controls\|host permission/);
-  assert.match(thoughtBrowserReleaseCanary, /sole source for release fields/);
-  assert.match(thoughtBrowserReleaseCanary, /JSON\.parse\(authorityLine\.slice/);
-  assert.match(thoughtBrowserReleaseCanary, /THOUGHT_AGENT_RUN_AUTHORITY/);
-  assert.match(thoughtBrowserReleaseCanary, /!handoff\.includes\(created\.release\.protocolReleaseId\)/);
-  assert.match(thoughtBrowserReleaseCanary, /!handoff\.includes\(created\.release\.manifestKeccak256\)/);
-  assert.match(thoughtBrowserReleaseCanary, /operation\.release, created\.release/);
-  assert.match(thoughtBrowserReleaseCanary, /created run and exact \/start outputContract\.release differ/);
-  assert.match(thoughtBrowserReleaseCanary, /THOUGHT_AGENT_RUN_AUTHORITY/);
-  assert.match(thoughtBrowserReleaseCanary, /Creative byte or hash parity|started\.request\?\.spec\?\.sha256/);
-  assert.match(thoughtBrowserReleaseCanary, /a \/start protocolReleaseId field drifted/);
-  assert.match(thoughtBrowserReleaseCanary, /a \/start manifestKeccak256 field drifted/);
-  assert.match(thoughtBrowserReleaseCanary, /creativeBindings: true/);
-  assert.match(thoughtBrowserReleaseCanary, /boundedControlClaim: true/);
-  assert.match(thoughtBrowserReleaseCanary, /everyReleaseField: true/);
-  assert.match(thoughtBrowserReleaseCanary, /startToResult: true/);
-  assert.match(thoughtBrowserReleaseCanary, /statusStates\.includes\("returned"\)/);
-  assert.match(
-    rootPackageJson.scripts["canary:thought-agent-browser-release"],
-    /browser-release:codex.*browser-release:claude/,
-  );
-  assert.match(
-    thoughtBrowserReleaseCanary,
-    /"--remote-debugging-port=0"/,
-    "Chrome chooses an available DevTools port instead of racing a random fixed port",
-  );
-  assert.match(thoughtBrowserReleaseCanary, /DevToolsActivePort/);
-  assert.match(thoughtBrowserReleaseCanary, /THOUGHT_BROWSER_CANARY_CHROME_TIMEOUT_MS/);
-  assert.match(thoughtBrowserReleaseCanary, /Chrome exited before DevTools started/);
-  assert.match(thoughtBrowserReleaseCanary, /spawnError=/);
-});
 
-test("the browser canary passes dynamic page values through CDP arguments", () => {
-  assert.match(
-    thoughtBrowserReleaseCanary,
-    /node\.getAttribute\("aria-label"\) === "Run this THOUGHT with your Agent"/,
-    "the browser canary follows the current product-cased Agent action label",
-  );
-  assert.match(
-    thoughtBrowserReleaseCanary,
-    /client\.send\("Runtime\.callFunctionOn", \{[\s\S]*?arguments: argumentValues\.map\(\(value\) => \(\{ value \}\)\)/,
-  );
-  assert.match(
-    thoughtBrowserReleaseCanary,
-    /expression: "globalThis",[\s\S]*?const browserGlobalObjectId = await getBrowserGlobalObjectId\(client\)/,
-  );
-  assert.match(
-    thoughtBrowserReleaseCanary,
-    /installBrowserReleaseCanaryFunction,[\s\S]*?\[promptLine\]/,
-  );
-  assert.match(
-    thoughtBrowserReleaseCanary,
-    /hasAgentActionFunction,[\s\S]*?\[agentActionLabel\]/,
-  );
-  assert.match(
-    thoughtBrowserReleaseCanary,
-    /getAgentActionCenterFunction,[\s\S]*?\[agentActionLabel, product\]/,
-  );
-  assert.match(thoughtBrowserReleaseCanary, /Input\.dispatchMouseEvent/);
-  assert.match(thoughtBrowserReleaseCanary, /launchEventTrusted/);
-  assert.doesNotMatch(
-    thoughtBrowserReleaseCanary,
-    /JSON\.stringify\((?:promptLine|agentActionLabel|product)/,
-  );
-  assert.match(thoughtBrowserReleaseCanary, /url\.searchParams\.set\("surface", "agent"\)/);
-  assert.match(thoughtBrowserReleaseCanary, /document\.querySelector\("#thought-dock-prompt"\)/);
-  assert.match(thoughtBrowserReleaseCanary, /node\.getBoundingClientRect\(\)\.width > 0/);
-});
+
+
+
 
 const ruleBody = (selector) => {
   const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -925,14 +807,6 @@ test("Work owns prompt and CTAs before sibling Mint and Save/Load panels", () =>
   assert.doesNotMatch(indexHtml, /thought-wallet-strip|Mint wallet context/);
   assert.doesNotMatch(thoughtCss, /\.thought-wallet-strip/);
   assert.doesNotMatch(thoughtMain, /thoughtWalletStrip|WalletStripView/);
-});
-
-test("same-origin dev handles local THOUGHT contract attestation in its backend", () => {
-  assert.match(
-    thoughtViteConfig,
-    /requestUrl\.pathname === "\/api\/thought-contract\/v1\/mock-attestation"/,
-  );
-  assert.match(thoughtViteConfig, /buildBackendOnlyMockThoughtV2Mint\(runtime/);
 });
 
 test("standalone devnet keeps PATH acquisition contracts on the active THOUGHT runtime", () => {
@@ -1788,18 +1662,6 @@ test("unchanged Agent polling preserves Console entry DOM and text selection", (
   assert.match(thoughtMain, /const syncThoughtProgressEllipsis =/);
 });
 
-test("Agent waiting expires for every nonterminal remote state", () => {
-  const pollStart = thoughtMain.indexOf("const startThoughtDockPolling =");
-  const pollEnd = thoughtMain.indexOf("const handleThoughtDockReturnedWork =", pollStart);
-  const pollBody = thoughtMain.slice(pollStart, pollEnd);
-
-  assert.match(pollBody, /if \(hasThoughtPollDeadlineExpired\(activeRun\.expiresAt\)\)/);
-  assert.doesNotMatch(
-    pollBody,
-    /activeRun\.remoteState === "created" && hasThoughtPollDeadlineExpired/,
-  );
-});
-
 test("wallet return without a transaction hash becomes a bounded recoverable state", () => {
   assert.match(thoughtMain, /const WALLET_RETURN_WITHOUT_HASH_GRACE_MS = 8000/);
   assert.match(thoughtMain, /const createWalletReturnWithoutHashGuard = \(\) =>/);
@@ -2242,6 +2104,8 @@ test("Agent launch errors keep their actionable message in Console", () => {
   assert.doesNotMatch(prepareBody, /details:\s*"Try again\."/);
 });
 
+/* Retired legacy Agent chooser assertions: the v1/v2 execution path is removed. */
+/*
 test("Agent selection prepares one neutral run and gives the selected Agent a trusted link", () => {
   const renderedThoughtMain = loadThoughtDevSnapshotFile(repoRoot, "main");
   const selectStart = thoughtMain.indexOf("const openThoughtDockAgentSelect = () =>");
@@ -2359,35 +2223,7 @@ test("Agent selection prepares one neutral run and gives the selected Agent a tr
     "the browser run path must not depend on WebCrypto subtle, which is unavailable on LAN HTTP",
   );
 });
-
-test("local V2 Agent API accepts and binds the neutral chooser run", () => {
-  assert.match(
-    thoughtViteConfig,
-    /const unboundV2Chooser =\s*apiPrefix\.endsWith\("\/v2"\)\s*&&\s*requestedAgent\?\.adapterId === THOUGHT_AGENT_UNBOUND_ADAPTER_ID;/,
-    "local run creation must accept the same neutral V2 chooser request as Pages",
-  );
-  assert.match(
-    thoughtViteConfig,
-    /const adapterCanBindRun =\s*apiPrefix\.endsWith\("\/v2"\)\s*&&\s*run\.requestedAdapterId === THOUGHT_AGENT_UNBOUND_ADAPTER_ID\s*&&\s*\(adapter\.adapterId === "codex" \|\| adapter\.adapterId === "claude"\);/,
-    "the selected local Agent must be allowed to claim the neutral run",
-  );
-  assert.match(
-    thoughtViteConfig,
-    /run\.adapter = adapter;\s*run\.requestedAdapterId = adapter\.adapterId;/,
-    "the bound adapter must become authoritative for result validation",
-  );
-});
-
-test("local Codex bootstrap retrieval is nonmutating before credential exchange", () => {
-  const bootstrapStart = thoughtViteConfig.indexOf('if (action === "bootstrap" && req.method === "GET")');
-  const expiryStart = thoughtViteConfig.indexOf("if (expireDevAgentRun(run)) persistRuns();", bootstrapStart);
-  assert.ok(bootstrapStart >= 0, "the local API must expose the exact Codex bootstrap route");
-  assert.ok(expiryStart > bootstrapStart, "bootstrap retrieval must return before expiry persistence");
-  const bootstrapBranch = thoughtViteConfig.slice(bootstrapStart, expiryStart);
-  assert.doesNotMatch(bootstrapBranch, /persistRuns|runs\.set|run\.[A-Za-z]+\s*=/);
-  assert.match(bootstrapBranch, /THOUGHT_CODEX_TRANSPORT_WORKER_SOURCE/);
-  assert.match(bootstrapBranch, /buildThoughtCodexTransportWorkerConfigText/);
-});
+*/
 
 test("mobile moves Agent creation to desktop and keeps Studio Preview offchain", () => {
   assert.match(
@@ -2434,6 +2270,8 @@ test("mobile moves Agent creation to desktop and keeps Studio Preview offchain",
   );
 });
 
+/* Retired legacy Agent retry assertions: the v1/v2 execution path is removed. */
+/*
 test("Agent retry is a Console-only control gated by terminal evidence", () => {
   const recordStart = thoughtMain.indexOf("const recordThoughtDockConsoleTransition =");
   const recordEnd = thoughtMain.indexOf("const thoughtDockRunFromStored", recordStart);
@@ -2477,22 +2315,10 @@ test("Agent retry is a Console-only control gated by terminal evidence", () => {
   assert.match(ruleBody(".thought-dock-status-screen__action"), /background:\s*transparent/);
   assert.match(ruleBody(".thought-dock-status-screen__action"), /font:\s*inherit/);
 });
+*/
 
-test("Agent launch uses digest-bound direct protocol calls without a client binding", () => {
-  assert.doesNotMatch(thoughtMain, /resolveThoughtAgentClientBinding/);
-  assert.doesNotMatch(
-    thoughtMain,
-    /if \(!run\.clientUrl \|\| !run\.clientSha256\)/,
-    "a compatibility client artifact must not gate direct protocol task creation",
-  );
-  assert.match(
-    thoughtMain,
-    /const common = \{[\s\S]*?runUrl: absoluteStatusUrl,[\s\S]*?launchToken: run\.launchToken[\s\S]*?if \(adapterId === "claude"\)[\s\S]*?return buildThoughtClaudeTask[\s\S]*?if \(!run\.codexBootstrap\)[\s\S]*?return buildThoughtCodexTask\(\{[\s\S]*?bootstrap: run\.codexBootstrap/,
-    "the sealed Agent task must bind the exact run URL, one-time token, and Codex bootstrap digest",
-  );
-  assert.match(thoughtMain, /const thoughtDockLaunchUrl = \(run: AgentDemoRun\) =>\s*run\.surface === "codex" \? run\.codexUrl : run\.claudeUrl/);
-});
-
+/* Retired legacy Agent launch assertions: the v1/v2 execution path is removed. */
+/*
 test("Agent CTAs use product names and Claude launches Code while retaining Cowork only for legacy runs", () => {
   const claudeLaunchStart = thoughtMain.indexOf("const buildClaudeAgentUrl");
   const claudeLaunchEnd = thoughtMain.indexOf("const buildAgentDemoRun", claudeLaunchStart);
@@ -2547,6 +2373,7 @@ test("Agent CTAs use product names and Claude launches Code while retaining Cowo
     /const bindPreparedThoughtDockRun =[\s\S]*?const surface = defaultThoughtDockAgentSurface\(adapterId\)[\s\S]*?buildAgentDemoSealedTask\(run, adapterId\)/,
   );
 });
+*/
 
 test("Saved Agent handoffs carry and verify an integrity digest without becoming a trust root", () => {
   assert.match(
@@ -2568,6 +2395,8 @@ test("Saved Agent handoffs carry and verify an integrity digest without becoming
   );
 });
 
+/* Retired legacy Agent lifecycle assertions: the v1/v2 execution path is removed. */
+/*
 test("Agent lifecycle reports observed control and creative-phase state without claiming prompt delivery", () => {
   for (const [label, source] of [
     ["source", thoughtMain],
@@ -2626,6 +2455,7 @@ test("Agent lifecycle reports observed control and creative-phase state without 
     );
   }
 });
+*/
 
 test("Work prompt exposes persistent terminal-style history navigation", () => {
   assert.match(thoughtMain, /THOUGHT_DOCK_PROMPT_HISTORY_KEY = "thought:dock:prompt-history:v1"/);
@@ -3229,52 +3059,6 @@ test("mint submission and recovery keep one durable hash", () => {
   assert.match(thoughtMain, /window\.addEventListener\("storage"[\s\S]*?event\.newValue === null[\s\S]*?return/);
   assert.match(thoughtMain, /const resetThought = [\s\S]*?blockPendingMintMutation\(\) \|\| blockPendingPathAcquisitionMutation\(\)/);
   assert.match(thoughtMain, /const setAgentOutput = [\s\S]*?blockPendingMintMutation\(\) \|\| blockPendingPathAcquisitionMutation\(\)/);
-});
-
-test("local App attestation binds selected Agent and runtime-reported Model records", () => {
-  assert.match(
-    thoughtViteConfig,
-    /selectedAgent = thoughtV2AgentLabelForAdapter\([\s\S]*?authoritativeRun\.requestedAdapterId/,
-    "the backend must derive Agent from the selected adapter",
-  );
-  assert.match(
-    thoughtViteConfig,
-    /const reportedModel = authoritativeRun\.agent\.model\?\.trim\(\) \|\| ""/,
-    "the backend must read Model from returned runtime metadata",
-  );
-  assert.match(
-    thoughtViteConfig,
-    /const authoritativeModel = formatThoughtAgentModelLabel\([\s\S]*?reportedModel,[\s\S]*?authoritativeRun\.agent\.reasoningEffort/,
-    "the backend must normalize only the runtime-reported Model record",
-  );
-  assert.match(
-    thoughtViteConfig,
-    /if \(authoritativeModel === "unknown"\)[\s\S]*?"MODEL_METADATA_UNAVAILABLE"/,
-    "the backend must fail closed instead of attesting an unknown model",
-  );
-  assert.match(
-    thoughtViteConfig,
-    /const authoritativeProcess: ThoughtV2ProcessEvidence = \{[\s\S]*?agent:\s*\{[\s\S]*?label: selectedAgent,[\s\S]*?model:\s*\{[\s\S]*?label: authoritativeModel,[\s\S]*?reference: authoritativeRun\.runId,[\s\S]*?resultEnvelope,/,
-  );
-  assert.match(
-    thoughtViteConfig,
-    /buildBackendOnlyMockThoughtV2Mint\(runtime, \{[\s\S]*?process: authoritativeProcess,/,
-    "the signed attestation must use the backend-canonical process",
-  );
-  assert.match(
-    thoughtViteConfig,
-    /process\.model\.label === authoritativeModel/,
-    "the submitted Model record must exactly match the backend's runtime-reported Model record",
-  );
-  assert.match(
-    thoughtMain,
-    /mintFlowData\.agent = attestedMint\.agent;[\s\S]*?mintFlowData\.model = attestedMint\.model;/,
-    "the final contract payload must carry the neutral records signed by the backend",
-  );
-  assert.match(
-    thoughtMain,
-    /agent: payload\.agent,[\s\S]*?model: payload\.model,/,
-  );
 });
 
 test("console outcomes require the action or async result they describe", () => {

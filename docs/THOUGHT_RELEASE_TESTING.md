@@ -19,23 +19,20 @@ substitute a configured model or omit any other required canary evidence.
 ## Automated integration tests
 
 Fake Agent/API/browser/storage runs test application wiring, not real Agent behavior.
-Legacy commands named canary:thought-agent-browser-release are compatibility aliases for automated integration tests.
-Use test:thought-agent-browser-integration for new runs.
-
-Readiness regression coverage must include both Codex and Claude, with reported
-and unknown model metadata: compare only `response.control` with
-`READY_BODY.control` by exact keys, values and types, ignoring object key order.
-Verify the top-level protocol, run ID, ready state, control-verified stage and
-absence of `creatorAction` separately. A whole-request substring comparison or
-serialized JSON equality is not this check. Keep malformed-control rejection
-and replay boundaries covered. These tests do not establish real-Agent success.
+Run `pnpm test:thought-plain`, `pnpm test:release-readiness` and
+`pnpm test:thought-retirement`. They cover exact bytes, acknowledgement validation,
+scoped capabilities, return/read deadlines, browser Save/Load compatibility, and
+retired endpoint methods with no database access or SPA fallback. Legacy v1/v2
+Agent execution and handoff-lab commands are removed; historical reports remain
+evidence of their original candidates, not qualification of this replacement.
 
 ## Real-Agent canary
 
-On the frozen staging candidate at https://preview.inshell.art, the helper prepares the handoff and opens the chosen Agent.
-The operator clicks Submit and approves host permissions. The observer records sanitized run/receipt evidence;
-the operator confirms the returned work is visible. No automated Submit or manufactured receipt.
-Record mac-a/codex and mac-a/claude; optional mac-b cells must meet the same checks.
+On the frozen staging candidate at https://preview.inshell.art, use the current
+THOUGHT creation surface. The operator submits the handoff in Codex or Claude Code
+and approves normal host permissions. Confirm the exact returned work, Save,
+refresh and Load in the browser. Record actual machine and candidate identities;
+the required operator machine is Mac B. No automated Submit or manufactured receipt.
 
 For Claude Code, use a fresh chat with **No folder**, the recommended launch
 context for this standalone artwork task. No repository access is needed.

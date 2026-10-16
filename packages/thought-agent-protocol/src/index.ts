@@ -56,52 +56,7 @@ const measureReleasedThoughtLine = (
 
 export { THOUGHT_V2_PROTOCOL_RELEASE } from "./release.generated";
 export { THOUGHT_AGENT_CREATIVE_BRIEF } from "./creative-brief.generated";
-export {
-  THOUGHT_AGENT_HTTP_USER_AGENT,
-  THOUGHT_HANDOFF_INPUT_HASH_CONVENTION,
-  THOUGHT_HANDOFF_OPERATION_DIAGNOSTICS,
-  THOUGHT_HANDOFF_OPERATION_RECOVERY,
-} from "./handoff-http";
-export {
-  THOUGHT_AGENT_RUN_AUTHORITY,
-  THOUGHT_AGENT_RUN_AUTHORITY_VERSION,
-} from "./run-authority";
-export {
-  THOUGHT_CODEX_CLIENT_ROUTE,
-  buildThoughtCodexClientScript,
-  buildThoughtCodexOperationContract,
-  buildThoughtCodexTask,
-  type ThoughtCodexReleaseBinding,
-  type ThoughtCodexResultContractBinding,
-  type ThoughtCodexTaskInput,
-} from "./codex-client";
-export {
-  THOUGHT_CODEX_BOOTSTRAP_MAX_BYTES,
-  THOUGHT_CODEX_BOOTSTRAP_SCHEMA,
-  THOUGHT_CODEX_BOOTSTRAP_TIMEOUT_MS,
-  THOUGHT_CODEX_TRANSPORT_WORKER_BROTLI_BASE64,
-  THOUGHT_CODEX_TRANSPORT_WORKER_LAUNCHER,
-  THOUGHT_CODEX_TRANSPORT_WORKER_LOADER,
-  THOUGHT_CODEX_TRANSPORT_WORKER_READABLE_SOURCE,
-  THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
-  THOUGHT_CODEX_TRANSPORT_WORKER_SOURCE,
-  buildThoughtCodexTransportWorkerConfig,
-  buildThoughtCodexTransportWorkerConfigText,
-  buildThoughtCodexTransportWorkerCommand,
-  type ThoughtCodexBootstrapBinding,
-  type ThoughtCodexTransportWorkerConfig,
-  type ThoughtCodexTransportWorkerInput,
-} from "./codex-transport-worker";
-export {
-  THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION,
-  buildThoughtClaudeOperationContract,
-  buildThoughtClaudeTask,
-  isThoughtClaudeCoworkPublicHttpsOrigin,
-  type ThoughtClaudeReleaseBinding,
-  type ThoughtClaudeResultContractBinding,
-  type ThoughtClaudeSurface,
-  type ThoughtClaudeTaskInput,
-} from "./claude-client";
+export type { ThoughtClaudeSurface, ThoughtCodexBootstrapBinding, ThoughtCodexReleaseBinding, ThoughtCodexResultContractBinding } from "./legacy-record-types";
 
 export const THOUGHT_AGENT_PROTOCOL_VERSION =
   THOUGHT_V2_PROTOCOL_RELEASE.agentRunId;

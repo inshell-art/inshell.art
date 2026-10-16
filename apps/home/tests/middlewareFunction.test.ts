@@ -235,8 +235,6 @@ describe("Pages middleware canonical routes", () => {
     ["/thought", "/thought/"],
     ["/thought/", "/thought/"],
     ["/thought/7", "/thought/"],
-    ["/thought/plugin/codex", "/thought/"],
-    ["/thought/runs/tar_fixture", "/thought/"],
     ["/gallery", "/"],
     ["/gallery/", "/"],
     ["/path/7", "/"],

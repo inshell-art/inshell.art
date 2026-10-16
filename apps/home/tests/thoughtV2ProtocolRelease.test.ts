@@ -3,7 +3,6 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { cwd } from "node:process";
 import { THOUGHT_V2_PROTOCOL_RELEASE } from "../../../packages/thought-agent-protocol/src";
-import { THOUGHT_AGENT_STATUS } from "../../../functions/api/thought-agent/v1/shared";
 import {
   THOUGHT_V2_CONVERSATION_IDENTITY_DOMAIN,
   THOUGHT_V2_RENDERER_ID,
@@ -238,13 +237,6 @@ describe("pinned THOUGHT V2 protocol release", () => {
       productionConsumable: true,
     });
     expect(THOUGHT_V2_PROTOCOL_RELEASE.deployment.v2MintEnabled).toBe(false);
-    expect(THOUGHT_AGENT_STATUS).toMatchObject({
-      protocolVersion: "inshell.thought.agent-run.v2",
-      resultSchema: "inshell.thought.agent-result.v2",
-      protocolReleaseId: RELEASE_ID,
-      deploymentStatus: "canonical-portable-not-deployed",
-      v2MintEnabled: false,
-    });
   });
 
   test("does not embed Agent write credentials in user-visible launch tasks", () => {
