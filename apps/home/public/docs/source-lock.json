@@ -11,14 +11,14 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "5e701f0cc13da3f7505d311dbabac3be3208797a91f1a5b45c38355a21d6eee2",
+  "sourceTreeSha256": "a58597494dbb1f5bd27e447f7c214be34d1f5fd62e9357f614a1343dd4cda65f",
   "groups": [
     {
       "id": "public-docs",
       "title": "Public documentation sources",
       "owner": "inshell.art docs",
       "reason": "Human articles, Agent-readable content, authority maps, and machine-handoff selection.",
-      "groupSha256": "a246484bf7197d0c1b8a2ef272933cd2262dcd01137a17accf2c2fd5e99d7089",
+      "groupSha256": "f3ac009a981a289c9d9b40b9963ecd98b77967b08a9c5012ddeff287062af02f",
       "files": [
         {
           "path": "apps/home/src/content/AGENTS.md",
@@ -37,8 +37,8 @@
         },
         {
           "path": "apps/home/src/content/docs.ts",
-          "byteLength": 180456,
-          "sha256": "1325b2608956f02d41cc8c3927fe41ee412c3c93750bfb6a255f13a39e23fda1"
+          "byteLength": 180802,
+          "sha256": "46559558450decaef85c14b3e189f3c65cbb62dab19d522f337b8c66148e68e6"
         },
         {
           "path": "apps/home/src/content/thought-machine-handoff.ts",
@@ -944,7 +944,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "db0e5e5bd55e3fbd2f9b3d1fa03c4d272641dbb7205e37157e892e460357fdd4",
+      "groupSha256": "5e3465f13bbb3aa6b0ae3775ad33d3ae6fdf0addc662b3ca19dff659db92d40f",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1038,8 +1038,8 @@
         },
         {
           "path": "apps/thought/src/plain-return/model.ts",
-          "byteLength": 9344,
-          "sha256": "f0033a97737b6136e5dcae00822169855414367929a93e4aa52861739c2d0d5b"
+          "byteLength": 10263,
+          "sha256": "65ac40958bb6b65a4e3ee732d2537362f15751940480518bca479bf401c8c297"
         },
         {
           "path": "apps/thought/src/plain-return/tsconfig.json",

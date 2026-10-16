@@ -124,13 +124,23 @@ test("both launch paths retain the shared native-curl-only handoff and frozen cr
     // These are generated-instruction checks, not a simulated desktop approval gate.
     const permission = delivered.slice(delivered.indexOf("PHASE 2 — DELIVER THAT SAME LINE"), delivered.indexOf("Method: POST"));
     for (const requirement of [
-      "Before the single credential-bearing POST", "inspect the host-provided execution and network permissions",
+      "Before the single credential-bearing POST", "read only the execution and network permission instructions already supplied by your host or tool interface",
+      "If permission requirements are unclear, ask for normal host approval for the exact return request",
+      "do not infer permission from successful local checks",
+      "Preflight is local-only", "local executable lookup",
+      "-q --version and no URL or credentials",
+      "Do not read or print proxy environment variables, inspect proxy configuration, or probe internal proxy/status endpoints (including __agentproxy/status), metadata services, or other network destinations",
+      "Do not make a connectivity request, including to the App, before delivery",
+      "Leave host-managed proxy and network protections unchanged",
       "request normal host approval scoped to this delivery in the delivery tool invocation, before the command executes",
       "entire execution command, including any interpreter invoking native curl",
       "Do not assume a curl child inherits a curl-prefix allow rule or that Auto mode grants network access",
       "If permission is denied or unavailable, report the blocker and stop before submission",
+      "Do not bypass a denial with another tool, transport or permission mode, or request a blanket Bash/curl allow rule",
       "Do not probe connectivity with the capability or add a handshake",
     ]) assert.ok(permission.includes(requirement), `${prefix}: ${requirement}`);
+    assert.ok(!permission.includes("$HTTPS_PROXY"), "No executable proxy probe example");
+    assert.equal(curlArguments(delivered).filter(arg => arg === "--url").length, 1);
   }
 });
 test("handoff body argument preserves all allowed punctuation with closed stdin, direct and shell execution", async () => {
