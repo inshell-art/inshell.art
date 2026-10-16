@@ -1,4 +1,5 @@
 import docsRouteMetadataJson from "../packages/shared/generated/docs-route-metadata.json";
+import { isRetiredThoughtPath, retiredThoughtResponse } from "../packages/shared/src/retired-thought";
 
 type DocsRouteMetadata = {
   description: string;
@@ -29,6 +30,9 @@ export async function onRequest(ctx: MiddlewareContext): Promise<Response> {
   const url = new globalThis.URL(ctx.request.url);
   if (isRetiredPublicPathname(url.pathname)) {
     return retiredPublicNotFound(ctx.request);
+  }
+  if (isRetiredThoughtPath(url.pathname)) {
+    return retiredThoughtResponse(ctx.request.method);
   }
 
   const pathname = normalizePathname(url.pathname);
@@ -293,11 +297,6 @@ function isThoughtAppShellRoute(pathname: string) {
     pathname === "/thought" ||
     pathname === "/thought/color-font" ||
     pathname === "/thought/verify" ||
-    pathname === "/thought/agent-demo" ||
-    pathname === "/thought/plugin" ||
-    pathname === "/thought/plugin/codex" ||
-    pathname === "/thought/plugin/claude" ||
-    /^\/thought\/runs\/[A-Za-z0-9_-]+$/.test(pathname) ||
     isTokenRoute(pathname, "thought")
   );
 }

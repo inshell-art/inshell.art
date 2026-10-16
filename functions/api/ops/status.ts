@@ -16,7 +16,7 @@ import {
 } from "../thought-gallery-release";
 import { analyticsHostScopeForHostname, readAnalyticsStatus } from "../analytics/store";
 import { readIndexerEventStatus } from "../indexer/event-status";
-import { THOUGHT_AGENT_STATUS } from "../thought-agent/v1/shared";
+import { API as THOUGHT_PLAIN_API } from "../../../apps/thought/src/plain-return/model";
 import {
   THOUGHT_ACTIVATION_POLICY, THOUGHT_DEPLOYMENT_LOCK, THOUGHT_DEPLOYMENT_LOCK_STATUS,
   deploymentConfigurationDrift, deploymentOverrideDrift,
@@ -85,18 +85,13 @@ const ROUTES = {
       visitTimeoutMinutes: 30,
     },
   },
-  thoughtAgent: {
-    baseRoute: "/api/thought-agent/v2",
-    createRoute: "/api/thought-agent/v2/runs",
-    statusRoute: "/api/thought-agent/v2/runs/:runId",
-    claimRoute: "/api/thought-agent/v2/runs/:runId/claim",
-    startRoute: "/api/thought-agent/v2/runs/:runId/start",
-    resultRoute: "/api/thought-agent/v2/runs/:runId/result",
-    failRoute: "/api/thought-agent/v2/runs/:runId/fail",
-    cancelRoute: "/api/thought-agent/v2/runs/:runId/cancel",
-    legacyRoute: "/api/thought-agent/v1",
-    auth: "run-scoped bearer tokens",
-    bridgeLaunchScheme: "thought://",
+  thoughtPlain: {
+    baseRoute: THOUGHT_PLAIN_API,
+    capabilitiesRoute: `${THOUGHT_PLAIN_API}/capabilities`,
+    createRoute: `${THOUGHT_PLAIN_API}/runs`,
+    statusRoute: `${THOUGHT_PLAIN_API}/runs/:runId`,
+    returnRoute: `${THOUGHT_PLAIN_API}/runs/:runId/return`,
+    auth: "per-run capabilities with separate return and read deadlines",
   },
 };
 
@@ -211,7 +206,11 @@ export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
       appliedCount: eventStatus.status?.appliedCount ?? 0,
     },
     anonymousAnalytics: analyticsStatus,
-    thoughtAgentBridge: { ...THOUGHT_AGENT_STATUS,
+    thoughtPlain: {
+      enabled: (ctx.env as { THOUGHT_PLAIN_HTTP_ENABLED?: string }).THOUGHT_PLAIN_HTTP_ENABLED === "true",
+      runStore: "d1",
+      legacyApi: "retired",
+      v2MintEnabled: false,
       deploymentLock: { ...THOUGHT_DEPLOYMENT_LOCK_STATUS,
         integrity: differences.length ? "drift" : "valid", differences } },
     cache: {

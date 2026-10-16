@@ -3,18 +3,16 @@ import { test } from "node:test";
 import { readFileSync } from "node:fs";
 import { collectPlainEvidence, collectPlainExports } from "./collect-thought-plain-evidence";
 import { makeWork, acknowledge, PENDING_KEY } from "../apps/thought/src/plain-return/model";
-import { onRequestPost as v1 } from "../functions/api/thought-agent/v1/runs";
-import { onRequestPost as v2 } from "../functions/api/thought-agent/v2/runs";
+import { retiredThoughtResponse } from "../packages/shared/src/retired-thought";
 import { PlainClient, readEarlierWorks } from "../apps/thought/src/plain-return/client";
 import { appendThoughtWork } from "../apps/thought/src/works";
 import { plainReturnEntryPlugin } from "../apps/thought/scripts/plain-return-entry";
 
 test("public legacy admission is gone before body, credentials or database access", async () => {
-  for (const handler of [v1, v2]) {
-    const context = new Proxy({}, { get() { throw Error("No context access permitted"); } });
-    const response = await handler(context as Parameters<typeof v1>[0]);
+  for (const method of ["GET", "POST", "PUT", "OPTIONS"]) {
+    const response = retiredThoughtResponse(method);
     assert.equal(response.status, 410);
-    assert.equal((await response.json()).error.code, "LEGACY_CREATION_RETIRED");
+    assert.equal((await response.json()).error.code, "LEGACY_THOUGHT_RETIRED");
     assert.equal(response.headers.get("cache-control"), "no-store");
   }
 });

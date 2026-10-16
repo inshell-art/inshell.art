@@ -56,11 +56,8 @@ import {
   THOUGHT_AGENT_RESULT_VERSION,
   THOUGHT_AGENT_PROTOCOL_VERSION,
   THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
-  THOUGHT_CODEX_TRANSPORT_WORKER_SHA256,
   THOUGHT_SHA256_PREFIX,
   THOUGHT_V2_PROTOCOL_RELEASE,
-  buildThoughtCodexTask,
-  buildThoughtClaudeTask,
   type ThoughtAgentControlEvidence,
   type ThoughtAgentMetadataSource,
   type ThoughtAgentReasoningEffort,
@@ -1539,50 +1536,11 @@ const resolveBrowserRpcUrl = (rpcUrl: string) => {
   }
 };
 
-const THOUGHT_AGENT_API_BASE = resolveBrowserRpcUrl(
-  readConfiguredUrl("VITE_THOUGHT_AGENT_API_BASE") || "/api/thought-agent/v2",
-).replace(/\/+$/g, "");
 
-const thoughtAgentApiUrl = (path: string) => {
-  const normalizedPath = path.replace(/^\/+/, "");
-  return new URL(normalizedPath, `${THOUGHT_AGENT_API_BASE}/`).toString();
-};
 
-const THOUGHT_DOCK_AGENT_API_BASE = THOUGHT_AGENT_API_BASE;
-const THOUGHT_DOCK_AGENT_PUBLIC_API_BASE = resolveBrowserRpcUrl(
-  readConfiguredUrl("VITE_THOUGHT_AGENT_PUBLIC_API_BASE") ||
-  THOUGHT_DOCK_AGENT_API_BASE,
-).replace(/\/+$/g, "");
+const thoughtDockAgentPublicApiOrigin = () => window.location.origin;
 
-const thoughtDockAgentApiUrl = (path: string) => {
-  const normalizedPath = path.replace(/^\/+/, "");
-  return new URL(normalizedPath, `${THOUGHT_DOCK_AGENT_API_BASE}/`).toString();
-};
-
-const thoughtDockAgentPublicApiOrigin = () =>
-  new URL(`${THOUGHT_DOCK_AGENT_PUBLIC_API_BASE}/`, window.location.origin).origin;
-
-const thoughtDockAgentPublicRunUrl = (runId: string, browserStatusUrl: string) => {
-  if (THOUGHT_DOCK_AGENT_PUBLIC_API_BASE === THOUGHT_DOCK_AGENT_API_BASE) {
-    return browserStatusUrl;
-  }
-  return new URL(
-    `runs/${encodeURIComponent(runId)}`,
-    `${THOUGHT_DOCK_AGENT_PUBLIC_API_BASE}/`,
-  ).toString();
-};
-
-const resolveThoughtDockAgentStatusUrl = (statusUrl: string) => {
-  try {
-    return new URL(statusUrl).toString();
-  } catch {
-    const base = new URL(`${THOUGHT_DOCK_AGENT_API_BASE}/`, window.location.origin);
-    if (statusUrl.startsWith("/")) {
-      return new URL(statusUrl, base.origin).toString();
-    }
-    return new URL(statusUrl, base).toString();
-  }
-};
+const resolveThoughtDockAgentStatusUrl = (..._args: unknown[]): string => { throw new Error("Legacy THOUGHT API is retired."); };
 
 const resolveThoughtDockAgentLaunchUri = (launchUri: string) => {
   try {
@@ -1657,13 +1615,13 @@ const thoughtBridgeNotConnectedLines = () => [
 ];
 
 const thoughtAgentApiOrigin = () =>
-  new URL(`${THOUGHT_AGENT_API_BASE}/`, window.location.origin).origin;
+  new URL(`${"retired"}/`, window.location.origin).origin;
 
 const resolveThoughtAgentStatusUrl = (statusUrl: string) => {
   try {
     return new URL(statusUrl).toString();
   } catch {
-    const base = new URL(`${THOUGHT_AGENT_API_BASE}/`, window.location.origin);
+    const base = new URL(`${"retired"}/`, window.location.origin);
     if (statusUrl.startsWith("/")) {
       return new URL(statusUrl, base.origin).toString();
     }
@@ -1671,15 +1629,7 @@ const resolveThoughtAgentStatusUrl = (statusUrl: string) => {
   }
 };
 
-const resolveThoughtAgentLaunchUri = (launchUri: string) => {
-  try {
-    const url = new URL(launchUri);
-    url.searchParams.set("api_origin", thoughtAgentApiOrigin());
-    return url.toString();
-  } catch {
-    return launchUri;
-  }
-};
+const resolveThoughtAgentLaunchUri = (..._args: unknown[]): string => { throw new Error("Legacy THOUGHT launch is retired."); };
 
 const shellSingleQuote = (value: string) => `'${value.replace(/'/g, "'\\''")}'`;
 
@@ -1691,17 +1641,7 @@ const shouldShowThoughtAgentDevBridgeCommand = () => {
   return origin === "http://127.0.0.1:5174" || origin === "http://localhost:5174";
 };
 
-const appendThoughtAgentDevBridgeCommand = (launchUri: string) => {
-  if (!shouldShowThoughtAgentDevBridgeCommand()) {
-    return;
-  }
-
-  appendCliOutput([
-    "if THOUGHT Bridge did not open:",
-    "run in repo:",
-    `pnpm thought-bridge:dev run-url ${shellSingleQuote(launchUri)}`,
-  ]);
-};
+const appendThoughtAgentDevBridgeCommand = (..._args: unknown[]) => {};
 
 const resolveThoughtRpcUrl = () => {
   const envRpcUrl =
@@ -2993,18 +2933,7 @@ const agentDemoResultJson = (
 const thoughtAgentProductLabel = (adapterId: ThoughtDockAgentAdapterId) =>
   THOUGHT_DOCK_AGENT_ADAPTERS.find((adapter) => adapter.id === adapterId)?.label ?? "Agent";
 
-const thoughtAgentCreateSupportsBoundedControl = (
-  payload: ThoughtAgentRunCreateResponse,
-) =>
-  payload.controlContract?.schema === THOUGHT_AGENT_CONTROL_VERSION &&
-  payload.controlContract.mode === "bounded-preflight" &&
-  payload.controlContract.claimCreativeInput === "sealed-absent" &&
-  payload.controlContract.creativeInputEndpoint === "start" &&
-  payload.codexBootstrap?.workerSha256 === THOUGHT_CODEX_TRANSPORT_WORKER_SHA256 &&
-  /^sha256:[0-9a-f]{64}$/.test(payload.codexBootstrap.configSha256 ?? "") &&
-  typeof payload.codexBootstrap?.url === "string" &&
-  Boolean(payload.release) &&
-  Boolean(payload.resultContract);
+const thoughtAgentCreateSupportsBoundedControl = (..._args: unknown[]) => false;
 
 const resolveThoughtCodexBootstrap = (
   payload: ThoughtAgentRunCreateResponse,
@@ -3131,50 +3060,7 @@ const thoughtDockAgentLifecycleDetail = (remoteState?: string | null) => {
   }
 };
 
-const buildAgentDemoSealedTask = (
-  run: Omit<
-    AgentDemoRun,
-    "codexUrl" | "claudeUrl" | "sealedTask" | "handoffSha256" | "candidate"
-  >,
-  adapterId: ThoughtDockAgentAdapterId = "codex",
-) => {
-  const product = thoughtAgentProductLabel(adapterId);
-  const launchApiOrigin = (() => {
-    try {
-      return new URL(run.launchUri).searchParams.get("api_origin") || "";
-    } catch {
-      return "";
-    }
-  })();
-  const derivedStatusUrl = launchApiOrigin
-    ? `${launchApiOrigin.replace(/\/+$/g, "")}/api/thought-agent/v2/runs/${encodeURIComponent(run.runId)}`
-    : "";
-  const statusUrl = run.agentStatusUrl || run.statusUrl || derivedStatusUrl;
-  const absoluteStatusUrl = new URL(statusUrl, window.location.href).toString().replace(/\/+$/g, "");
-  const common = {
-    product,
-    runId: run.runId,
-    runUrl: absoluteStatusUrl,
-    launchToken: run.launchToken,
-    // A V2 run must carry its exact release and result contract from creation.
-    // The create-response gate rejects older services before any Agent opens.
-    release: run.release!,
-    resultContract: run.resultContract!,
-  };
-  if (adapterId === "claude") {
-    return buildThoughtClaudeTask({
-      ...common,
-      surface: thoughtClaudeSurface(run.surface),
-    });
-  }
-  if (!run.codexBootstrap) {
-    throw new Error("THOUGHT Codex bootstrap binding is unavailable.");
-  }
-  return buildThoughtCodexTask({
-    ...common,
-    bootstrap: run.codexBootstrap,
-  });
-};
+const buildAgentDemoSealedTask = (..._args: unknown[]): string => { throw new Error("Legacy THOUGHT tasks are retired."); };
 
 const buildCodexAgentUrl = (sealedTask: string) => {
   const params = new URLSearchParams({
@@ -3197,80 +3083,7 @@ const buildClaudeAgentUrl = (
   return `${route}?${params.toString()}`;
 };
 
-const buildAgentDemoRun = async (): Promise<AgentDemoRun> => {
-  const prompt = agentDemoPrompt.value;
-  assertActiveThoughtLine(prompt, "prompt");
-  const createPayload = await fetchThoughtAgentJson<ThoughtAgentRunCreateResponse>(
-    thoughtAgentApiUrl("runs"),
-    {
-      method: "POST",
-      body: JSON.stringify({
-        protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
-        promptLine: prompt,
-        specId: THOUGHT_AGENT_REGISTERED_SPEC_ID,
-        requestedAgent: {
-          adapterId: CODEX_PROVIDER,
-          model: null,
-        },
-        client: {
-          surface: "thought-agent-demo",
-          appVersion: `${APP_VERSION}+${APP_BUILD}`,
-          agentApiOrigin: thoughtDockAgentPublicApiOrigin(),
-        },
-        devAutoRun: false,
-      }),
-    },
-  );
-  if (
-    !createPayload.runId ||
-    !createPayload.browserToken ||
-    !createPayload.statusUrl ||
-    !createPayload.launchUri
-  ) {
-    throw new Error("THOUGHT Agent API returned an incomplete demo run.");
-  }
-  const statusUrl = resolveThoughtAgentStatusUrl(createPayload.statusUrl);
-  if (!thoughtAgentCreateSupportsBoundedControl(createPayload)) {
-    await rejectIncompatibleThoughtAgentRun(createPayload, statusUrl);
-  }
-  const launchUri = resolveThoughtAgentLaunchUri(createPayload.launchUri);
-  const launchToken = agentDemoLaunchToken(launchUri);
-  if (!launchToken) {
-    throw new Error("THOUGHT Agent API returned a launch URI without a token.");
-  }
-  const promptHash = await agentDemoSha256(prompt);
-  const agentStatusUrl = thoughtDockAgentPublicRunUrl(createPayload.runId, statusUrl);
-  const baseRun = {
-    runId: createPayload.runId,
-    surface: "codex" as const,
-    prompt,
-    promptHash,
-    launchUri,
-    launchToken,
-    codexBootstrap: resolveThoughtCodexBootstrap(createPayload, agentStatusUrl),
-    browserToken: createPayload.browserToken,
-    statusUrl,
-    agentStatusUrl,
-    claimUrl: agentDemoRunActionUrl(statusUrl, "claim"),
-    readyUrl: agentDemoRunActionUrl(statusUrl, "ready"),
-    startUrl: agentDemoRunActionUrl(statusUrl, "start"),
-    resultUrl: agentDemoRunActionUrl(statusUrl, "result"),
-    remoteState: createPayload.state ?? "created",
-    expiresAt: createPayload.claimExpiresAt,
-    release: createPayload.release,
-    resultContract: createPayload.resultContract,
-  };
-  const sealedTask = buildAgentDemoSealedTask(baseRun);
-  const handoffSha256 = thoughtAgentHandoffSha256(sealedTask);
-  return {
-    ...baseRun,
-    sealedTask,
-    handoffSha256,
-    codexUrl: buildCodexAgentUrl(sealedTask),
-    claudeUrl: buildClaudeAgentUrl(sealedTask),
-    candidate: null,
-  };
-};
+const buildAgentDemoRun = async (): Promise<AgentDemoRun> => { throw new Error("Legacy THOUGHT tasks are retired."); };
 
 const agentDemoDockStatusForPhase = () => {
   if (agentDemoStatusDetail) {
@@ -3358,266 +3171,16 @@ const acceptAgentDemoCandidate = (candidate: string, remoteState = "returned") =
   renderAgentDemo();
 };
 
-const pollAgentDemoRun = (run: AgentDemoRun) => {
-  const generation = ++agentDemoPollGeneration;
-  void (async () => {
-    while (generation === agentDemoPollGeneration && agentDemoRun?.runId === run.runId) {
-      try {
-        const payload = await fetchThoughtAgentJson<ThoughtAgentRunStatusResponse>(run.statusUrl, {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${run.browserToken}`,
-          },
-        });
-        if (agentDemoRun?.runId !== run.runId) return;
-        agentDemoRun = {
-          ...agentDemoRun,
-          remoteState: payload.state ?? agentDemoRun.remoteState,
-        };
-        if (payload.state === "returned") {
-          const candidate = await readThoughtAgentModelReturn(payload);
-          if (!candidate) {
-            throw new Error("returned run had no candidate.");
-          }
-          acceptAgentDemoCandidate(candidate, "returned");
-          return;
-        }
-        if (payload.state === "failed" || payload.state === "cancelled" || payload.state === "expired") {
-          agentDemoStatusDetail = normalizeThoughtAgentProtocolError(
-            payload.error?.message || `run ${payload.state}.`,
-            normalizeThoughtDockAdapterId(payload.request?.requestedAgent?.adapterId),
-          );
-          renderAgentDemo();
-          return;
-        }
-        if (agentDemoPhase !== "returned" && agentDemoPhase !== "mint-ready") {
-          renderAgentDemo();
-        }
-        await new Promise((resolve) => window.setTimeout(resolve, THOUGHT_AGENT_STATUS_POLL_MS));
-      } catch (error) {
-        if (generation !== agentDemoPollGeneration) return;
-        agentDemoStatusDetail = error instanceof Error ? error.message : "poll failed.";
-        renderAgentDemo();
-        return;
-      }
-    }
-  })();
-};
+const pollAgentDemoRun = (..._args: unknown[]) => {};
 
-const submitAgentDemoProtocolResult = async (candidate: string) => {
-  if (!agentDemoRun) return;
-  const run = agentDemoRun;
-  agentDemoPhase = "waiting";
-  agentDemoStatusDetail = "Agent posting result to protocol endpoint.";
-  renderAgentDemo();
-
-  const bridge = agentDemoBridgeInfo();
-  const adapter = agentDemoAdapterInfo();
-  const claimBody = JSON.stringify({
-    protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
-    bridge,
-    adapter,
-  });
-  const authorization = await fetchThoughtAgentJson<{
-    claimRequestId?: string;
-    claimRequestToken?: string;
-  }>(run.claimUrl, {
-    method: "POST",
-    body: claimBody,
-  });
-  if (!authorization.claimRequestId || !authorization.claimRequestToken) {
-    throw new Error("claim authorization response is incomplete.");
-  }
-  await fetchThoughtAgentJson<Record<string, unknown>>(
-    agentDemoRunActionUrl(run.statusUrl, "claim-authorization"),
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${run.browserToken}`,
-      },
-      body: JSON.stringify({
-        protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
-        claimRequestId: authorization.claimRequestId,
-      }),
-    },
-  );
-  const claimPayload = await fetchThoughtAgentJson<{ bridgeToken?: string }>(run.claimUrl, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${authorization.claimRequestToken}`,
-    },
-    body: JSON.stringify({
-      protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
-      bridge,
-      adapter,
-    }),
-  });
-  if (!claimPayload.bridgeToken) {
-    throw new Error("claim response missing bridge token.");
-  }
-
-  await fetchThoughtAgentJson<Record<string, unknown>>(run.readyUrl, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${claimPayload.bridgeToken}`,
-    },
-    body: JSON.stringify({
-      protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
-      control: agentDemoControlEvidence(),
-    }),
-  });
-
-  const invocationId = `tai_${agentDemoRandom(12)}`;
-  const startedAt = new Date().toISOString();
-  await fetchThoughtAgentJson<Record<string, unknown>>(run.startUrl, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${claimPayload.bridgeToken}`,
-    },
-    body: JSON.stringify({
-      protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
-      invocationId,
-      startedAt,
-    }),
-  });
-
-  assertActiveThoughtLine(candidate, "agent");
-  const raw = JSON.stringify(agentDemoResultJson(run, candidate));
-  const completedAt = new Date().toISOString();
-  await fetchThoughtAgentJson<Record<string, unknown>>(run.resultUrl, {
-    method: "PUT",
-    headers: {
-      Authorization: `Bearer ${claimPayload.bridgeToken}`,
-      "Idempotency-Key": invocationId,
-    },
-    body: JSON.stringify({
-      protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
-      invocationId,
-      bridge,
-      adapter,
-      agent: agentDemoAgentInfo(),
-      execution: agentDemoExecutionInfo(),
-      startedAt,
-      completedAt,
-      output: {
-        mediaType: "application/json",
-        raw,
-        rawSha256: await agentDemoSha256(raw),
-        agentLine: candidate,
-        agentLineSha256: await agentDemoSha256(candidate),
-      },
-    }),
-  });
-  agentDemoStatusDetail = "result stored. FE polling status.";
-  renderAgentDemo();
-};
+const submitAgentDemoProtocolResult = async (..._args: unknown[]) => { throw new Error("Legacy THOUGHT API is retired."); };
 
 const submitPastedAgentDemoReturn = async (rawValue: string) => {
   const candidate = parseAgentDemoReturn(rawValue);
   await submitAgentDemoProtocolResult(candidate);
 };
 
-const initAgentDemoPage = () => {
-  renderAgentDemo();
-  if (agentDemoInitialized) return;
-  agentDemoInitialized = true;
-
-  agentDemoRunButton.addEventListener("click", () => {
-    if (!agentDemoPrompt.value.trim()) {
-      agentDemoDockStatus.textContent = "prompt required.";
-      agentDemoPrompt.focus();
-      return;
-    }
-    agentDemoStatusDetail = "";
-    agentDemoPhase = "choose-agent";
-    renderAgentDemo();
-  });
-
-  agentDemoAgentCodex.addEventListener("click", () => {
-    void (async () => {
-      try {
-        agentDemoStatusDetail = "";
-        agentDemoPhase = "creating";
-        renderAgentDemo();
-        agentDemoRun = await buildAgentDemoRun();
-        agentDemoPhase = "sealed";
-        renderAgentDemo();
-        pollAgentDemoRun(agentDemoRun);
-      } catch (error) {
-        agentDemoStatusDetail = error instanceof Error ? error.message : "could not create run.";
-        agentDemoPhase = "choose-agent";
-        renderAgentDemo();
-      }
-    })();
-  });
-
-  agentDemoOpenCodex.addEventListener("click", () => {
-    if (!agentDemoRun) return;
-    agentDemoStatusDetail = "";
-    agentDemoPhase = "waiting";
-    renderAgentDemo();
-  });
-
-  agentDemoCopyLink.addEventListener("click", async () => {
-    if (!agentDemoRun) return;
-    try {
-      await navigator.clipboard.writeText(agentDemoRun.codexUrl);
-      agentDemoStatusDetail = "Codex link copied.";
-    } catch {
-      agentDemoStatusDetail = "clipboard blocked. use Open Codex.";
-    }
-    renderAgentDemo();
-  });
-
-  agentDemoPasteSubmit.addEventListener("click", () => {
-    void (async () => {
-      try {
-        await submitPastedAgentDemoReturn(agentDemoPaste.value);
-      } catch (error) {
-        agentDemoStatusDetail = error instanceof Error ? error.message : "return invalid.";
-        renderAgentDemo();
-      }
-    })();
-  });
-
-  agentDemoDemoReturn.addEventListener("click", () => {
-    void (async () => {
-      if (!agentDemoRun) {
-        agentDemoStatusDetail = "sealed run required.";
-        renderAgentDemo();
-        return;
-      }
-      try {
-        const candidate = canonicalThoughtTitle(agentDemoRun.prompt).slice(0, 72) || "HELLO THOUGHT";
-        agentDemoPaste.value = [
-          "THOUGHT_RESULT_BEGIN",
-          JSON.stringify(agentDemoResultJson(agentDemoRun, candidate), null, 2),
-          "THOUGHT_RESULT_END",
-        ].join("\n");
-        await submitAgentDemoProtocolResult(candidate);
-      } catch (error) {
-        agentDemoStatusDetail = error instanceof Error ? error.message : "demo callback failed.";
-        renderAgentDemo();
-      }
-    })();
-  });
-
-  agentDemoMint.addEventListener("click", () => {
-    if (!agentDemoRun?.candidate) return;
-    agentDemoPhase = "mint-ready";
-    agentDemoStatusDetail = "";
-    renderAgentDemo();
-  });
-
-  agentDemoReset.addEventListener("click", () => {
-    agentDemoPollGeneration += 1;
-    agentDemoRun = null;
-    agentDemoStatusDetail = "";
-    agentDemoPhase = "draft";
-    agentDemoPaste.value = "";
-    renderAgentDemo();
-  });
-};
+const initAgentDemoPage = () => {};
 
 const isThoughtDockActiveState = (state: ThoughtDockState) =>
   isThoughtDockRunningState(state) ||
@@ -5575,75 +5138,7 @@ const buildThoughtDockRunPayload = async (prompt: string) => {
   return buildCurrentThoughtRunPayload(prompt, CODEX_MODEL);
 };
 
-const createThoughtDockRun = async (
-  prompt: string,
-  payload: ThoughtRunPayload,
-): Promise<PreparedThoughtDockRun> => {
-  assertActiveThoughtLine(prompt, "prompt");
-  if (payload.input.promptLine !== prompt) {
-    throw new Error("sealed promptLine does not match the run payload.");
-  }
-  const createPayload = await fetchThoughtAgentJson<ThoughtAgentRunCreateResponse>(
-    thoughtDockAgentApiUrl("runs"),
-    {
-      method: "POST",
-      body: JSON.stringify({
-        protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
-        promptLine: prompt,
-        specId: THOUGHT_AGENT_REGISTERED_SPEC_ID,
-        requestedAgent: {
-          adapterId: THOUGHT_AGENT_UNBOUND_ADAPTER_ID,
-          model: null,
-        },
-        client: {
-          surface: "thought-dock:chooser",
-          appVersion: `${APP_VERSION}+${APP_BUILD}`,
-          agentApiOrigin: thoughtDockAgentPublicApiOrigin(),
-        },
-        devAutoRun: false,
-      }),
-    },
-  );
-  if (
-    !createPayload.runId ||
-    !createPayload.browserToken ||
-    !createPayload.statusUrl ||
-    !createPayload.launchUri
-  ) {
-    throw new Error("THOUGHT Agent API returned an incomplete Dock run.");
-  }
-  const statusUrl = resolveThoughtDockAgentStatusUrl(createPayload.statusUrl);
-  if (!thoughtAgentCreateSupportsBoundedControl(createPayload)) {
-    await rejectIncompatibleThoughtAgentRun(createPayload, statusUrl);
-  }
-  const launchUri = resolveThoughtDockAgentLaunchUri(createPayload.launchUri);
-  const launchToken = agentDemoLaunchToken(launchUri);
-  if (!launchToken) {
-    throw new Error("THOUGHT Agent API returned a launch URI without a token.");
-  }
-  const promptHash = await agentDemoSha256(prompt);
-  const agentStatusUrl = thoughtDockAgentPublicRunUrl(createPayload.runId, statusUrl);
-  const baseRun = {
-    runId: createPayload.runId,
-    prompt,
-    promptHash,
-    launchUri,
-    launchToken,
-    codexBootstrap: resolveThoughtCodexBootstrap(createPayload, agentStatusUrl),
-    browserToken: createPayload.browserToken,
-    statusUrl,
-    agentStatusUrl,
-    claimUrl: agentDemoRunActionUrl(statusUrl, "claim"),
-    readyUrl: agentDemoRunActionUrl(statusUrl, "ready"),
-    startUrl: agentDemoRunActionUrl(statusUrl, "start"),
-    resultUrl: agentDemoRunActionUrl(statusUrl, "result"),
-    remoteState: createPayload.state ?? "created",
-    expiresAt: createPayload.claimExpiresAt,
-    release: createPayload.release,
-    resultContract: createPayload.resultContract,
-  };
-  return { ...baseRun, candidate: null };
-};
+const createThoughtDockRun = async (..._args: unknown[]): Promise<AgentDemoRun> => { throw new Error("Legacy THOUGHT tasks are retired."); };
 
 const bindPreparedThoughtDockRun = (
   prepared: PreparedThoughtDockRun,
@@ -5662,20 +5157,7 @@ const bindPreparedThoughtDockRun = (
   };
 };
 
-const requestThoughtDockRunCancellation = async (
-  run: Pick<AgentDemoRun, "statusUrl" | "browserToken">,
-) => {
-  await fetchThoughtAgentJson<ThoughtAgentRunStatusResponse>(
-    agentDemoRunActionUrl(run.statusUrl, "cancel"),
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${run.browserToken}`,
-      },
-      body: "{}",
-    },
-  );
-};
+const requestThoughtDockRunCancellation = async (..._args: unknown[]) => {};
 
 const thoughtDockLaunchUrl = (run: AgentDemoRun) =>
   run.surface === "codex" ? run.codexUrl : run.claudeUrl;
@@ -5872,246 +5354,9 @@ const updateThoughtDockRunState = (run: AgentDemoRun, remoteState: string, expir
   }
 };
 
-const approveThoughtDockClaim = async (
-  run: AgentDemoRun,
-  adapterId: ThoughtDockAgentAdapterId,
-  authorization: ThoughtClaimAuthorization,
-) => {
-  if (!authorization.claimRequestId) {
-    setThoughtDockState({
-      kind: "failed",
-      message: `${thoughtAgentProductLabel(adapterId)} claim request is incomplete.`,
-      details: "Reset and open a new Agent run.",
-    });
-    return;
-  }
+const approveThoughtDockClaim = async (..._args: unknown[]) => { throw new Error("Legacy THOUGHT API is retired."); };
 
-  setThoughtDockState({
-    kind: "claim_authorization",
-    run,
-    adapterId,
-    authorization,
-    approving: true,
-  });
-
-  try {
-    await fetchThoughtAgentJson<ThoughtAgentRunStatusResponse>(
-      agentDemoRunActionUrl(run.statusUrl, "claim-authorization"),
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${run.browserToken}`,
-        },
-        body: JSON.stringify({
-          protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
-          claimRequestId: authorization.claimRequestId,
-        }),
-      },
-    );
-    emitThoughtConsoleEvent({
-      kind: "work_claim_authorized",
-      title: `${thoughtAgentProductLabel(adapterId)} authorized`,
-      tone: "success",
-      eventId: `work-claim-authorized:${run.runId}`,
-    });
-    setThoughtDockState({
-      kind: "waiting_for_agent",
-      run,
-      adapterId,
-      message: `${thoughtAgentProductLabel(adapterId)} authorized. Waiting for its return.`,
-    });
-    refreshThoughtDockPolling();
-  } catch (error) {
-    setThoughtDockState({
-      kind: "failed",
-      message: `Could not authorize ${thoughtAgentProductLabel(adapterId)}.`,
-      details: error instanceof Error ? error.message : undefined,
-    });
-  }
-};
-
-const startThoughtDockPolling = (
-  run: AgentDemoRun,
-  payload: ThoughtRunPayload,
-  adapterId: ThoughtDockAgentAdapterId,
-  runSessionId: number,
-) => {
-  const generation = ++thoughtDockPollGeneration;
-  thoughtDockPollWakeScheduler.clearImmediatePoll();
-  thoughtDockPollWakeScheduler.wake();
-  let transientErrors = 0;
-  let terminalHandled = false;
-  let activeRun = run;
-
-  const pollOnce = async () => {
-    if (
-      terminalHandled ||
-      generation !== thoughtDockPollGeneration ||
-      !isCurrentRunSession(runSessionId)
-    ) {
-      return true;
-    }
-
-    if (hasThoughtPollDeadlineExpired(activeRun.expiresAt)) {
-      terminalHandled = true;
-      clearStoredThoughtDockRun(activeRun.runId);
-      runState = "run_failed";
-      runInFlight = false;
-      setThoughtDockState({ kind: "expired", run: { ...activeRun, remoteState: "expired" } });
-      syncInterface();
-      return true;
-    }
-
-    const response = await fetchThoughtAgentJson<ThoughtAgentRunStatusResponse>(run.statusUrl, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${run.browserToken}`,
-      },
-    });
-    if (
-      terminalHandled ||
-      generation !== thoughtDockPollGeneration ||
-      !isCurrentRunSession(runSessionId)
-    ) {
-      return true;
-    }
-
-    const remoteState = response.state ?? "created";
-    activeRun = {
-      ...activeRun,
-      remoteState,
-      expiresAt: response.expiresAt ?? activeRun.expiresAt,
-    };
-    updateThoughtDockRunState(activeRun, remoteState, response.expiresAt);
-    transientErrors = 0;
-
-    if (
-      remoteState === "created" &&
-      response.claimAuthorization &&
-      (response.claimAuthorization.state === "pending" ||
-        response.claimAuthorization.state === "authorized")
-    ) {
-      setThoughtDockState({
-        kind: "claim_authorization",
-        run: activeRun,
-        adapterId,
-        authorization: response.claimAuthorization,
-        approving: response.claimAuthorization.state === "authorized",
-      });
-      return false;
-    }
-
-    if (remoteState === "returned") {
-      terminalHandled = true;
-      const returned = await readThoughtAgentReturn(response, activeRun.runId, adapterId);
-      if (!returned.agentLine) {
-        throw new Error("Agent returned no work.");
-      }
-      activeRun = {
-        ...activeRun,
-        ...(returned.agentEvidence ? { agentEvidence: returned.agentEvidence } : {}),
-      };
-      clearStoredThoughtDockRun(activeRun.runId);
-      await handleThoughtDockReturnedWork(activeRun, returned.agentLine, payload, runSessionId);
-      return true;
-    }
-
-    if (remoteState === "failed" || remoteState === "cancelled" || remoteState === "expired") {
-      terminalHandled = true;
-      clearStoredThoughtDockRun(activeRun.runId);
-      runState = "run_failed";
-      runInFlight = false;
-      setThoughtDockState(
-        remoteState === "expired"
-          ? { kind: "expired", run: activeRun }
-          : {
-              kind: "failed",
-              message: normalizeThoughtAgentProtocolError(
-                response.error?.message || `Agent run ${remoteState}.`,
-                adapterId,
-              ),
-              run: activeRun,
-              confirmedRunFailure: true,
-            },
-      );
-      syncInterface();
-      return true;
-    }
-
-    const currentState = thoughtDockState;
-    if (
-      currentState.kind === "waiting_for_agent" ||
-      currentState.kind === "claim_authorization"
-    ) {
-      setThoughtDockState({
-        kind: "waiting_for_agent",
-        run: activeRun,
-        adapterId,
-        message: remoteState === "created"
-          ? "Waiting for your Agent. Return here after it finishes."
-          : remoteState === "claimed"
-          ? `${thoughtAgentProductLabel(adapterId)} connected. Control checks are running; the prompt remains sealed.`
-          : remoteState === "ready"
-          ? `${thoughtAgentProductLabel(adapterId)} ready. Waiting for start.`
-          : remoteState === "running"
-          ? "Creative phase opened. Waiting for the returned work."
-          : `Run is ${remoteState}.`,
-      });
-    }
-    return false;
-  };
-
-  let pollInFlight: Promise<boolean> | null = null;
-  const pollOnceSafely = () => {
-    if (!pollInFlight) {
-      pollInFlight = pollOnce().finally(() => {
-        pollInFlight = null;
-      });
-    }
-    return pollInFlight;
-  };
-
-  const requestImmediatePoll = () => {
-    void pollOnceSafely().catch(() => {
-      // The regular loop retains retry/error ownership.
-    });
-  };
-  thoughtDockPollWakeScheduler.setImmediatePoll(requestImmediatePoll);
-
-  void (async () => {
-    try {
-      while (generation === thoughtDockPollGeneration && isCurrentRunSession(runSessionId)) {
-        try {
-          const terminal = await pollOnceSafely();
-          if (terminal) {
-            return;
-          }
-          await thoughtDockPollWakeScheduler.wait(THOUGHT_AGENT_STATUS_POLL_MS);
-        } catch (error) {
-          transientErrors += 1;
-          if (generation !== thoughtDockPollGeneration || !isCurrentRunSession(runSessionId)) {
-            return;
-          }
-          if (transientErrors < 3) {
-            await thoughtDockPollWakeScheduler.wait(THOUGHT_AGENT_STATUS_POLL_MS * transientErrors);
-            continue;
-          }
-          runState = "run_failed";
-          runInFlight = false;
-          setThoughtDockState({
-            kind: "failed",
-            message: "Agent status check failed.",
-            details: error instanceof Error ? error.message : undefined,
-          });
-          syncInterface();
-          return;
-        }
-      }
-    } finally {
-      thoughtDockPollWakeScheduler.clearImmediatePoll(requestImmediatePoll);
-    }
-  })();
-};
+const startThoughtDockPolling = (..._args: unknown[]) => {};
 
 const handleThoughtDockReturnedWork = async (
   run: AgentDemoRun,
@@ -6446,26 +5691,7 @@ const switchThoughtDockWalletNetwork = async () => {
   syncInterface();
 };
 
-function cancelThoughtDockRun(run?: AgentDemoRun | null, options?: { clearPrompt?: boolean; focusPrompt?: boolean }) {
-  const pendingRun = run ?? thoughtDockRun;
-  if (pendingRun?.statusUrl && pendingRun.browserToken) {
-    void fetchThoughtAgentJson<ThoughtAgentRunStatusResponse>(
-      agentDemoRunActionUrl(pendingRun.statusUrl, "cancel"),
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${pendingRun.browserToken}`,
-        },
-      },
-    ).catch(() => {
-      // Local cancellation should still work if the remote run is already terminal or unreachable.
-    });
-  }
-  resetThoughtDock({
-    clearPrompt: options?.clearPrompt === true,
-    focusPrompt: options?.focusPrompt === true,
-  });
-}
+function cancelThoughtDockRun(_run?: AgentDemoRun | null, options?: { clearPrompt?: boolean; focusPrompt?: boolean }) { resetThoughtDock({ clearPrompt: options?.clearPrompt === true, focusPrompt: options?.focusPrompt === true }); }
 
 const resetThoughtDock = (options?: { clearPrompt?: boolean; focusPrompt?: boolean }) => {
   if (!resetThought()) {
@@ -6509,41 +5735,7 @@ const resetThoughtDock = (options?: { clearPrompt?: boolean; focusPrompt?: boole
   return true;
 };
 
-const resumeThoughtDockPendingRun = () => {
-  const stored = readStoredThoughtDockRun();
-  if (!stored) {
-    return false;
-  }
-  const run = thoughtDockRunFromStored(stored);
-  thoughtDockRun = run;
-  thoughtDockAdapterId = stored.adapterId;
-  sessionState.prompt = stored.prompt;
-  promptBox.value = stored.prompt;
-  thoughtDockPrompt.value = stored.prompt;
-  runState = "running";
-  runInFlight = true;
-  const runSessionId = startRunSession();
-  setThoughtDockState({
-    kind: "waiting_for_agent",
-    run,
-    adapterId: stored.adapterId,
-    message: "Resuming Agent run. Return here after it finishes.",
-  });
-  void buildThoughtDockRunPayload(stored.prompt)
-    .then((payload) => {
-      startThoughtDockPolling(run, payload, stored.adapterId, runSessionId);
-    })
-    .catch((error) => {
-      runState = "run_failed";
-      runInFlight = false;
-      clearStoredThoughtDockRun(stored.runId);
-      setThoughtDockState({
-        kind: "failed",
-        message: error instanceof Error ? error.message : "Could not resume Agent run.",
-      });
-    });
-  return true;
-};
+const resumeThoughtDockPendingRun = () => false;
 
 const readRunViewToken = () => {
   const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
@@ -6605,112 +5797,7 @@ const thoughtDockRunFromStatus = async (
   };
 };
 
-const hydrateThoughtRunLink = async () => {
-  if (!IS_RUN_PAGE) {
-    return false;
-  }
-
-  const viewToken = readRunViewToken();
-  const statusUrl = thoughtDockAgentApiUrl(`runs/${ROUTE_RUN_ID}`);
-  if (!viewToken) {
-    setThoughtDockState({
-      kind: "run_access_needed",
-      details: "This run link is missing its view token.",
-    });
-    return true;
-  }
-
-  const runSessionId = startRunSession();
-  setThoughtDockState({
-    kind: "creating_run",
-    prompt: "",
-    adapterId: "codex",
-  });
-
-  try {
-    const status = await fetchThoughtAgentJson<ThoughtAgentRunStatusResponse>(statusUrl, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${viewToken}`,
-      },
-    });
-    if (!isCurrentRunSession(runSessionId)) {
-      return true;
-    }
-
-    const adapterId = normalizeThoughtDockAdapterId(status.request?.requestedAgent?.adapterId);
-    const run = await thoughtDockRunFromStatus(statusUrl, viewToken, status);
-    thoughtDockRun = run;
-    thoughtDockAdapterId = adapterId;
-    runInFlight = status.state !== "returned" && status.state !== "failed" && status.state !== "cancelled" && status.state !== "expired";
-
-    const prompt = protocolLineInput(run.prompt);
-    const hasPrompt = Boolean(prompt.trim());
-    if (hasPrompt) {
-      sessionState.prompt = prompt;
-      promptBox.value = prompt;
-      thoughtDockPrompt.value = prompt;
-      writeSessionState();
-    }
-
-    if (status.state === "returned") {
-      const candidate = run.candidate;
-      if (!hasPrompt || !candidate) {
-        setThoughtDockState({
-          kind: "failed",
-          message: "Run cannot mint.",
-          details: !hasPrompt ? "Authenticated run status did not include the prompt." : "Agent returned no work.",
-        });
-        runInFlight = false;
-        return true;
-      }
-      const payload = await buildThoughtDockRunPayload(prompt);
-      await handleThoughtDockReturnedWork({ ...run, remoteState: "returned" }, candidate, payload, runSessionId);
-      return true;
-    }
-
-    if (status.state === "failed" || status.state === "cancelled" || status.state === "expired") {
-      runInFlight = false;
-      setThoughtDockState(
-        status.state === "expired"
-          ? { kind: "expired", run }
-          : {
-              kind: "failed",
-              message: normalizeThoughtAgentProtocolError(
-                status.error?.message || `Agent run ${status.state}.`,
-                adapterId,
-              ),
-              run,
-              confirmedRunFailure: true,
-            },
-      );
-      return true;
-    }
-
-    setThoughtDockState({
-      kind: "waiting_for_agent",
-      run,
-      adapterId,
-      message: "Waiting for Agent. Return will appear here automatically.",
-    });
-    if (prompt) {
-      const payload = await buildThoughtDockRunPayload(prompt);
-      startThoughtDockPolling(run, payload, adapterId, runSessionId);
-    }
-    return true;
-  } catch (error) {
-    if (!isCurrentRunSession(runSessionId)) {
-      return true;
-    }
-    runInFlight = false;
-    setThoughtDockState({
-      kind: "failed",
-      message: "Run link failed.",
-      details: error instanceof Error ? error.message : "Could not load the THOUGHT run.",
-    });
-    return true;
-  }
-};
+const hydrateThoughtRunLink = async () => false;
 
 let currentWorkId: number | null = null;
 let currentThoughtDetail: ThoughtDetail | null = null;
@@ -17595,38 +16682,7 @@ class ThoughtAgentHttpError extends Error {
   }
 }
 
-const fetchThoughtAgentJson = async <T>(url: string, init: RequestInit) => {
-  const headers = new Headers(init.headers);
-  headers.set("Content-Type", "application/json");
-  const requestOrigin = new URL(url, window.location.origin).origin;
-  let response: Response;
-  try {
-    response = await fetchAgentRequest(url, {
-      ...init,
-      credentials: requestOrigin === window.location.origin ? "same-origin" : "omit",
-      cache: "no-store",
-      headers,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (error instanceof TypeError ? /fetch/i.test(message) : /failed to fetch|network|connection refused|could not connect|econnrefused/i.test(message)) {
-      throw new Error(THOUGHT_BRIDGE_NOT_CONNECTED_MESSAGE);
-    }
-    throw error;
-  }
 
-  const payload = (await response.json().catch(() => null)) as T | null;
-  if (!response.ok) {
-    throw new ThoughtAgentHttpError(
-      response.status,
-      readErrorMessage(payload, `THOUGHT Agent API failed (${response.status}).`),
-    );
-  }
-  if (!payload || typeof payload !== "object") {
-    throw new Error("THOUGHT Agent API returned an invalid response.");
-  }
-  return payload;
-};
 
 const launchThoughtAgentBridge = (launchUri: string) => {
   suppressBridgeLaunchUnloadUntil = Date.now() + 3000;
@@ -17704,126 +16760,9 @@ const readThoughtAgentReturn = async (
 const readThoughtAgentModelReturn = async (payload: ThoughtAgentRunStatusResponse) =>
   (await readThoughtAgentReturn(payload)).agentLine;
 
-const pollThoughtAgentRun = async (input: {
-  statusUrl: string;
-  browserToken: string;
-  runId: string;
-}) => {
-  const startedAt = Date.now();
-  const statusUrl = resolveThoughtAgentStatusUrl(input.statusUrl);
+const pollThoughtAgentRun = async (..._args: unknown[]): Promise<Awaited<ReturnType<typeof readThoughtAgentReturn>>> => { throw new Error("Legacy THOUGHT API is retired."); };
 
-  while (Date.now() - startedAt < THOUGHT_AGENT_POLL_TIMEOUT_MS) {
-    if (pageUnloading) {
-      throw new Error("refresh stopped the request.");
-    }
-
-    const payload = await fetchThoughtAgentJson<ThoughtAgentRunStatusResponse>(statusUrl, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${input.browserToken}`,
-      },
-    });
-    const state = payload.state ?? "";
-
-    if (state === "returned") {
-      const returned = await readThoughtAgentReturn(payload, input.runId, CODEX_PROVIDER);
-      if (!returned.agentLine) {
-        throw new Error("Codex returned an empty THOUGHT result.");
-      }
-      return returned;
-    }
-
-    if (state === "failed") {
-      throw new Error(payload.error?.message || "Codex run failed.");
-    }
-
-    if (state === "cancelled") {
-      throw new Error("Codex run cancelled.");
-    }
-
-    if (state === "expired") {
-      throw new Error("Codex run expired.");
-    }
-
-    setStatus(
-      state === "created"
-        ? `waiting for THOUGHT Bridge ${input.runId}...`
-        : state === "claimed"
-        ? `Codex connected to ${input.runId}. Control checks are running.`
-        : state === "ready"
-        ? `Codex ready for ${input.runId}. Waiting for start.`
-        : state === "running"
-        ? `Creative phase opened for ${input.runId}. Waiting for return.`
-        : `Run ${input.runId} is ${state || "pending"}.`,
-    );
-    await new Promise((resolve) => window.setTimeout(resolve, THOUGHT_AGENT_STATUS_POLL_MS));
-  }
-
-  throw new Error("Codex run timed out.");
-};
-
-const requestCodexAgent = async (payload: ThoughtRunPayload) => {
-  const createPayload = await fetchThoughtAgentJson<ThoughtAgentRunCreateResponse>(
-    thoughtAgentApiUrl("runs"),
-    {
-      method: "POST",
-      body: JSON.stringify({
-        protocolVersion: THOUGHT_AGENT_PROTOCOL_VERSION,
-        promptLine: payload.input.promptLine,
-        specId: THOUGHT_AGENT_REGISTERED_SPEC_ID,
-        requestedAgent: {
-          adapterId: CODEX_PROVIDER,
-          model: payload.config.model === CODEX_MODEL ? null : payload.config.model,
-        },
-        client: {
-          surface: "thought-web",
-          appVersion: `${APP_VERSION}+${APP_BUILD}`,
-        },
-      }),
-    },
-  );
-
-  if (
-    !createPayload.runId ||
-    !createPayload.browserToken ||
-    !createPayload.statusUrl ||
-    (!createPayload.devAutoRun && !createPayload.launchUri)
-  ) {
-    throw new Error("THOUGHT Agent API returned an incomplete run.");
-  }
-
-  const pendingRun: PendingThoughtAgentRun = {
-    runId: createPayload.runId,
-    statusUrl: createPayload.statusUrl,
-    browserToken: createPayload.browserToken,
-    payload,
-    createdAt: createPayload.createdAt || new Date().toISOString(),
-  };
-  writePendingThoughtAgentRun(pendingRun);
-
-  if (createPayload.devAutoRun) {
-    setStatus(`Agent run ${createPayload.runId} created. Waiting for connection...`);
-  } else {
-    const resolvedLaunchUri = resolveThoughtAgentLaunchUri(createPayload.launchUri ?? "");
-    setStatus(`opening THOUGHT Bridge ${createPayload.runId}...`);
-    launchThoughtAgentBridge(resolvedLaunchUri);
-    appendThoughtAgentDevBridgeCommand(resolvedLaunchUri);
-  }
-  try {
-    const modelReturn = await pollThoughtAgentRun({
-      statusUrl: createPayload.statusUrl,
-      browserToken: createPayload.browserToken,
-      runId: createPayload.runId,
-    });
-    clearPendingThoughtAgentRun(createPayload.runId);
-    return modelReturn;
-  } catch (error) {
-    if (!(pageUnloading && error instanceof Error && error.message === "refresh stopped the request.")) {
-      clearPendingThoughtAgentRun(createPayload.runId);
-    }
-    throw error;
-  }
-};
+const requestCodexAgent = async (..._args: unknown[]): Promise<Awaited<ReturnType<typeof readThoughtAgentReturn>>> => { throw new Error("Legacy THOUGHT API is retired."); };
 
 const probeOllamaReachableWithoutCors = async () => {
   try {
@@ -20289,7 +19228,7 @@ const buildCliCurrentLines = () => {
   }
   if (isRouteConfigured() && sessionState.mode === CODEX_MODE) {
     lines.push(`provider: ${CODEX_PROVIDER}`);
-    lines.push(`bridge: ${THOUGHT_AGENT_API_BASE}`);
+    lines.push(`bridge: ${"retired"}`);
   }
 
   lines.push(`model: ${isRouteConfigured() ? getCurrentModelValue().trim() || "empty" : "empty"}`, `prompt: ${cliPromptValue()}`, `THOUGHT.md: ${spec.state}`);
@@ -21650,76 +20589,7 @@ const startPendingThoughtAgentCliProgress = () => {
   startCliRunProgress();
 };
 
-const resumePendingThoughtAgentRun = () => {
-  const pendingRun = readPendingThoughtAgentRun();
-  if (!pendingRun) {
-    return false;
-  }
-
-  const runSessionId = startRunSession();
-  lastRunErrorCliLines = [];
-  lastPreviewRetryContext = null;
-  runState = "running";
-  runInFlight = true;
-  setWarning("");
-  setStatus(`resuming THOUGHT Bridge ${pendingRun.runId}...`);
-  startPendingThoughtAgentCliProgress();
-  syncInterface();
-
-  void (async () => {
-    try {
-      const returned = await pollThoughtAgentRun({
-        statusUrl: pendingRun.statusUrl,
-        browserToken: pendingRun.browserToken,
-        runId: pendingRun.runId,
-      });
-      if (!isCurrentRunSession(runSessionId)) {
-        return;
-      }
-
-      clearPendingThoughtAgentRun(pendingRun.runId);
-      appendCliOutput([
-        "model return received.",
-        "model return saved as candidate.",
-        "rendering preview...",
-      ]);
-      await completeThoughtRunFromModelReturn(
-        pendingRun.payload,
-        returned.agentLine,
-        returned.agentEvidence,
-      );
-      if (!isCurrentRunSession(runSessionId)) {
-        return;
-      }
-      appendCliRunCompletionLines();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Agent request failed.";
-      const shouldKeepPendingRun = pageUnloading && message === "refresh stopped the request.";
-      if (!shouldKeepPendingRun) {
-        clearPendingThoughtAgentRun(pendingRun.runId);
-      }
-      if (!isCurrentRunSession(runSessionId) || shouldKeepPendingRun) {
-        return;
-      }
-
-      runState = "run_failed";
-      lastRunErrorCliLines = isContractWorkPreviewError(error)
-        ? error.cliLines ?? ["run failed.", message, "use: retry run"]
-        : ["run failed.", message, "", "use: retry run"];
-      setWarning(lastRunErrorCliLines[0] ?? message);
-      setStatus("");
-      appendCliError(lastRunErrorCliLines);
-    } finally {
-      if (isCurrentRunSession(runSessionId)) {
-        stopCliProgress();
-        runInFlight = false;
-        syncInterface();
-      }
-    }
-  })();
-
-  return true;
-};
+const resumePendingThoughtAgentRun = () => false;
 
 const runFromCli = async () => {
   if (blockPendingMintMutation({ cli: true })) {
@@ -22920,7 +21790,7 @@ const cliHelpLines = (topic = "") => {
       "open bridge",
       "install bridge",
       "",
-      `api: ${THOUGHT_AGENT_API_BASE}`,
+      `api: ${"retired"}`,
     ];
   }
 

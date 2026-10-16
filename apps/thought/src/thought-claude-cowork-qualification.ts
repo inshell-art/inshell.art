@@ -1,5 +1,5 @@
-import { THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION } from
-  "@inshell/thought-agent-protocol";
+// Historical qualification record only; the executable legacy handoff is retired.
+const THOUGHT_CLAUDE_COWORK_HANDOFF_REVISION = "inshell.thought.claude-cowork-handoff.v5";
 
 /**
  * Deprecated Cowork compatibility record. It is intentionally never imported

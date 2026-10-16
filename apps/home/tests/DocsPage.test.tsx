@@ -544,7 +544,7 @@ describe("Docs source editorial guardrails", () => {
     expect(thought).toMatch(/ordinary \/thought entry supplies the complete private brief/i);
     expect(thought).toMatch(/exact App endpoint in an Authorization header/i);
     expect(thought).toMatch(/Provider and model remain unknown/i);
-    expect(thought).toMatch(/new legacy run creation is retired/i);
+    expect(thought).toMatch(/former Agent v1\/v2 APIs and old run links are retired/i);
     expect(thought).toMatch(/cannot enter the App mint path/i);
     expect(thought).toMatch(/direct mint/i);
     expect(thought).toMatch(/Unattested/i);

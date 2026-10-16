@@ -1,22 +1,23 @@
 import path from "node:path";
 import type { Plugin } from "vite";
+import { isRetiredThoughtPath, retiredThoughtResponse } from "../../../packages/shared/src/retired-thought";
 
 // Runs after index integrity verification. Canonical creation is plain; only
 // non-creation routes import the original entry. Old transport query links do
-// not reopen legacy creation; existing /runs/:id links retain recovery.
+// not reopen legacy creation. Legacy run links, demos and plugins are retired.
 export function plainReturnEntryPlugin(root: string): Plugin {
   const entries = new Map<string, string>();
   return {
     name: "thought-explicit-plain-return-entry",
     enforce: "pre",
     configureServer(server) {
-      // Before the old local dev handler (or remote proxy): no new legacy task
-      // or auto-run. Existing authenticated run-specific routes remain intact.
+      // Before the remote proxy or SPA: retirement never opens a run store.
       server.middlewares.use((req, res, next) => {
         const pathname = new URL(req.url ?? "/", "http://127.0.0.1").pathname;
-        if (req.method !== "POST" || !/^\/api\/thought-agent\/v[12]\/runs\/?$/.test(pathname)) return next();
-        res.writeHead(410, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
-        res.end(JSON.stringify({ error: { code: "LEGACY_CREATION_RETIRED", message: "Open /thought to create a new work." } }));
+        if (!isRetiredThoughtPath(pathname)) return next();
+        const response = retiredThoughtResponse(req.method ?? "GET");
+        res.writeHead(response.status, Object.fromEntries(response.headers));
+        void response.text().then((body) => res.end(body));
       });
     },
     transformIndexHtml: { order: "pre", handler(html) {

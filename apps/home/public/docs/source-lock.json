@@ -11,14 +11,14 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "120b6921ce5034a4a2f04e947df1ec7978457bb45736f244ccfe61a949a17c3b",
+  "sourceTreeSha256": "a58597494dbb1f5bd27e447f7c214be34d1f5fd62e9357f614a1343dd4cda65f",
   "groups": [
     {
       "id": "public-docs",
       "title": "Public documentation sources",
       "owner": "inshell.art docs",
       "reason": "Human articles, Agent-readable content, authority maps, and machine-handoff selection.",
-      "groupSha256": "3dcd7b9dd3717b13cc60cfd6a09427ccc6d5fa5687332c4d7f86743d8c363987",
+      "groupSha256": "f3ac009a981a289c9d9b40b9963ecd98b77967b08a9c5012ddeff287062af02f",
       "files": [
         {
           "path": "apps/home/src/content/AGENTS.md",
@@ -37,8 +37,8 @@
         },
         {
           "path": "apps/home/src/content/docs.ts",
-          "byteLength": 180405,
-          "sha256": "1afc5b11bb8a0a45ad6d672599a28f5138b6b7fbbfa219e7362cc682f3bf46ab"
+          "byteLength": 180802,
+          "sha256": "46559558450decaef85c14b3e189f3c65cbb62dab19d522f337b8c66148e68e6"
         },
         {
           "path": "apps/home/src/content/thought-machine-handoff.ts",
@@ -336,7 +336,7 @@
       "title": "Public routes and read-only resource contracts",
       "owner": "inshell.art shared App infrastructure",
       "reason": "The Agent index advertises these routes and their read-only semantics.",
-      "groupSha256": "3e69ee5c332bf0f7488f3c83500a139d8631d92cc3807786744ea009ab30bdbe",
+      "groupSha256": "bdc1e4bcbb76a7e79e2dbbef0506e5d3470434ebd3a5307faf12fa404ae3abdc",
       "files": [
         {
           "path": "apps/home/public/_headers",
@@ -345,8 +345,8 @@
         },
         {
           "path": "functions/_middleware.ts",
-          "byteLength": 23806,
-          "sha256": "56f882c89d6a179472d8d60c43123b5fade13de02b870f6e9dbe214d94b252c8"
+          "byteLength": 23785,
+          "sha256": "69a390a4592c7e34309dff1c4cd289cbc3394166b7c142eb735233ea0006632b"
         },
         {
           "path": "functions/api/analytics/event.ts",
@@ -400,8 +400,8 @@
         },
         {
           "path": "functions/api/ops/status.ts",
-          "byteLength": 11147,
-          "sha256": "9afb8c79807c902f30e70b3a42345f119e99ea2699a5337d1d0e889e01084bbc"
+          "byteLength": 11094,
+          "sha256": "699469b14507d83f523c4c2806d9b3f4e1a82a021cfe4a9b8e3681e35e053148"
         },
         {
           "path": "functions/api/path-record.ts",
@@ -432,121 +432,6 @@
           "path": "functions/api/rpc-gate.ts",
           "byteLength": 33082,
           "sha256": "cec9d37e2e9198312b2aea997404cb56773b39a8b26c473fbef8d07daa8a4dcb"
-        },
-        {
-          "path": "functions/api/thought-agent/v1/runs.ts",
-          "byteLength": 655,
-          "sha256": "86d20142de936916e1db0a270de4282da3d7fda61431d6fad2900464fa2bc496"
-        },
-        {
-          "path": "functions/api/thought-agent/v1/runs/[runId].ts",
-          "byteLength": 239,
-          "sha256": "8ecaad9c1c195014a5f29aed9e8629e6b1a17d96a137564d338dfa3683be5a62"
-        },
-        {
-          "path": "functions/api/thought-agent/v1/runs/[runId]/cancel.ts",
-          "byteLength": 249,
-          "sha256": "22a8b31354154a98c82bbf0eb4a5319ceca9d3c21f798c954688cbfc375d0246"
-        },
-        {
-          "path": "functions/api/thought-agent/v1/runs/[runId]/claim-authorization.ts",
-          "byteLength": 90,
-          "sha256": "4585ccc4c043df338cf9429d5be4e288a20efeaccb6a6efcf1134867002f16ef"
-        },
-        {
-          "path": "functions/api/thought-agent/v1/runs/[runId]/claim.ts",
-          "byteLength": 247,
-          "sha256": "80add0ab94bf9d4f91cb37bab71a0f43f6d8dd1118206e008b140aa378858731"
-        },
-        {
-          "path": "functions/api/thought-agent/v1/runs/[runId]/fail.ts",
-          "byteLength": 245,
-          "sha256": "ac054155777ad71ee8b8425691062d9d70fd9f45c60ad2abe9dd9df6dac93958"
-        },
-        {
-          "path": "functions/api/thought-agent/v1/runs/[runId]/result.ts",
-          "byteLength": 254,
-          "sha256": "6f184b52ab513a22ef9017829a5b47eaac6b57bc521c3bc23de3df9e47c19279"
-        },
-        {
-          "path": "functions/api/thought-agent/v1/runs/[runId]/start.ts",
-          "byteLength": 247,
-          "sha256": "53bd460a79735914e88b8fe994393283061fb14bc586eefa3e289171456128ed"
-        },
-        {
-          "path": "functions/api/thought-agent/v1/shared.ts",
-          "byteLength": 63348,
-          "sha256": "0a957d1a3722388590d27e4163ad4b86beb50a6213865231f5d8887f7c2af513"
-        },
-        {
-          "path": "functions/api/thought-agent/v1/thought-spec-source.ts",
-          "byteLength": 1227,
-          "sha256": "ca2a1cad81bab557b5a9897f33649ffda2e0b916384895f7a4e28f8ca3c92119"
-        },
-        {
-          "path": "functions/api/thought-agent/v2/_middleware.ts",
-          "byteLength": 1922,
-          "sha256": "08ef523e72f5a8cd6af0a22ac605354851b4f738b7975a19a0966600651597de"
-        },
-        {
-          "path": "functions/api/thought-agent/v2/client.ts",
-          "byteLength": 718,
-          "sha256": "c157096f238c7b7a7f99a85de68b3a33366c5d88d3204a24d00a69bd05fb5127"
-        },
-        {
-          "path": "functions/api/thought-agent/v2/connectivity.ts",
-          "byteLength": 738,
-          "sha256": "43ae698c55baa2974fb5050e5ebbc987b3fd2cd2e95f0bb820cbf767b04f3f97"
-        },
-        {
-          "path": "functions/api/thought-agent/v2/runs.ts",
-          "byteLength": 62,
-          "sha256": "35d03414cec0c84aba3b50e591192539616e14d1f03a0ed477cdfab8195f50c8"
-        },
-        {
-          "path": "functions/api/thought-agent/v2/runs/[runId].ts",
-          "byteLength": 81,
-          "sha256": "62e26c856230b3c8a9a02f5224e65faf58e56a8997b955a786b68c10bbfac012"
-        },
-        {
-          "path": "functions/api/thought-agent/v2/runs/[runId]/bootstrap.ts",
-          "byteLength": 2390,
-          "sha256": "c40e6b7be42ae23609c1a1096f23f663b70a03f2de0d3428b8c39cf478038b92"
-        },
-        {
-          "path": "functions/api/thought-agent/v2/runs/[runId]/cancel.ts",
-          "byteLength": 88,
-          "sha256": "caee0346a4539b8e9aafa2c1e7d4501564da0be53e509bfdb27747b46ac09d3f"
-        },
-        {
-          "path": "functions/api/thought-agent/v2/runs/[runId]/claim-authorization.ts",
-          "byteLength": 96,
-          "sha256": "615ab4d265365281b160f1730b61bb705411656c3cce9a620f9b512f4aff0c26"
-        },
-        {
-          "path": "functions/api/thought-agent/v2/runs/[runId]/claim.ts",
-          "byteLength": 87,
-          "sha256": "72d7414df2cb315971de744161ab95fe421fb13466dcd64fb5be36fa66a0ab4e"
-        },
-        {
-          "path": "functions/api/thought-agent/v2/runs/[runId]/fail.ts",
-          "byteLength": 86,
-          "sha256": "6c4f2b72976a1bb84daecca7a39e132f9d86182d5b08ec066b39a2e198420888"
-        },
-        {
-          "path": "functions/api/thought-agent/v2/runs/[runId]/ready.ts",
-          "byteLength": 87,
-          "sha256": "81e0794028a13b1c7393daea8648ba83ddd7246fa41ce82846d762425c1077ec"
-        },
-        {
-          "path": "functions/api/thought-agent/v2/runs/[runId]/result.ts",
-          "byteLength": 90,
-          "sha256": "d5b3fd1599833881c0134e449553e9a1e50630934904780633125e0595f9e07a"
-        },
-        {
-          "path": "functions/api/thought-agent/v2/runs/[runId]/start.ts",
-          "byteLength": 87,
-          "sha256": "01d57e648b0a4177d6efd37ff14a194ed13601797cc767a4e7e3a6ed0985422e"
         },
         {
           "path": "functions/api/thought-contract/v2/attestation.ts",
@@ -605,12 +490,12 @@
       "title": "Documentation gates",
       "owner": "inshell.art repository automation",
       "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
-      "groupSha256": "5e7c83f5ff23c2e347d82e800e6e0a838b18eef2a5c09d9482b8cde161dc2e28",
+      "groupSha256": "d19ad748e668ca4223a03d17a923566912263c00b1a3d20126192cbefaf1078f",
       "files": [
         {
           "path": ".github/workflows/deploy-pages.yml",
-          "byteLength": 14338,
-          "sha256": "bcac6a8f55d0712dcbee874143aa7b148aaa5624faa51a2852210f01a5262e80"
+          "byteLength": 13340,
+          "sha256": "2ba7be9bd847866bfbddec188f227318d11e978e53238636d789b5be0e139301"
         },
         {
           "path": ".github/workflows/rollback-pages.yml",
@@ -634,8 +519,8 @@
         },
         {
           "path": "package.json",
-          "byteLength": 14124,
-          "sha256": "70908cae8d77d106842d89ceb491f856e84967f4f1b7723a8b77d2eefd3ffd07"
+          "byteLength": 11897,
+          "sha256": "b6367aabcdd3106c73837890f5a3433ffd6e6335ebdf0b864c163c5633cbdc30"
         },
         {
           "path": "scripts/check-dependency-security.mjs",
@@ -723,7 +608,7 @@
       "title": "Shared product runtime",
       "owner": "inshell.art shared App infrastructure",
       "reason": "Shared Ethereum, surface, utility, and Agent-protocol code used by public routes.",
-      "groupSha256": "5e54f88188f087a806d3df84ca59a4f9dc62be53d6ad0f8dc4a227e24bcd8d2c",
+      "groupSha256": "29e8c7194993ee76a0b1d652573dc5f343edb040c9dcec78541debea120d52bc",
       "files": [
         {
           "path": "packages/ethereum/src/abi.ts",
@@ -781,6 +666,11 @@
           "sha256": "ef7ac64da4a05cec9ae79e5c702a3a92e296fbe14379db00df96278e0c0209a7"
         },
         {
+          "path": "packages/shared/src/retired-thought.ts",
+          "byteLength": 917,
+          "sha256": "9cd96deca8d91bdb05c1a1f6ecf0ba674b02665c40b87c5bdc50062820886f37"
+        },
+        {
           "path": "packages/shared/src/thought-v2-protocol.ts",
           "byteLength": 12067,
           "sha256": "ffeecf38bf19571ad25d541345d15adb5fafb7a5fcc9e6f3c626826acdf5b897"
@@ -816,54 +706,24 @@
           "sha256": "e0c0b0dc8d551b7269bd1132e75580e2ffbabb24c918f9a38f876da07072191e"
         },
         {
-          "path": "packages/thought-agent-protocol/src/claude-client.ts",
-          "byteLength": 14675,
-          "sha256": "d6f6bb48375b73ed4da0797655a99b17622fc9efea7c02c1f0365e8177742a4e"
-        },
-        {
-          "path": "packages/thought-agent-protocol/src/codex-client.ts",
-          "byteLength": 26057,
-          "sha256": "75bdf7d96e07d521fa288197810caccd63dfe9deec53a4991558692681d7f4ca"
-        },
-        {
-          "path": "packages/thought-agent-protocol/src/codex-transport-worker.ts",
-          "byteLength": 39889,
-          "sha256": "e8c31ef9e0f58621fdc67deff3c9dc6623997237bbd7d197f0ea8465063c8daf"
-        },
-        {
           "path": "packages/thought-agent-protocol/src/creative-brief.generated.ts",
           "byteLength": 2024,
           "sha256": "dfc59a51259d66ae2f9b84cec39b9ab0bfc591b139a36d4951b018eef20b6775"
         },
         {
-          "path": "packages/thought-agent-protocol/src/direct-agent-task.ts",
-          "byteLength": 14396,
-          "sha256": "ddcdf597f9a1e103c16549788da7ceb598e8ea527e4b36d74720c602ae92a3c1"
-        },
-        {
-          "path": "packages/thought-agent-protocol/src/handoff-http.ts",
-          "byteLength": 7777,
-          "sha256": "c99a61e648487e7ca009e36430af5e020577796abcb724707c6170773c607216"
-        },
-        {
           "path": "packages/thought-agent-protocol/src/index.ts",
-          "byteLength": 28997,
-          "sha256": "454e991f06e58f636f3c704095da932da6c877cd1419df4b8a88e631dabc1756"
+          "byteLength": 27607,
+          "sha256": "5e3fbf39461484bdb2fa6584d68792fcd0a91f98b08a7c042548830658142c2f"
+        },
+        {
+          "path": "packages/thought-agent-protocol/src/legacy-record-types.ts",
+          "byteLength": 629,
+          "sha256": "eec2cf718b1e9332cfdbad15c0ed558efbbc6060a16e96f9eb1e0201e592b0de"
         },
         {
           "path": "packages/thought-agent-protocol/src/release.generated.ts",
           "byteLength": 24467,
           "sha256": "c6cb1167541ef596d5e3e6f88d26d45af0c0ff3d19dab7d4bc0c278e0270fe96"
-        },
-        {
-          "path": "packages/thought-agent-protocol/src/run-authority.ts",
-          "byteLength": 639,
-          "sha256": "c8173b3260a9b42551f30febad2e202caafbee6567bc3c6283eca815e2291b3f"
-        },
-        {
-          "path": "packages/thought-agent-protocol/src/run-url.ts",
-          "byteLength": 230,
-          "sha256": "ad0254a2c677a51bc0c643883188da60d2fe352a0bf7e2a2dc57348bbccda00a"
         },
         {
           "path": "packages/thought-agent-protocol/thought-v2.consumer-lock.json",
@@ -1084,7 +944,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "8f12dda972af40fd6198eb1dda4a089f7a5af7ede4a72db5355858b905db9212",
+      "groupSha256": "5e3465f13bbb3aa6b0ae3775ad33d3ae6fdf0addc662b3ca19dff659db92d40f",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1143,8 +1003,8 @@
         },
         {
           "path": "apps/thought/scripts/plain-return-entry.ts",
-          "byteLength": 2347,
-          "sha256": "8eeb0abf8b849c363ab4c30f817c5b3e8bb8bb798d240d03ba889409c20b316a"
+          "byteLength": 2297,
+          "sha256": "2c536465cd048a9f779b282341c3f1832cecf2b16a7f4016beef09e1efca7621"
         },
         {
           "path": "apps/thought/scripts/test-app-contract-integration.ts",
@@ -1152,14 +1012,9 @@
           "sha256": "b8ff4a1e85b291ef043f4123de57cc0f0c0faf6eff7331c72e768bb6b2ab0715"
         },
         {
-          "path": "apps/thought/scripts/thought-agent-dev-run-store.ts",
-          "byteLength": 2940,
-          "sha256": "8aca81c7090e9c739999373112dd77c9bd403906971d952ddc3eb406f20477a8"
-        },
-        {
           "path": "apps/thought/scripts/thought-launch-main-deltas.generated.mjs",
-          "byteLength": 99512,
-          "sha256": "1f5dfae6480765dff8e08314ed7b2241e7e3091da1c98c25ef4aea3a1075b49b"
+          "byteLength": 152187,
+          "sha256": "897cf3af43b065a4bb7aa4815e4feac4920fd34a5290642bdc411f5a398802b4"
         },
         {
           "path": "apps/thought/src/color-font-doc.ts",
@@ -1173,8 +1028,8 @@
         },
         {
           "path": "apps/thought/src/main.ts",
-          "byteLength": 763494,
-          "sha256": "d4df2e980fb1390cb47055649b57695a5883e6dfdb88bfe57b000fa9caf5e431"
+          "byteLength": 728102,
+          "sha256": "feddd0fd99f33632351ca983b45a723b1f3b1b43a9ccf6674f82c25930033dae"
         },
         {
           "path": "apps/thought/src/plain-return/client.ts",
@@ -1183,8 +1038,8 @@
         },
         {
           "path": "apps/thought/src/plain-return/model.ts",
-          "byteLength": 9344,
-          "sha256": "f0033a97737b6136e5dcae00822169855414367929a93e4aa52861739c2d0d5b"
+          "byteLength": 10263,
+          "sha256": "65ac40958bb6b65a4e3ee732d2537362f15751940480518bca479bf401c8c297"
         },
         {
           "path": "apps/thought/src/plain-return/tsconfig.json",
@@ -1258,8 +1113,8 @@
         },
         {
           "path": "apps/thought/src/thought-claude-cowork-qualification.ts",
-          "byteLength": 983,
-          "sha256": "c87739aab8b12a721d3266ce0ad90360eaee3cdaf6cc8403d7a27c0fe82a6c51"
+          "byteLength": 1065,
+          "sha256": "fd5ac17198a7d63e2842145aa2cb40101e578084f3c22c8fe54172bc3a7a7323"
         },
         {
           "path": "apps/thought/src/thought-console.ts",
@@ -1433,8 +1288,8 @@
         },
         {
           "path": "apps/thought/vite.config.ts",
-          "byteLength": 75154,
-          "sha256": "82ec236e11bc46777746e775b3c86016efe0df46c05bdca5da6d527a73bc761a"
+          "byteLength": 12360,
+          "sha256": "1fdb933bab1799f8513a2a47a61a28496241300082096e1d2626b89d03a1d0d8"
         },
         {
           "path": "docs/DEPLOYMENT_LOCK_RUNBOOK.md",

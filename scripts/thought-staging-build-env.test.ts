@@ -9,12 +9,11 @@ const thoughtRoot = fileURLToPath(new URL("../apps/thought", import.meta.url));
 const requireThought = createRequire(new URL("../apps/thought/package.json", import.meta.url));
 const { resolveConfig } = await import(pathToFileURL(requireThought.resolve("vite")).href);
 const publicApiKey = "VITE_THOUGHT_AGENT_PUBLIC_API_BASE";
-const canonicalApi = "https://preview.inshell.art/api/thought-agent/v2";
 const thoughtHtml = readFileSync(path.join(thoughtRoot, "index.html"), "utf8");
 
-test("resolved THOUGHT builds confine the canonical Agent API default to Home staging", async (t) => {
+test("resolved THOUGHT builds do not inject retired Agent API defaults", async (t) => {
   const cases = [
-    { name: "Home staging", branch: "staging", expected: canonicalApi },
+    { name: "Home staging", branch: "staging", expected: undefined },
     { name: "feature preview", branch: "codex/feature", expected: undefined },
     { name: "production", branch: "main", expected: undefined },
     { name: "non-Pages build", branch: undefined, expected: undefined },
