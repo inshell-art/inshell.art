@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "a58597494dbb1f5bd27e447f7c214be34d1f5fd62e9357f614a1343dd4cda65f",
+  "sourceTreeSha256": "af05cf446e1ef411ccf014772bd1a8603098f8e3eca5cc3a4896bdf563741907",
   "groups": [
     {
       "id": "public-docs",
@@ -67,7 +67,7 @@
       "title": "Home, $PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "e81e07f564d3825cb12d22468239138f1b275a0edf427e7a632fa82224b0e0fd",
+      "groupSha256": "5a72bc940a3e46d1510a951654a56d23aa98963421c789d24c2de2fb65edd125",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -76,8 +76,8 @@
         },
         {
           "path": "apps/home/package.json",
-          "byteLength": 3213,
-          "sha256": "af70d6e0dfb5a8f11780e96ac648a45012133318aa4c71e6c96b9a18e503cd8b"
+          "byteLength": 3211,
+          "sha256": "0550cd4c5569b24ce14bf877c2534d53266a75cc794caba4021822facac73df3"
         },
         {
           "path": "apps/home/src/App.tsx",
@@ -490,7 +490,7 @@
       "title": "Documentation gates",
       "owner": "inshell.art repository automation",
       "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
-      "groupSha256": "d19ad748e668ca4223a03d17a923566912263c00b1a3d20126192cbefaf1078f",
+      "groupSha256": "c04647b0f2c6a38e24ad217cd5967d174789395acea10a79afd912c11f7076e8",
       "files": [
         {
           "path": ".github/workflows/deploy-pages.yml",
@@ -520,7 +520,7 @@
         {
           "path": "package.json",
           "byteLength": 11897,
-          "sha256": "b6367aabcdd3106c73837890f5a3433ffd6e6335ebdf0b864c163c5633cbdc30"
+          "sha256": "b9e8fee79ed4328a27b77db6038317bab1dfe47551a43770b148fbf993e8c413"
         },
         {
           "path": "scripts/check-dependency-security.mjs",
@@ -944,7 +944,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "5e3465f13bbb3aa6b0ae3775ad33d3ae6fdf0addc662b3ca19dff659db92d40f",
+      "groupSha256": "c006260966012f66a88af87805e44658e937886597bf99b77f10598de8c55bb3",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -954,7 +954,7 @@
         {
           "path": "apps/thought/package.json",
           "byteLength": 1305,
-          "sha256": "88494ee10ce8517597ca4c8700341df74821410630888eb792630f811e9271fa"
+          "sha256": "9ee780f0fb85c8d8078e64cea3ca620373ccb3f42347687aab653d71e613a63e"
         },
         {
           "path": "apps/thought/production/README.md",
