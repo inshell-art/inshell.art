@@ -36,6 +36,8 @@ jobs:
     env:
       CLOUDFLARE_PAGES_PROJECT_HOME: ${{ vars.CLOUDFLARE_PAGES_PROJECT_HOME || 'inshell-art' }}
       VITE_DEPLOY_ENV: ${{ github.event.inputs.branch == 'staging' && 'preview' || 'production' }}
+      VITE_GA4_ENABLED: ${{ github.event.inputs.branch == 'main' && vars.VITE_GA4_ENABLED == 'true' && 'true' || 'false' }}
+      VITE_GA4_MEASUREMENT_ID: ${{ github.event.inputs.branch == 'main' && vars.VITE_GA4_ENABLED == 'true' && vars.VITE_GA4_MEASUREMENT_ID || '' }}
       VITE_NETWORK: ${{ vars.VITE_NETWORK || 'sepolia' }}
       VITE_PATH_RPC_URL: ${{ github.event.inputs.branch == 'staging' && '/api/path-rpc' || vars.VITE_PATH_RPC_URL || vars.VITE_ETH_RPC || '/api/path-rpc' }}
       VITE_WALLET_CHAIN_RPC_URL: ${{ vars.VITE_WALLET_CHAIN_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com' }}
@@ -143,6 +145,8 @@ jobs:
     env:
       CLOUDFLARE_PAGES_PROJECT_THOUGHT: ${{ vars.CLOUDFLARE_PAGES_PROJECT_THOUGHT || 'thought-inshell-art' }}
       VITE_DEPLOY_ENV: ${{ github.event.inputs.branch == 'staging' && 'preview' || 'production' }}
+      VITE_GA4_ENABLED: ${{ github.event.inputs.branch == 'main' && vars.VITE_GA4_ENABLED == 'true' && 'true' || 'false' }}
+      VITE_GA4_MEASUREMENT_ID: ${{ github.event.inputs.branch == 'main' && vars.VITE_GA4_ENABLED == 'true' && vars.VITE_GA4_MEASUREMENT_ID || '' }}
       VITE_NETWORK: ${{ vars.VITE_NETWORK || 'sepolia' }}
       VITE_PATH_RPC_URL: ${{ github.event.inputs.branch == 'staging' && '/api/path-rpc' || vars.VITE_PATH_RPC_URL || vars.VITE_ETH_RPC || '/api/path-rpc' }}
       VITE_THOUGHT_RPC_URL: ${{ github.event.inputs.branch == 'staging' && '/api/thought-rpc' || vars.VITE_THOUGHT_RPC_URL || '/api/thought-rpc' }}
