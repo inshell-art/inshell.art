@@ -4,6 +4,7 @@ import App from "./App";
 import "@inshell/shared/design.css";
 import "./main.css";
 import "./components/docs/figures.css";
+import { mountGa4Choice } from "../../../packages/shared/src/ga4-ui";
 import "@fontsource/source-code-pro/200.css";
 import "@fontsource/source-code-pro/300.css";
 import "@fontsource/source-code-pro/400.css";
@@ -28,6 +29,7 @@ if (!import.meta.env.DEV || !globalThis.__INSHELL_PATH_CONTRACT_RUNTIME__) {
 }
 maybeInstallCloudflareWebAnalytics({ env: runtimeEnv });
 installInshellAnonymousAnalytics({ env: runtimeEnv });
+mountGa4Choice(runtimeEnv);
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

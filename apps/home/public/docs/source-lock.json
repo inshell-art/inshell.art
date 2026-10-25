@@ -11,14 +11,14 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "af05cf446e1ef411ccf014772bd1a8603098f8e3eca5cc3a4896bdf563741907",
+  "sourceTreeSha256": "952a0c2ac487d4e08f6674fbdeb3edf363ee3bd6f6bf9dcd40345b8dae4c1590",
   "groups": [
     {
       "id": "public-docs",
       "title": "Public documentation sources",
       "owner": "inshell.art docs",
       "reason": "Human articles, Agent-readable content, authority maps, and machine-handoff selection.",
-      "groupSha256": "f3ac009a981a289c9d9b40b9963ecd98b77967b08a9c5012ddeff287062af02f",
+      "groupSha256": "cdcd7a6a9014dfb3e2e3ca68626ad7cab82ab07d11114b2fdb7c7e0d07b7e383",
       "files": [
         {
           "path": "apps/home/src/content/AGENTS.md",
@@ -37,8 +37,8 @@
         },
         {
           "path": "apps/home/src/content/docs.ts",
-          "byteLength": 180802,
-          "sha256": "46559558450decaef85c14b3e189f3c65cbb62dab19d522f337b8c66148e68e6"
+          "byteLength": 182834,
+          "sha256": "a2b45fa7402610998a879a024a4a422bd55c0fd02c49c64312d139f9fe4b5a0e"
         },
         {
           "path": "apps/home/src/content/thought-machine-handoff.ts",
@@ -67,7 +67,7 @@
       "title": "Home, $PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "5a72bc940a3e46d1510a951654a56d23aa98963421c789d24c2de2fb65edd125",
+      "groupSha256": "d8410a61075b02ebc88af43922775be228907801ac3b81ef0bc4dd44f1ca4e47",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -256,8 +256,8 @@
         },
         {
           "path": "apps/home/src/main.tsx",
-          "byteLength": 1364,
-          "sha256": "5334f35b195b488348f7b8baeda435b4acc8b306bd33f5215b0af70dd5ddd29a"
+          "byteLength": 1462,
+          "sha256": "d44cc783250bf9e2f63a5d3507a78c3f2e0d851cdf2fc56c851c71fc6386e4c3"
         },
         {
           "path": "apps/home/src/pathMintSubmissionLock.ts",
@@ -490,12 +490,12 @@
       "title": "Documentation gates",
       "owner": "inshell.art repository automation",
       "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
-      "groupSha256": "c04647b0f2c6a38e24ad217cd5967d174789395acea10a79afd912c11f7076e8",
+      "groupSha256": "16687d64a78abe9ef924dd943d4c5b3471f7d0a870d5ce695326e5a8d8d3d972",
       "files": [
         {
           "path": ".github/workflows/deploy-pages.yml",
-          "byteLength": 13340,
-          "sha256": "2ba7be9bd847866bfbddec188f227318d11e978e53238636d789b5be0e139301"
+          "byteLength": 13884,
+          "sha256": "1fecece37bfc6fb198077adff34bc1e4f8bfd70cb2b80e0f5e36160e8dbc0912"
         },
         {
           "path": ".github/workflows/rollback-pages.yml",
@@ -519,8 +519,8 @@
         },
         {
           "path": "package.json",
-          "byteLength": 11897,
-          "sha256": "b9e8fee79ed4328a27b77db6038317bab1dfe47551a43770b148fbf993e8c413"
+          "byteLength": 12084,
+          "sha256": "98c506bb31f76eec91fbb6237bf5e4ccf984e239d83fabdd1e6c1bce28b7448c"
         },
         {
           "path": "scripts/check-dependency-security.mjs",
@@ -608,7 +608,7 @@
       "title": "Shared product runtime",
       "owner": "inshell.art shared App infrastructure",
       "reason": "Shared Ethereum, surface, utility, and Agent-protocol code used by public routes.",
-      "groupSha256": "29e8c7194993ee76a0b1d652573dc5f343edb040c9dcec78541debea120d52bc",
+      "groupSha256": "fb447f477f7c68bcb0ec9ee6a4a49fbe9666c63aaf16a12dc496941bc872dfef",
       "files": [
         {
           "path": "packages/ethereum/src/abi.ts",
@@ -634,6 +634,26 @@
           "path": "packages/shared/src/design.css",
           "byteLength": 2319,
           "sha256": "7a6272d9339030f57a76dee4d3a7d425dbde8b18dd2fe47ac9c137558aaae057"
+        },
+        {
+          "path": "packages/shared/src/ga4-policy.ts",
+          "byteLength": 4914,
+          "sha256": "f2696de20ffdf9627febe4bfbf874b4ed1b2d6992a3745bf8b0e423de843a949"
+        },
+        {
+          "path": "packages/shared/src/ga4-ui.ts",
+          "byteLength": 4206,
+          "sha256": "8217f91208766bd5894f0406d80a9e2f065bb35467616e8103619fdff012778e"
+        },
+        {
+          "path": "packages/shared/src/ga4.css",
+          "byteLength": 1726,
+          "sha256": "b54515a0d079ca99b6141c1f1689b8f7c16f6e03107a4c4a8f80d9b2c3c53f63"
+        },
+        {
+          "path": "packages/shared/src/ga4.ts",
+          "byteLength": 7835,
+          "sha256": "4d5b794a5eb9934a4e56df89e92bee078748e33af92d16637e9fc8eba3cd62e7"
         },
         {
           "path": "packages/shared/src/index.ts",
@@ -944,7 +964,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "c006260966012f66a88af87805e44658e937886597bf99b77f10598de8c55bb3",
+      "groupSha256": "8b033d0707cec726dd5494f0c65f0110fb3f4a6473320fe33d3ba84cbcd335f8",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -1003,8 +1023,8 @@
         },
         {
           "path": "apps/thought/scripts/plain-return-entry.ts",
-          "byteLength": 2297,
-          "sha256": "2c536465cd048a9f779b282341c3f1832cecf2b16a7f4016beef09e1efca7621"
+          "byteLength": 2439,
+          "sha256": "bd8091f012d7420c46adcea688c84d822450cb8a0a075c208f7f1c90e309ef24"
         },
         {
           "path": "apps/thought/scripts/test-app-contract-integration.ts",
