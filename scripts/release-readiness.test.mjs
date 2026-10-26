@@ -192,6 +192,25 @@ test("smoke workflow uses lock-driven checks in both branches and tests before p
   }
 });
 
+test("GA4 deploy variables require main and explicit opt-in in both jobs; ordinary CI has no collection config", () => {
+  const deploy = load(readFileSync(new URL("../.github/workflows/deploy-pages.yml", import.meta.url), "utf8"));
+  const expected = {
+    VITE_GA4_ENABLED: "${{ github.event.inputs.branch == 'main' && vars.VITE_GA4_ENABLED == 'true' && 'true' || 'false' }}",
+    VITE_GA4_MEASUREMENT_ID: "${{ github.event.inputs.branch == 'main' && vars.VITE_GA4_ENABLED == 'true' && vars.VITE_GA4_MEASUREMENT_ID || '' }}",
+  };
+  for (const name of ["deploy-home", "deploy-thought"]) {
+    for (const [key, expression] of Object.entries(expected)) {
+      assert.equal(deploy.jobs[name].env[key], expression, `${name}/${key}`);
+      for (const step of deploy.jobs[name].steps) {
+        assert.equal(step.env?.[key], undefined, `${name} must not override ${key}`);
+        assert.doesNotMatch(step.run ?? "", new RegExp(`${key}\\s*=`));
+      }
+    }
+  }
+  const ci = readFileSync(new URL("../.github/workflows/test.yml", import.meta.url), "utf8");
+  assert.doesNotMatch(ci, /VITE_GA4_(ENABLED|MEASUREMENT_ID)/);
+});
+
 test("qualification CI jobs retain history for exact historical delta regressions", () => {
   const workflow = load(readFileSync(new URL("../.github/workflows/test.yml", import.meta.url), "utf8"));
   for (const name of ["build", "fast-feedback"]) {

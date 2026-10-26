@@ -35,6 +35,8 @@ export function plainReturnEntryPlugin(root: string): Plugin {
       // the two conditional imports into one preload call and retain only the
       // legacy branch's CSS dependencies. HTML must load this for either path.
       return `import ${JSON.stringify(path.resolve(root, "src/plain-return/view.css"))};
+import { mountGa4Choice } from ${JSON.stringify(path.resolve(root, "../../packages/shared/src/ga4-ui.ts"))};
+mountGa4Choice(import.meta.env);
 const u=new URL(location.href);const p=u.pathname.replace(/\\/+$/,"");
 if(p==="/thought"||p===""){
   import(${JSON.stringify(path.resolve(root, "src/plain-return/view.ts"))});

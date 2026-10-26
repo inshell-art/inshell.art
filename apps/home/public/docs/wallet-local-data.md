@@ -50,6 +50,18 @@ Saved THOUGHT candidates live in the current browser. Temporary Agent run state 
 
 > Clearing browser data, changing browsers, or moving to another device can make local saves unavailable.
 
+## Optional Google Analytics
+
+- Authority: app-documentation
+
+Where enabled, Analytics settings offers Allow Google Analytics and Reject Google Analytics with equal access. No Google tag or measurement starts before explicit permission. This choice controls GA4 only; existing Cloudflare and first-party telemetry are separate and are not disabled by it.
+
+Google Analytics measures consenting observed browsers, not all visitors or verified people. Its pilot categories are coarse page views, referrer hostname, device/browser information, approximate country, time in view and repeat visits. Requests expose the browser's IP address to Google for delivery and approximate location. Prompts, returned text, work/run IDs, tokens, wallet addresses and saved-work contents are excluded. Location may reflect VPN/proxy egress; foreground time does not prove attention.
+
+The choice lasts 90 days. Analytics cookies are host-only. The client cookie has a fixed expiry of up to 90 days after creation; the session cookie can renew for up to 90 days after activity or a new visit. An expired choice keeps measurement off until you allow it again. The required Google user/event retention setting is two months without activity-based reset; standard aggregated reports have different retention. Missing configuration, an unreadable or expired choice, test environments and excluded browsers keep GA4 off.
+
+Withdraw Google Analytics permission stops future measurement and clears only pilot cookies across open tabs. It does not reload the page, clear drafts or saved works, recall an in-flight request or erase historical Google records. Exclude this browser is a persistent option for operators and testing. After withdrawal or exclusion, re-allowing takes effect on an ordinary page navigation, not by interrupting the current work.
+
 ## Networks do not merge
 
 - Authority: app-documentation

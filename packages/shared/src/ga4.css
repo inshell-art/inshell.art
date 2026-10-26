@@ -1,0 +1,38 @@
+.inshell-ga4 {
+  --choice-gap: 0.75rem;
+  --choice-inset: 1rem;
+  --choice-width: 34rem;
+  --choice-height: 65dvh;
+  --choice-leading: 1.5;
+  --choice-border: 1px solid currentColor;
+  --choice-layer: 1001;
+  --choice-padding: 0.5rem 0.75rem;
+  --choice-focus: 2px solid currentColor;
+  --choice-offset: 2px;
+  position: relative;
+  z-index: var(--choice-layer);
+  padding: var(--choice-inset);
+  color: var(--inshell-text);
+  font: var(--weight-mid) var(--font-size-14)/var(--choice-leading) var(--inshell-font-mono);
+}
+.inshell-ga4 [hidden], .inshell-ga4[hidden] { display: none; }
+.inshell-ga4 section {
+  position: fixed;
+  inset-inline-start: var(--choice-inset);
+  bottom: var(--choice-inset);
+  width: min(var(--choice-width), calc(100vw - var(--choice-inset) * 2));
+  box-sizing: border-box;
+  max-height: var(--choice-height);
+  overflow: auto;
+  padding: var(--choice-inset);
+  border: var(--choice-border);
+  background: var(--inshell-panel);
+}
+.inshell-ga4 h2, .inshell-ga4 p { font: inherit; margin: 0 0 var(--choice-gap); }
+.inshell-ga4 button, .inshell-ga4 summary { font: inherit; cursor: pointer; color: inherit; }
+.inshell-ga4 a { color: inherit; }
+.inshell-ga4 button { padding: var(--choice-padding); border: var(--choice-border); background: transparent; }
+.inshell-ga4 button:focus-visible, .inshell-ga4 summary:focus-visible { outline: var(--choice-focus); outline-offset: var(--choice-offset); }
+.inshell-ga4 button:disabled { cursor: not-allowed; }
+.inshell-ga4-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--choice-gap); margin-block: var(--choice-gap); }
+.inshell-ga4 section > button { margin-block: var(--choice-gap); margin-inline-end: var(--choice-gap); }
