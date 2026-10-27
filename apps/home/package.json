@@ -29,7 +29,7 @@
     "@inshell/shared": "workspace:*",
     "@inshell/utils": "workspace:*",
     "@inshell/wallet": "workspace:*",
-    "@tanstack/react-query": "^5.104.2",
+    "@tanstack/react-query": "5.104.5",
     "@types/d3": "^7.4.3",
     "@uidotdev/usehooks": "^2.4.1",
     "@visx/axis": "^4.0.0",
@@ -41,11 +41,11 @@
     "d3-scale": "^4.0.2",
     "framer-motion": "^14.0.0",
     "msw": "^3.0.2",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "react-error-boundary": "^6.1.6",
-    "viem": "^2.57.5",
-    "vite": "^8.3.4"
+    "viem": "2.57.11",
+    "vite": "8.3.5"
   },
   "devDependencies": {
     "@jest/globals": "30.5.2",
@@ -67,7 +67,7 @@
     "jest": "30.5.2",
     "jest-environment-jsdom": "30.5.2",
     "seedrandom": "^3.0.5",
-    "ts-jest": "^29.4.14",
+    "ts-jest": "29.4.15",
     "ts-node": "^10.9.2",
     "tsx": "^4.23.15",
     "typescript": "^5.8.3",
