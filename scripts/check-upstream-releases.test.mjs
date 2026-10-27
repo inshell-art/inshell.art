@@ -148,7 +148,7 @@ test("required build and deploy jobs execute the full upstream gates", async () 
     const foundry = steps.find((step) => step?.name === "Install Foundry");
     assert.equal(
       foundry?.uses,
-      "foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09",
+      "foundry-rs/foundry-toolchain@dba66c27052e63476d886f22216e119ba7e615bf",
       `${jobName} must pin the reviewed Foundry action commit`,
     );
     assert.equal(foundry?.with?.version, "v1.5.1", `${jobName} must pin Foundry v1.5.1`);

@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "952a0c2ac487d4e08f6674fbdeb3edf363ee3bd6f6bf9dcd40345b8dae4c1590",
+  "sourceTreeSha256": "5343dfbb9c2e9c040060659e8806fa50e6359a18809628198b33c735438d5855",
   "groups": [
     {
       "id": "public-docs",
@@ -67,7 +67,7 @@
       "title": "Home, $PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "d8410a61075b02ebc88af43922775be228907801ac3b81ef0bc4dd44f1ca4e47",
+      "groupSha256": "c8cad07108533e45962d13cad0da644e72450629b410b0e67f1ba3b30200737a",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -76,8 +76,8 @@
         },
         {
           "path": "apps/home/package.json",
-          "byteLength": 3211,
-          "sha256": "0550cd4c5569b24ce14bf877c2534d53266a75cc794caba4021822facac73df3"
+          "byteLength": 3206,
+          "sha256": "6695df5d9cc0d65ad4a1068adeba8a1a6151decc0da52946d9641ad83870b7d9"
         },
         {
           "path": "apps/home/src/App.tsx",
@@ -490,12 +490,12 @@
       "title": "Documentation gates",
       "owner": "inshell.art repository automation",
       "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
-      "groupSha256": "16687d64a78abe9ef924dd943d4c5b3471f7d0a870d5ce695326e5a8d8d3d972",
+      "groupSha256": "56f84c96a8e3d602c7c8ea079a9e6a5a8b6dffa101b63ef2f8a3046afe5ad5db",
       "files": [
         {
           "path": ".github/workflows/deploy-pages.yml",
           "byteLength": 13884,
-          "sha256": "1fecece37bfc6fb198077adff34bc1e4f8bfd70cb2b80e0f5e36160e8dbc0912"
+          "sha256": "444b944b39dd8cb2fc805c28c034cedd03304b4244738bb721476a4623c95174"
         },
         {
           "path": ".github/workflows/rollback-pages.yml",
@@ -505,7 +505,7 @@
         {
           "path": ".github/workflows/test.yml",
           "byteLength": 4269,
-          "sha256": "7ca4902bef47f20d272c2f045a94d63843695c2f8389085aa1fac75dac812d90"
+          "sha256": "f8b4391a1df94f75fc9ccc3b202b8b8024493c5e6d60595ec41895f1abb1bdcf"
         },
         {
           "path": ".husky/pre-commit",
@@ -519,13 +519,13 @@
         },
         {
           "path": "package.json",
-          "byteLength": 12084,
-          "sha256": "98c506bb31f76eec91fbb6237bf5e4ccf984e239d83fabdd1e6c1bce28b7448c"
+          "byteLength": 12188,
+          "sha256": "7bbd815e0848a6184d3b577e91cd926bbc0c8ea7188a9544ca613a4ce8ac1b62"
         },
         {
           "path": "scripts/check-dependency-security.mjs",
-          "byteLength": 2463,
-          "sha256": "caf8f9f519db7ac08e12bed377344dd375ffbcf75e7773e52f051dca3c2351d0"
+          "byteLength": 2591,
+          "sha256": "25874bc4ae8e6da807d5b24b1118c368db614fd73b66f83840b84e0f46b0ed64"
         },
         {
           "path": "scripts/check-detail-surface-contract.mjs",
@@ -964,7 +964,7 @@
       "title": "THOUGHT App runtime",
       "owner": "THOUGHT App",
       "reason": "Public THOUGHT creation, Agent transport, preview, provenance, rendering, and mint behavior.",
-      "groupSha256": "8b033d0707cec726dd5494f0c65f0110fb3f4a6473320fe33d3ba84cbcd335f8",
+      "groupSha256": "47b71e5c047f84b98cc6e8b4e8292fad8ec8a915117fa6aa291eea05f1c1cb5d",
       "files": [
         {
           "path": "apps/thought/index.html",
@@ -973,8 +973,8 @@
         },
         {
           "path": "apps/thought/package.json",
-          "byteLength": 1305,
-          "sha256": "9ee780f0fb85c8d8078e64cea3ca620373ccb3f42347687aab653d71e613a63e"
+          "byteLength": 1302,
+          "sha256": "104e141ee90a5afdfebef8454ba72e35b347117d523579cf44566538e34cdda0"
         },
         {
           "path": "apps/thought/production/README.md",

@@ -16,7 +16,7 @@
     "check:dependency-security": "node scripts/check-dependency-security.mjs && node scripts/check-surface-shell-dependency.mjs",
     "test:surface-shell-dependency": "node --test scripts/check-surface-shell-dependency.test.mjs",
     "check:release-evidence": "node scripts/check-release-evidence.mjs",
-    "test:release-readiness": "node --test scripts/release-readiness.test.mjs scripts/check-pub-boundary.test.mjs scripts/check-surface-shell-dependency.test.mjs scripts/brace-expansion-compat.test.mjs scripts/axios-compat.test.mjs && node --import tsx --test scripts/plain-replacement.test.ts && pnpm run test:thought-failure-report",
+    "test:release-readiness": "node --test scripts/release-readiness.test.mjs scripts/check-pub-boundary.test.mjs scripts/check-surface-shell-dependency.test.mjs scripts/brace-expansion-compat.test.mjs scripts/axios-compat.test.mjs scripts/qs-compat.test.mjs && node --experimental-vm-modules --test scripts/wallet-sdk-boundary.test.mjs && node --import tsx --test scripts/plain-replacement.test.ts && pnpm run test:thought-failure-report",
     "dev:home": "pnpm --filter @inshell/home dev",
     "dev:home:devnet": "pnpm --filter @inshell/home dev:devnet",
     "dev:thought": "pnpm --filter @inshell/thought dev",
@@ -92,7 +92,7 @@
     "test:thought-retirement": "node --import tsx --test scripts/thought-legacy-retirement.test.ts"
   },
   "devDependencies": {
-    "@playwright/test": "^1.64.0",
+    "@playwright/test": "1.64.1",
     "@types/node": "^24.2.0",
     "@typescript-eslint/eslint-plugin": "^8.71.2",
     "@typescript-eslint/parser": "^8.71.2",
@@ -133,7 +133,7 @@
       "picomatch@^2.0.0": "2.3.2",
       "picomatch@^4.0.0": "4.0.4",
       "postcss@^8.0.0": "8.5.23",
-      "qs@^6.0.0": "6.15.2",
+      "qs@^6.0.0": "6.16.0",
       "rollup@^4.0.0": "4.60.3",
       "tmp@^0.2.0": "0.2.7",
       "uuid@^8.3.2": "11.1.1",

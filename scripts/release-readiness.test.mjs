@@ -607,6 +607,16 @@ test("dependency guard fails closed for an incomplete lock", () => {
   assert.ok(dependencySecurityErrors({}).length);
 });
 
+test("qs floor covers every resolved copy without waiving other advisories", () => {
+  assert.deepEqual(dependencySecurityErrors(lock(["qs@6.16.0"])), []);
+  for (const version of ["6.15.2", "6.15.3", "6.16.0-rc.1", "7.0.0"]) {
+    assert.equal(dependencySecurityErrors(lock([`qs@${version}`])).length, 1);
+    const resolved = lock(["qs@6.16.0"]);
+    resolved.snapshots[`qs@${version}`] = {};
+    assert.equal(dependencySecurityErrors(resolved).length, 1);
+  }
+});
+
 test("production CI and both publish jobs require release evidence; staging can collect it", () => {
   const ci = load(readFileSync(new URL("../.github/workflows/test.yml", import.meta.url), "utf8"));
   const step = ci.jobs.build.steps.find((s) => s.run === "pnpm run check:release-evidence");

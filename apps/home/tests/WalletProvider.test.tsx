@@ -318,6 +318,57 @@ describe("WalletProvider", () => {
     ]);
   });
 
+  test("WalletConnect cancellation can retry, disconnect, and reconnect without signing", async () => {
+    const request = connectRequestMock();
+    const enable = jest.fn<() => Promise<string[]>>()
+      .mockRejectedValueOnce(Object.assign(new Error("cancelled"), { code: 4001 }))
+      .mockResolvedValue([RABBY_ADDRESS]);
+    const disconnect = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+    const listeners = new Map<string, (...args: unknown[]) => void>();
+    mockCreateWalletConnectEthereumProvider.mockResolvedValue({
+      enable, disconnect, request,
+      on: (event: string, callback: (...args: unknown[]) => void) => listeners.set(event, callback),
+      removeListener: (event: string) => listeners.delete(event),
+    });
+    function RetryHarness() {
+      const wallet = useWallet();
+      const [result, setResult] = React.useState("");
+      return <>
+        <button onClick={() => {
+          const connector = wallet.connectors.find(c => c.kind === "walletconnect");
+          void wallet.connectAsync({ connector }).then(() => setResult("connected"), () => setResult("cancelled"));
+        }}>retry WalletConnect</button>
+        <button onClick={() => void wallet.disconnectAsync()}>disconnect fixture</button>
+        <output data-testid="retry-result">{result}</output>
+        <output data-testid="retry-address">{wallet.address ?? "none"}</output>
+        <output data-testid="retry-chain">{wallet.chainId ?? "none"}</output>
+      </>;
+    }
+    render(<WalletProvider><RetryHarness /></WalletProvider>);
+    fireEvent.click(screen.getByText("retry WalletConnect"));
+    await waitFor(() => expect(screen.getByTestId("retry-result")).toHaveTextContent("cancelled"));
+    expect(request).not.toHaveBeenCalled();
+    expect(screen.getByTestId("retry-address")).toHaveTextContent("none");
+    fireEvent.click(screen.getByText("retry WalletConnect"));
+    await waitFor(() => expect(screen.getByTestId("retry-address")).toHaveTextContent(RABBY_ADDRESS));
+    act(() => {
+      listeners.get("accountsChanged")?.([NEXT_ADDRESS]);
+      listeners.get("chainChanged")?.("0x7a6a");
+    });
+    await waitFor(() => expect(screen.getByTestId("retry-address")).toHaveTextContent(NEXT_ADDRESS));
+    expect(screen.getByTestId("retry-chain")).toHaveTextContent("31338");
+    fireEvent.click(screen.getByText("disconnect fixture"));
+    await waitFor(() => expect(screen.getByTestId("retry-address")).toHaveTextContent("none"));
+    expect(disconnect).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByText("retry WalletConnect"));
+    await waitFor(() => expect(screen.getByTestId("retry-address")).toHaveTextContent(RABBY_ADDRESS));
+    expect(mockCreateWalletConnectEthereumProvider).toHaveBeenCalledTimes(3);
+    for (const [options] of mockCreateWalletConnectEthereumProvider.mock.calls) {
+      expect(options).toMatchObject({ showQrModal: true });
+    }
+    expect(request.mock.calls.map(([args]) => args.method)).toEqual(["eth_chainId", "eth_chainId"]);
+  });
+
   test("ensureWalletConnected maps an EIP-1193 4001 rejection to cancelled", async () => {
     const rabbyProvider = {
       isRabby: true,
