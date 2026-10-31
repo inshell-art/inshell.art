@@ -8,7 +8,9 @@ updates:
       interval: "daily"
       time: "00:10"
       timezone: "Asia/Shanghai"
-    open-pull-requests-limit: 5
+    # Paused while the website release is on hold; set back to 5 to resume.
+    # Security updates are not affected by this limit.
+    open-pull-requests-limit: 0
     ignore:
       - dependency-name: "surface-shell"
     groups:
