@@ -64,6 +64,8 @@ const ROUTES = {
     targets: ["pulse-auction", "path-tokens", "thought-gallery"],
   },
   analytics: {
+    collection: "retired",
+    eventStatus: 410,
     eventRoute: "/api/analytics/event",
     summaryRoute: "/api/analytics/summary",
     visitorRoute: "/api/analytics/visitors",
@@ -243,13 +245,13 @@ export async function onRequestGet(ctx: PagesContextLike): Promise<Response> {
       devOwns: [
         "Pages API route behavior",
         "chain_snapshots table schema and read/write code",
-        "anonymous analytics event, summary, and visitor timeline route behavior",
+        "retired analytics ingestion and authenticated historical read routes",
         "RPC route selection contract",
         "frontend read behavior and diagnostics headers",
       ],
       opsOwns: [
         "D1/KV resources and bindings",
-        "anonymous analytics endpoint health and D1 quota monitoring",
+        "historical analytics D1 retention and authenticated read availability",
         "scheduled indexer refresh worker",
         "RPC provider quota monitoring",
         "status freshness and alerting",

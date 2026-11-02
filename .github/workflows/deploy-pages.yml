@@ -36,8 +36,6 @@ jobs:
     env:
       CLOUDFLARE_PAGES_PROJECT_HOME: ${{ vars.CLOUDFLARE_PAGES_PROJECT_HOME || 'inshell-art' }}
       VITE_DEPLOY_ENV: ${{ github.event.inputs.branch == 'staging' && 'preview' || 'production' }}
-      VITE_GA4_ENABLED: ${{ github.event.inputs.branch == 'main' && vars.VITE_GA4_ENABLED == 'true' && 'true' || 'false' }}
-      VITE_GA4_MEASUREMENT_ID: ${{ github.event.inputs.branch == 'main' && vars.VITE_GA4_ENABLED == 'true' && vars.VITE_GA4_MEASUREMENT_ID || '' }}
       VITE_NETWORK: ${{ vars.VITE_NETWORK || 'sepolia' }}
       VITE_PATH_RPC_URL: ${{ github.event.inputs.branch == 'staging' && '/api/path-rpc' || vars.VITE_PATH_RPC_URL || vars.VITE_ETH_RPC || '/api/path-rpc' }}
       VITE_WALLET_CHAIN_RPC_URL: ${{ vars.VITE_WALLET_CHAIN_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com' }}
@@ -46,7 +44,9 @@ jobs:
       VITE_REPORT_BUG_URL: ${{ vars.VITE_REPORT_BUG_URL || 'https://github.com/inshell-art/inshell.art/issues/new?template=sepolia-bug.md' }}
       VITE_GITHUB_URL: ${{ vars.VITE_GITHUB_URL || 'https://github.com/inshell-art/' }}
       VITE_DEBUG_PANEL: ${{ vars.VITE_DEBUG_PANEL || 'off' }}
-      VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN: ${{ github.event.inputs.branch == 'main' && (vars.VITE_CLOUDFLARE_WEB_ANALYTICS_HOME_TOKEN || vars.VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN) || '' }}
+      # Collection remains off pending regional, navigation and injection qualification.
+      VITE_CLOUDFLARE_WEB_ANALYTICS_ENABLED: "false"
+      VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN: ""
       VITE_THOUGHT_URL: ${{ github.event.inputs.branch == 'staging' && 'https://preview.inshell.art/thought' || vars.VITE_THOUGHT_URL || 'https://inshell.art/thought' }}
       VITE_GALLERY_URL: ${{ github.event.inputs.branch == 'staging' && 'https://preview.inshell.art/gallery' || vars.VITE_GALLERY_URL || vars.VITE_THOUGHT_GALLERY_URL || 'https://inshell.art/gallery' }}
       VITE_THOUGHT_GALLERY_URL: ${{ github.event.inputs.branch == 'staging' && 'https://preview.inshell.art/gallery' || vars.VITE_GALLERY_URL || vars.VITE_THOUGHT_GALLERY_URL || 'https://inshell.art/gallery' }}
@@ -97,9 +97,6 @@ jobs:
           test -n "$VITE_WALLET_CHAIN_RPC_URL"
           test -n "$VITE_THOUGHT_URL"
           test -n "$VITE_GALLERY_URL"
-          if [ "${{ github.event.inputs.branch }}" = "main" ]; then
-            test -n "$VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN"
-          fi
       - name: Check public documentation
         run: pnpm run docs:check
       - name: Check upstream release freshness
@@ -120,11 +117,10 @@ jobs:
         run: pnpm run test:thought-runtime
       - name: Build home
         run: pnpm run build:home
-      - name: Verify production analytics bundle
-        if: ${{ github.event.inputs.branch == 'main' }}
+      - name: Verify optional measurement remains off
         run: |
-          grep -R -q "static.cloudflareinsights.com/beacon.min.js" dist/home
-          grep -R -F -q "$VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN" dist/home
+          pnpm run test:privacy
+          node scripts/check-analytics-off-build.mjs dist/home
       - name: Deploy home to Cloudflare Pages
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -145,8 +141,6 @@ jobs:
     env:
       CLOUDFLARE_PAGES_PROJECT_THOUGHT: ${{ vars.CLOUDFLARE_PAGES_PROJECT_THOUGHT || 'thought-inshell-art' }}
       VITE_DEPLOY_ENV: ${{ github.event.inputs.branch == 'staging' && 'preview' || 'production' }}
-      VITE_GA4_ENABLED: ${{ github.event.inputs.branch == 'main' && vars.VITE_GA4_ENABLED == 'true' && 'true' || 'false' }}
-      VITE_GA4_MEASUREMENT_ID: ${{ github.event.inputs.branch == 'main' && vars.VITE_GA4_ENABLED == 'true' && vars.VITE_GA4_MEASUREMENT_ID || '' }}
       VITE_NETWORK: ${{ vars.VITE_NETWORK || 'sepolia' }}
       VITE_PATH_RPC_URL: ${{ github.event.inputs.branch == 'staging' && '/api/path-rpc' || vars.VITE_PATH_RPC_URL || vars.VITE_ETH_RPC || '/api/path-rpc' }}
       VITE_THOUGHT_RPC_URL: ${{ github.event.inputs.branch == 'staging' && '/api/thought-rpc' || vars.VITE_THOUGHT_RPC_URL || '/api/thought-rpc' }}
@@ -161,7 +155,9 @@ jobs:
       VITE_PUBLIC_LAUNCH_MODE: ${{ vars.VITE_PUBLIC_LAUNCH_MODE || 'sepolia_invite' }}
       VITE_REPORT_BUG_URL: ${{ vars.VITE_REPORT_BUG_URL || 'https://github.com/inshell-art/inshell.art/issues/new?template=sepolia-bug.md' }}
       VITE_GITHUB_URL: ${{ vars.VITE_GITHUB_URL || 'https://github.com/inshell-art/' }}
-      VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN: ${{ github.event.inputs.branch == 'main' && (vars.VITE_CLOUDFLARE_WEB_ANALYTICS_THOUGHT_TOKEN || vars.VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN) || '' }}
+      # Collection remains off pending regional, navigation and injection qualification.
+      VITE_CLOUDFLARE_WEB_ANALYTICS_ENABLED: "false"
+      VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN: ""
     steps:
       - uses: actions/checkout@v6
         with:
@@ -215,9 +211,6 @@ jobs:
           test -n "$VITE_PATH_MINT_URL"
           test -n "$VITE_THOUGHT_DETAIL_BASE_URL"
           test -n "$VITE_GALLERY_URL"
-          if [ "${{ github.event.inputs.branch }}" = "main" ]; then
-            test -n "$VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN"
-          fi
       - name: Check public documentation
         run: pnpm run docs:check
       - name: Check upstream release freshness
@@ -242,11 +235,10 @@ jobs:
         run: pnpm --filter @inshell/thought type-check
       - name: Build THOUGHT
         run: pnpm run build:thought
-      - name: Verify production analytics bundle
-        if: ${{ github.event.inputs.branch == 'main' }}
+      - name: Verify optional measurement remains off
         run: |
-          grep -R -q "static.cloudflareinsights.com/beacon.min.js" dist/thought
-          grep -R -F -q "$VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN" dist/thought
+          pnpm run test:privacy
+          node scripts/check-analytics-off-build.mjs dist/thought
       - name: Deploy THOUGHT to Cloudflare Pages
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

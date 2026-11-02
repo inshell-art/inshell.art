@@ -1,37 +1,10 @@
 import type { PagesContextLike } from "../chain-cache";
-import {
-  AnalyticsInputError,
-  analyticsJson,
-  analyticsOptions,
-  readAnalyticsRequest,
-  recordAnalyticsEvent,
-} from "./store";
+import { analyticsJson } from "./store.ts";
 
-export const onRequestOptions = analyticsOptions;
-
-export async function onRequestPost(ctx: PagesContextLike): Promise<Response> {
-  try {
-    const payload = await readAnalyticsRequest(ctx.request);
-    const result = await recordAnalyticsEvent(ctx.env, ctx.request, payload);
-    const { setCookies, ...body } = result;
-    return analyticsJson(200, body, { setCookies });
-  } catch (error) {
-    if (error instanceof AnalyticsInputError) {
-      return analyticsJson(error.status, {
-        ok: false,
-        error: error.message,
-      });
-    }
-    return analyticsJson(503, {
-      ok: false,
-      error: "Analytics event ingest failed.",
-    });
-  }
+// Cached old clients get no cookies, IDs or D1 writes. Historical reads remain.
+export async function onRequest(_ctx?: PagesContextLike): Promise<Response> {
+  return analyticsJson(410, { ok: false, code: "ANALYTICS_RETIRED", stored: false });
 }
-
-export async function onRequestGet(): Promise<Response> {
-  return analyticsJson(405, {
-    ok: false,
-    error: "Use POST for analytics events.",
-  });
-}
+export const onRequestGet = onRequest;
+export const onRequestPost = onRequest;
+export const onRequestOptions = onRequest;

@@ -4,7 +4,11 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { ga4EnvironmentAllowed } from "../packages/shared/src/ga4-policy";
+import { measurementBlockReason } from "../packages/shared/src/privacy";
+
+function collectionBlocked(env: Record<string, unknown>, href = "https://inshell.art/") {
+  return measurementBlockReason({ env, href, referrer: "", automation: false, storage: { getItem: () => null } }) !== "";
+}
 
 const thoughtRoot = fileURLToPath(new URL("../apps/thought", import.meta.url));
 const requireThought = createRequire(new URL("../apps/thought/package.json", import.meta.url));
@@ -24,8 +28,8 @@ test("resolved THOUGHT builds do not inject retired Agent API defaults", async (
     { name: "explicit empty override", branch: "staging", override: "", expected: "" },
     { name: "explicit production mode", branch: "staging", deployEnv: "production", expected: undefined },
     { name: "GA4 preview forced off", branch: "staging", deployEnv: "preview", ga4: { enabled: "false", id: "" }, allowed: false, expected: undefined },
-    { name: "GA4 production opt-in forwarded", branch: "main", deployEnv: "production", ga4: { enabled: "true", id: "G-LOCALONLY01" }, allowed: true, expected: undefined },
-    { name: "GA4 standalone production opt-in forwarded", branch: "main", standalone: true, deployEnv: "production", ga4: { enabled: "true", id: "G-LOCALONLY01" }, allowed: true, expected: undefined },
+    { name: "retired GA4 flags cannot enable collection", branch: "main", deployEnv: "production", ga4: { enabled: "true", id: "G-LOCALONLY01" }, allowed: false, expected: undefined },
+    { name: "retired standalone flags cannot enable collection", branch: "main", standalone: true, deployEnv: "production", ga4: { enabled: "true", id: "G-LOCALONLY01" }, allowed: false, expected: undefined },
     { name: "GA4 production missing ID closed", branch: "main", deployEnv: "production", ga4: { enabled: "true", id: "" }, allowed: false, expected: undefined },
     { name: "GA4 production invalid ID closed", branch: "main", deployEnv: "production", ga4: { enabled: "true", id: "invalid" }, allowed: false, expected: undefined },
     { name: "GA4 production disabled", branch: "main", deployEnv: "production", ga4: { enabled: "false", id: "" }, allowed: false, expected: undefined },
@@ -74,7 +78,7 @@ test("resolved THOUGHT builds do not inject retired Agent API defaults", async (
           assert.equal(publicEnv.VITE_GA4_MEASUREMENT_ID, scenario.ga4.id);
         }
         // Vite's import.meta.env includes built-in PROD/DEV in addition to public values.
-        assert.equal(ga4EnvironmentAllowed({ ...config.env, ...publicEnv }, new URL("https://inshell.art/thought"), false), scenario.allowed ?? false);
+        assert.equal(collectionBlocked({ ...config.env, ...publicEnv }, "https://inshell.art/thought"), true);
         assert.equal(config.build.outDir, path.resolve(thoughtRoot,
           scenario.standalone ? "../../dist/thought" : "../../dist/home/thought"));
         if (!scenario.standalone) {
@@ -97,14 +101,14 @@ test("resolved THOUGHT builds do not inject retired Agent API defaults", async (
   }
 });
 
-test("resolved Home build modes forward GA4 public values but fail closed without production opt-in", async () => {
+test("retired GA4 public values do not enable measurement in any resolved Home build", async () => {
   const root = fileURLToPath(new URL("../apps/home", import.meta.url));
   const keys = ["CF_PAGES_BRANCH", "VITE_DEPLOY_ENV", "VITE_GA4_ENABLED", "VITE_GA4_MEASUREMENT_ID", "NODE_ENV"];
   const original = Object.fromEntries(keys.map(key => [key, process.env[key]]));
   try {
     for (const scenario of [
       { branch: "staging", deploy: "preview", enabled: "false", id: "", allowed: false },
-      { branch: "main", deploy: "production", enabled: "true", id: "G-LOCALONLY01", allowed: true },
+      { branch: "main", deploy: "production", enabled: "true", id: "G-LOCALONLY01", allowed: false },
       { branch: "main", deploy: "production", enabled: "true", id: "", allowed: false },
       { branch: "main", deploy: "production", enabled: "true", id: "invalid", allowed: false },
       { branch: "main", deploy: "production", enabled: "false", id: "", allowed: false },
@@ -118,8 +122,8 @@ test("resolved Home build modes forward GA4 public values but fail closed withou
       const publicEnv = JSON.parse(config.define["globalThis.__INSHELL_VITE_ENV__"]);
       assert.equal(publicEnv.VITE_GA4_ENABLED, scenario.enabled);
       assert.equal(publicEnv.VITE_GA4_MEASUREMENT_ID, scenario.id);
-      assert.equal(ga4EnvironmentAllowed({ ...config.env, ...publicEnv }, new URL("https://inshell.art/"), false), scenario.allowed);
-      assert.equal(ga4EnvironmentAllowed({ ...config.env, ...publicEnv }, new URL("https://preview.inshell.art/"), false), false);
+      assert.equal(collectionBlocked({ ...config.env, ...publicEnv }), true);
+      assert.equal(collectionBlocked({ ...config.env, ...publicEnv }, "https://preview.inshell.art/"), true);
     }
   } finally {
     for (const key of keys) {
