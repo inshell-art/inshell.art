@@ -1,3 +1,4 @@
+import { installQualifiedMeasurement } from "./privacy";
 export type SurfaceId = "path" | "thought";
 
 export {
@@ -518,23 +519,7 @@ export const CLOUDFLARE_WEB_ANALYTICS_SCRIPT_ID = "inshell-cloudflare-web-analyt
 
 export const CLOUDFLARE_WEB_ANALYTICS_ALLOWED_HOSTS = [
   "inshell.art",
-  "thought.inshell.art",
 ] as const;
-
-function normalizeHostname(value: string | null | undefined): string {
-  return value?.trim().toLowerCase().replace(/\.$/, "") ?? "";
-}
-
-function getCurrentHostname(): string {
-  if (typeof window === "undefined") return "";
-  return normalizeHostname(window.location.hostname);
-}
-
-function isCloudflareWebAnalyticsHostAllowed(hostname: string): boolean {
-  return CLOUDFLARE_WEB_ANALYTICS_ALLOWED_HOSTS.includes(
-    hostname as (typeof CLOUDFLARE_WEB_ANALYTICS_ALLOWED_HOSTS)[number],
-  );
-}
 
 function getSharedEnvValue(name: string, env?: Readonly<Record<string, unknown>>): unknown {
   const globalEnv: Record<string, unknown> | undefined = (globalThis as any).__VITE_ENV__;
@@ -551,31 +536,10 @@ function readSharedEnvString(
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-export function maybeInstallCloudflareWebAnalytics(
-  options: CloudflareWebAnalyticsOptions = {},
-): boolean {
-  const documentRef =
-    options.document ?? (typeof document === "undefined" ? null : document);
-  if (!documentRef) return false;
-
-  const hostname = normalizeHostname(options.hostname ?? getCurrentHostname());
-  if (!isCloudflareWebAnalyticsHostAllowed(hostname)) return false;
-
-  const token = readSharedEnvString("VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN", options);
-  if (!token) return false;
-
-  if (documentRef.getElementById(CLOUDFLARE_WEB_ANALYTICS_SCRIPT_ID)) return false;
-
-  const script = documentRef.createElement("script");
-  script.id = CLOUDFLARE_WEB_ANALYTICS_SCRIPT_ID;
-  script.defer = true;
-  script.src = "https://static.cloudflareinsights.com/beacon.min.js";
-  script.setAttribute(
-    "data-cf-beacon",
-    JSON.stringify({ token, send: { to: "/cdn-cgi/rum" } }),
-  );
-  documentRef.head.appendChild(script);
-  return true;
+export function maybeInstallCloudflareWebAnalytics(options: CloudflareWebAnalyticsOptions = {}): boolean {
+  // Single compatibility entry, including locked THOUGHT snapshots. Hostname
+  // overrides cannot qualify collection; the policy reads the actual document.
+  return installQualifiedMeasurement(options.env ?? {});
 }
 
 function normalizeDeploymentEnv(raw: string | null | undefined): DeploymentEnv | null {

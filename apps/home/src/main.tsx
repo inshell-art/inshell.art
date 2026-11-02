@@ -4,13 +4,12 @@ import App from "./App";
 import "@inshell/shared/design.css";
 import "./main.css";
 import "./components/docs/figures.css";
-import { mountGa4Choice } from "../../../packages/shared/src/ga4-ui";
+import { mountPrivacyInformation } from "../../../packages/shared/src/privacy-ui";
 import "@fontsource/source-code-pro/200.css";
 import "@fontsource/source-code-pro/300.css";
 import "@fontsource/source-code-pro/400.css";
 import "@fontsource/source-code-pro/600.css";
 import {
-  installInshellAnonymousAnalytics,
   maybeInstallCloudflareWebAnalytics,
 } from "@inshell/shared";
 import { WalletProvider } from "@inshell/wallet";
@@ -28,8 +27,7 @@ if (!import.meta.env.DEV || !globalThis.__INSHELL_PATH_CONTRACT_RUNTIME__) {
   assertDeploymentOverrides(runtimeEnv);
 }
 maybeInstallCloudflareWebAnalytics({ env: runtimeEnv });
-installInshellAnonymousAnalytics({ env: runtimeEnv });
-mountGa4Choice(runtimeEnv);
+mountPrivacyInformation();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

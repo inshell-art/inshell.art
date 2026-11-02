@@ -11,7 +11,7 @@
   "completeJson": "/docs/content.json",
   "canonicalCompleteJson": "https://inshell.art/docs/content.json",
   "completeJsonMediaType": "application/json",
-  "completeJsonSha256": "30e1597f2d2e1b0a02e4c44f0168bbcfe446c95959eebf21885122878695523a",
+  "completeJsonSha256": "8c3f01546d7952a4887af14cfdea00849ed3159d276bf4c5bd09d2d04ea88103",
   "purpose": "Public, read-only discovery for visitors using their own Agents.",
   "sourceLock": {
     "url": "/docs/source-lock.json",
@@ -19,7 +19,7 @@
     "schemaUrl": "/docs/source-lock.schema.json",
     "canonicalSchemaUrl": "https://inshell.art/docs/source-lock.schema.json",
     "mediaType": "application/json",
-    "sha256": "0bc8e80236680b90470b13cb3a86477523f24456188ec5e6386cfd4be63a67ef",
+    "sha256": "0798f5678a9bb68fe4a47d4129790d48c20029ac2b3e1a63431b7dcde2ab7aa8",
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
@@ -465,11 +465,11 @@
       "markdown": "/docs/wallet-local-data.md",
       "canonicalMarkdown": "https://inshell.art/docs/wallet-local-data.md",
       "markdownMediaType": "text/markdown",
-      "markdownSha256": "24d7b1edb86f51ed3bd1ab9c6f4d72649555690150fa3753d904adaa544cac33",
+      "markdownSha256": "08d849292cc9c2d787110adbb86d7a039b2329a6ecf708786af8de9c4316edfc",
       "json": "/docs/wallet-local-data.json",
       "canonicalJson": "https://inshell.art/docs/wallet-local-data.json",
       "jsonMediaType": "application/json",
-      "jsonSha256": "dc027afb2ffa1a18e014d8cc5cc0fd63798bb4b7e8df6596647f794e1e80311a"
+      "jsonSha256": "bc077444152138a7fa234bd407fc3f3adabf358bf0ef7f497f59aeeb3aff190c"
     },
     {
       "id": "source-release-boundaries",

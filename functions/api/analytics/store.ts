@@ -97,6 +97,7 @@ type AnalyticsVisitorVisit = {
 };
 
 export type AnalyticsStatus = {
+  collection: "retired";
   enabled: boolean;
   route: string;
   summaryRoute: string;
@@ -290,9 +291,9 @@ export function resolveAnalyticsDb(env: ChainCacheEnv): {
   return { db: null, binding: null };
 }
 
-export function isAnalyticsEnabled(env: ChainCacheEnv) {
-  const raw = env.INSHELL_ANALYTICS_ENABLED?.trim().toLowerCase();
-  return raw !== "0" && raw !== "false" && raw !== "off";
+export function isAnalyticsEnabled(_env: ChainCacheEnv) {
+  // Old environment values cannot reopen optional identity writes.
+  return false;
 }
 
 export function isAnalyticsReadAuthorized(request: Request, env: ChainCacheEnv) {
@@ -468,6 +469,7 @@ export async function readAnalyticsStatus(
 ): Promise<AnalyticsStatus> {
   const { db, binding } = resolveAnalyticsDb(env);
   const base: AnalyticsStatus = {
+    collection: "retired",
     enabled: isAnalyticsEnabled(env),
     route: "/api/analytics/event",
     summaryRoute: "/api/analytics/summary",

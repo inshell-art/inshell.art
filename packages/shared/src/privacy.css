@@ -1,0 +1,18 @@
+.inshell-privacy {
+  --privacy-space: 1rem;
+  --privacy-leading: 1.5;
+  --privacy-border: 1px solid currentColor;
+  --privacy-focus: 2px solid currentColor;
+  --privacy-offset: 2px;
+  padding: var(--privacy-space);
+  color: var(--inshell-text);
+  font: var(--weight-mid) var(--font-size-14)/var(--privacy-leading) var(--inshell-font-mono);
+}
+.inshell-privacy p { margin-block: var(--privacy-space); }
+.inshell-privacy summary, .inshell-privacy button { cursor: pointer; font: inherit; }
+.inshell-privacy a, .inshell-privacy button { color: inherit; }
+.inshell-privacy button { border: var(--privacy-border); background: transparent; }
+.inshell-privacy summary:focus-visible, .inshell-privacy button:focus-visible {
+  outline: var(--privacy-focus);
+  outline-offset: var(--privacy-offset);
+}
