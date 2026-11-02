@@ -5,6 +5,7 @@ import { onRequestGet as onAnalyticsVisitorsGet } from "../../../functions/api/a
 import {
   analyticsHostScopeForHostname,
   readAnalyticsStatus,
+  recordAnalyticsEvent,
 } from "../../../functions/api/analytics/store";
 
 const originalCrypto = globalThis.crypto;
@@ -399,6 +400,25 @@ function sharedCookieHeader(
   ].join("; ")}`;
 }
 
+// Historical fixtures, not live ingestion. No application collection toggle.
+async function seedHistoricalEvent(ctx: { request: Request; env: { INSHELL_CHAIN_DATA_DB: ReturnType<typeof createAnalyticsD1Mock>["db"] } }) {
+  const p = JSON.parse(await ctx.request.text());
+  const hostname = new URL(ctx.request.url).hostname;
+  const cookie = ctx.request.headers.get("cookie") ?? "";
+  const visit = cookie.includes("journey_visit_two") ? "fixture-visit-2" : "fixture-visit-1";
+  const pathname = new URL(p.path, "https://inshell.art").pathname;
+  const referrer = p.referrer ? new URL(p.referrer) : null;
+  const metadata = Object.fromEntries(Object.entries(p.metadata ?? {}).filter(([key]) => ["scrollPercent", "walletKind", "walletStage", "errorCategory"].includes(key)));
+  await ctx.env.INSHELL_CHAIN_DATA_DB.prepare("INSERT INTO inshell_anon_analytics_events").bind(
+    p.eventId, p.eventType, "a".repeat(64), "b".repeat(64), visit,
+    hostname.startsWith("thought.") ? "thought" : "home", hostname, pathname,
+    pathname.split("/")[1], pathname.split("/")[2] ?? null,
+    referrer?.hostname ?? null, null, p.occurredAt, new Date().toISOString(),
+    "desktop", 1200, 800, null, "en-US", 0, JSON.stringify(metadata),
+    ctx.request.headers.get("cf-ipcountry")?.toUpperCase() ?? null,
+  ).run();
+}
+
 describe("anonymous analytics Pages functions", () => {
   beforeEach(() => {
     globalThis.Response = TestResponse as unknown as typeof Response;
@@ -432,156 +452,19 @@ describe("anonymous analytics Pages functions", () => {
     jest.restoreAllMocks();
   });
 
-  test("records shared-cookie pageviews without storing raw visitor or session ids", async () => {
-    const d1 = createAnalyticsD1Mock();
-    const response = await onAnalyticsEventPost({
-      request: analyticsRequest(
-        "https://inshell.art/api/analytics/event",
-        payload({ visitorId: undefined, sessionId: undefined, visitId: undefined }),
-      ),
-      env: { INSHELL_CHAIN_DATA_DB: d1.db },
-    });
-
-    const body = await response.json() as any;
-    expect(body).toMatchObject({
-      ok: true,
-      stored: true,
-      duplicate: false,
-    });
-    expect(body.setCookies).toBeUndefined();
-    const setCookie = response.headers.get("set-cookie") ?? "";
-    expect(setCookie).toContain("inshell_anon_visitor=");
-    expect(setCookie).toContain("Max-Age=31536000");
-    expect(setCookie).toContain("inshell_anon_session=");
-    expect(setCookie).toContain("inshell_anon_visit=");
-    expect(setCookie).toContain("Max-Age=1800");
-    expect(setCookie).toContain("Domain=.inshell.art");
-    expect(setCookie).toContain("HttpOnly");
-    expect(setCookie).toContain("SameSite=Lax");
-    const event = [...d1.events.values()][0];
-    expect(event.path).toBe("/path/25");
-    expect(event.content_type).toBe("path");
-    expect(event.content_id).toBe("25");
-    expect(event.surface).toBe("home");
-    expect(event.visitor_hash).not.toBe("visitor_12345678");
-    expect(event.session_hash).not.toBe("session_12345678");
-    expect(event.visit_hash).not.toBe("visit_12345678");
-    expect(event.visit_hash).toBeTruthy();
-  });
-
-  test("stores only a normalized coarse country code from Cloudflare headers", async () => {
-    const d1 = createAnalyticsD1Mock();
-    await onAnalyticsEventPost({
-      request: analyticsRequest(
-        "https://inshell.art/api/analytics/event",
-        payload({ eventId: "event_country_gb_12345678" }),
-        undefined,
-        {
-          "cf-ipcountry": "gb",
-          "cf-connecting-ip": "203.0.113.10",
-          "cf-ipcity": "London",
-        },
-      ),
-      env: { INSHELL_CHAIN_DATA_DB: d1.db },
-    });
-    await onAnalyticsEventPost({
-      request: analyticsRequest(
-        "https://inshell.art/api/analytics/event",
-        payload({ eventId: "event_country_unknown_12345678" }),
-        undefined,
-        { "cf-ipcountry": "XX" },
-      ),
-      env: { INSHELL_CHAIN_DATA_DB: d1.db },
-    });
-    await onAnalyticsEventPost({
-      request: analyticsRequest(
-        "https://inshell.art/api/analytics/event",
-        payload({ eventId: "event_country_invalid_12345678" }),
-        undefined,
-        { "cf-ipcountry": "USA" },
-      ),
-      env: { INSHELL_CHAIN_DATA_DB: d1.db },
-    });
-
-    expect(d1.events.get("event_country_gb_12345678")?.country_code).toBe("GB");
-    expect(d1.events.get("event_country_unknown_12345678")?.country_code).toBeNull();
-    expect(d1.events.get("event_country_invalid_12345678")?.country_code).toBeNull();
-    const stored = JSON.stringify([...d1.events.values()]);
-    expect(stored).not.toContain("203.0.113.10");
-    expect(stored).not.toContain("London");
-  });
-
-  test("falls back to a hashed session id for legacy clients without visitId", async () => {
-    const d1 = createAnalyticsD1Mock();
-    const response = await onAnalyticsEventPost({
-      request: analyticsRequest(
-        "https://staging.inshell-art.pages.dev/api/analytics/event",
-        payload({ eventId: "event_legacy_12345678", visitId: undefined }),
-      ),
-      env: { INSHELL_CHAIN_DATA_DB: d1.db },
-    });
-
-    await expect(response.json()).resolves.toMatchObject({
-      ok: true,
-      stored: true,
-    });
-    const event = d1.events.get("event_legacy_12345678");
-    expect(event?.visit_hash).toBe(event?.session_hash);
-    expect(event?.visit_hash).not.toBe("session_12345678");
-  });
-
-  test("filters typed event metadata through a privacy allowlist", async () => {
-    const d1 = createAnalyticsD1Mock();
-    const response = await onAnalyticsEventPost({
-      request: analyticsRequest(
-        "https://inshell.art/api/analytics/event",
-        payload({
-          eventId: "event_cta_12345678",
-          eventType: "cta_click",
-          path: "/",
-          contentType: "home",
-          metadata: {
-            ctaId: "mint-primary",
-            walletAddress: "0x1234567890123456789012345678901234567890",
-            prompt: "private prompt text",
-            scrollPercent: 100,
-          },
-        }),
-      ),
-      env: { INSHELL_CHAIN_DATA_DB: d1.db },
-    });
-
-    await expect(response.json()).resolves.toMatchObject({
-      ok: true,
-      stored: true,
-    });
-    const event = d1.events.get("event_cta_12345678");
-    expect(event?.metadata_json).toBe(JSON.stringify({ ctaId: "mint-primary" }));
-    expect(event?.metadata_json).not.toContain("walletAddress");
-    expect(event?.metadata_json).not.toContain("private prompt");
-  });
-
-  test("treats duplicate event ids as idempotent", async () => {
-    const d1 = createAnalyticsD1Mock();
-    const request = analyticsRequest("https://thought.inshell.art/api/analytics/event", payload());
-    await onAnalyticsEventPost({ request, env: { INSHELL_CHAIN_DATA_DB: d1.db } });
-
-    const duplicate = await onAnalyticsEventPost({
-      request: analyticsRequest("https://thought.inshell.art/api/analytics/event", payload()),
-      env: { INSHELL_CHAIN_DATA_DB: d1.db },
-    });
-
-    await expect(duplicate.json()).resolves.toMatchObject({
-      ok: true,
-      stored: false,
-      duplicate: true,
-    });
-    expect(d1.events.size).toBe(1);
+  test("retired ingestion never reads payload, issues cookies or accesses D1", async () => {
+    const request = { get text() { throw Error("body read"); } } as unknown as Request;
+    const env = { INSHELL_ANALYTICS_ENABLED: "true", get INSHELL_CHAIN_DATA_DB(): never { throw Error("D1 access"); } };
+    const response = await onAnalyticsEventPost({ request, env });
+    expect(response.status).toBe(410);
+    expect(response.headers.get("set-cookie")).toBeNull();
+    await expect(response.json()).resolves.toMatchObject({ code: "ANALYTICS_RETIRED", stored: false });
+    await expect(recordAnalyticsEvent(env, request, payload())).resolves.toMatchObject({ stored: false, disabled: true });
   });
 
   test("returns aggregate summary behind bearer auth", async () => {
     const d1 = createAnalyticsD1Mock();
-    await onAnalyticsEventPost({
+    await seedHistoricalEvent({
       request: analyticsRequest(
         "https://staging.inshell-art.pages.dev/api/analytics/event",
         payload({
@@ -591,14 +474,14 @@ describe("anonymous analytics Pages functions", () => {
       ),
       env: { INSHELL_CHAIN_DATA_DB: d1.db },
     });
-    await onAnalyticsEventPost({
+    await seedHistoricalEvent({
       request: analyticsRequest(
         "https://gallery.inshell.art/api/analytics/event",
         payload({ eventId: "event_legacy_gallery_12345678", path: "/legacy-gallery" }),
       ),
       env: { INSHELL_CHAIN_DATA_DB: d1.db },
     });
-    await onAnalyticsEventPost({
+    await seedHistoricalEvent({
       request: analyticsRequest(
         "https://inshell.art/api/analytics/event",
         payload({ eventId: "event_canonical_gallery_12345678", path: "/gallery" }),
@@ -648,7 +531,7 @@ describe("anonymous analytics Pages functions", () => {
       "journey_session_12345678",
       "journey_visit_two_12345678",
     );
-    await onAnalyticsEventPost({
+    await seedHistoricalEvent({
       request: analyticsRequest(
         "https://inshell.art/api/analytics/event",
         payload({
@@ -661,7 +544,7 @@ describe("anonymous analytics Pages functions", () => {
       ),
       env: { INSHELL_CHAIN_DATA_DB: d1.db },
     });
-    await onAnalyticsEventPost({
+    await seedHistoricalEvent({
       request: analyticsRequest(
         "https://inshell.art/api/analytics/event",
         payload({
@@ -678,7 +561,7 @@ describe("anonymous analytics Pages functions", () => {
       ),
       env: { INSHELL_CHAIN_DATA_DB: d1.db },
     });
-    await onAnalyticsEventPost({
+    await seedHistoricalEvent({
       request: analyticsRequest(
         "https://thought.inshell.art/api/analytics/event",
         payload({
@@ -697,7 +580,7 @@ describe("anonymous analytics Pages functions", () => {
       ),
       env: { INSHELL_CHAIN_DATA_DB: d1.db },
     });
-    await onAnalyticsEventPost({
+    await seedHistoricalEvent({
       request: analyticsRequest(
         "https://inshell.art/api/analytics/event",
         payload({
@@ -709,7 +592,7 @@ describe("anonymous analytics Pages functions", () => {
       ),
       env: { INSHELL_CHAIN_DATA_DB: d1.db },
     });
-    await onAnalyticsEventPost({
+    await seedHistoricalEvent({
       request: analyticsRequest(
         "https://staging.inshell-art.pages.dev/api/analytics/event",
         payload({
@@ -798,7 +681,7 @@ describe("anonymous analytics Pages functions", () => {
 
   test("reports OPS-safe status without exposing identifiers", async () => {
     const d1 = createAnalyticsD1Mock();
-    await onAnalyticsEventPost({
+    await seedHistoricalEvent({
       request: analyticsRequest("https://inshell.art/api/analytics/event", payload()),
       env: { INSHELL_CHAIN_DATA_DB: d1.db },
     });
@@ -809,7 +692,8 @@ describe("anonymous analytics Pages functions", () => {
         analyticsHostScopeForHostname("inshell.art"),
       ),
     ).resolves.toMatchObject({
-      enabled: true,
+      enabled: false,
+      collection: "retired",
       identityMode: "shared_cookie",
       sharedCookieDomain: ".inshell.art",
       hostScope: "production",

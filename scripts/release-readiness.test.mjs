@@ -192,23 +192,17 @@ test("smoke workflow uses lock-driven checks in both branches and tests before p
   }
 });
 
-test("GA4 deploy variables require main and explicit opt-in in both jobs; ordinary CI has no collection config", () => {
+test("optional measurement remains off in both deploy jobs", () => {
   const deploy = load(readFileSync(new URL("../.github/workflows/deploy-pages.yml", import.meta.url), "utf8"));
-  const expected = {
-    VITE_GA4_ENABLED: "${{ github.event.inputs.branch == 'main' && vars.VITE_GA4_ENABLED == 'true' && 'true' || 'false' }}",
-    VITE_GA4_MEASUREMENT_ID: "${{ github.event.inputs.branch == 'main' && vars.VITE_GA4_ENABLED == 'true' && vars.VITE_GA4_MEASUREMENT_ID || '' }}",
-  };
   for (const name of ["deploy-home", "deploy-thought"]) {
-    for (const [key, expression] of Object.entries(expected)) {
-      assert.equal(deploy.jobs[name].env[key], expression, `${name}/${key}`);
-      for (const step of deploy.jobs[name].steps) {
-        assert.equal(step.env?.[key], undefined, `${name} must not override ${key}`);
-        assert.doesNotMatch(step.run ?? "", new RegExp(`${key}\\s*=`));
-      }
-    }
+    assert.equal(deploy.jobs[name].env.VITE_CLOUDFLARE_WEB_ANALYTICS_ENABLED, "false");
+    assert.equal(deploy.jobs[name].env.VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN, "");
+    assert.equal(deploy.jobs[name].env.VITE_GA4_ENABLED, undefined);
+    assert.equal(deploy.jobs[name].env.VITE_GA4_MEASUREMENT_ID, undefined);
+    const steps = deploy.jobs[name].steps;
+    const check = steps.findIndex(s => /check-analytics-off-build/.test(s.run ?? ""));
+    assert.ok(check >= 0 && check < steps.findIndex(s => /pages deploy/.test(s.run ?? "")));
   }
-  const ci = readFileSync(new URL("../.github/workflows/test.yml", import.meta.url), "utf8");
-  assert.doesNotMatch(ci, /VITE_GA4_(ENABLED|MEASUREMENT_ID)/);
 });
 
 test("qualification CI jobs retain history for exact historical delta regressions", () => {

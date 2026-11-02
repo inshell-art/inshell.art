@@ -1,5 +1,6 @@
 import docsRouteMetadataJson from "../packages/shared/generated/docs-route-metadata.json";
 import { isRetiredThoughtPath, retiredThoughtResponse } from "../packages/shared/src/retired-thought";
+import { MEASUREMENT_REGION_META, publicMeasurementUrl } from "../packages/shared/src/privacy";
 
 type DocsRouteMetadata = {
   description: string;
@@ -12,7 +13,33 @@ const DOCS_ROUTE_METADATA = docsRouteMetadataJson.topics as Record<
 >;
 const DOCS_ARTICLE_SLUGS = new Set(Object.keys(DOCS_ROUTE_METADATA));
 
-const APP_SHELL_CACHE_CONTROL = "public, max-age=60, stale-while-revalidate=300";
+// App-shell HTML can carry a request-specific coarse region bit. Never share it
+// between visitors; assets and immutable protocol artifacts keep their own policy.
+const APP_SHELL_CACHE_CONTROL = "private, no-store";
+const RESTRICTED_MEASUREMENT_COUNTRIES = new Set(
+  "AT BE BG HR CY CZ DK EE FI FR DE GR HU IS IE IT LV LI LT LU MT NL NO PL PT RO SK SI ES SE CH GB".split(" "),
+);
+// Recognized ISO 3166-1 alpha-2 values only. XX, T1 and arbitrary two-letter
+// strings are not evidence of an eligible country. No normalization/fallback.
+const KNOWN_COUNTRIES = new Set((
+  "AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ " +
+  "CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR " +
+  "GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP " +
+  "KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ " +
+  "NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW " +
+  "SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ " +
+  "UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW"
+).split(" "));
+
+function requestMeasurementRegion(request: Request): "eligible" | "off" {
+  if (!publicMeasurementUrl(request.url)) return "off";
+  try {
+    // Only the original inbound platform metadata; never headers/query/ASSETS.
+    const country = (request as Request & { cf?: { country?: unknown } }).cf?.country;
+    return typeof country === "string" && KNOWN_COUNTRIES.has(country) &&
+      !RESTRICTED_MEASUREMENT_COUNTRIES.has(country) ? "eligible" : "off";
+  } catch { return "off"; }
+}
 type PagesAssets = {
   fetch: (request: Request) => Promise<Response>;
 };
@@ -456,10 +483,16 @@ async function withAppShellHeaders(response: Response, request: Request) {
   const headers = new Headers(response.headers);
   headers.delete("clear-site-data");
   headers.set("cache-control", APP_SHELL_CACHE_CONTROL);
+  // An inherited CDN override must not undo the private response policy.
+  for (const name of ["cdn-cache-control", "cloudflare-cdn-cache-control", "surrogate-control", "expires", "age", "etag", "last-modified"]) headers.delete(name);
   const url = new globalThis.URL(request.url);
   headers.set("link", appShellDiscoveryLink(url.pathname));
   const contentType = headers.get("content-type")?.toLowerCase() ?? "";
-  if (request.method === "HEAD" || !contentType.includes("text/html")) {
+  if (request.method === "HEAD" && contentType.split(";")[0].trim() === "text/html") {
+    headers.delete("content-length");
+    headers.delete("content-encoding");
+  }
+  if (request.method !== "GET" || response.status !== 200 || contentType.split(";")[0].trim() !== "text/html") {
     return new Response(request.method === "HEAD" ? null : response.body, {
       status: response.status,
       statusText: response.statusText,
@@ -470,6 +503,8 @@ async function withAppShellHeaders(response: Response, request: Request) {
   const metadata = appShellMetadata(url.pathname);
   const canonicalUrl = `https://inshell.art${metadata.canonicalPath}`;
   let html = await response.text();
+  html = html.replace(/<meta\b(?=[^>]*\bname\s*=\s*["']inshell-measurement-region["'])[^>]*>/gi, "");
+  html = upsertMetaContent(html, "name", MEASUREMENT_REGION_META, requestMeasurementRegion(request));
   html = upsertHeadTag(
     html,
     /<link\s+rel=["']canonical["'][^>]*>/i,

@@ -223,7 +223,7 @@ describe("Pages middleware canonical routes", () => {
     const response = await onRequest(ctx);
 
     expect(response.status).toBe(200);
-    expect(response.headers.get("cache-control")).toBe("public, max-age=60, stale-while-revalidate=300");
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(response.headers.get("clear-site-data")).toBeNull();
     expect(response.headers.get("x-inshell-frontend-recovery")).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
@@ -293,7 +293,7 @@ describe("Pages middleware canonical routes", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe(
-      "public, max-age=60, stale-while-revalidate=300",
+      "private, no-store",
     );
     expect(response.headers.get("x-inshell-frontend-recovery")).toBeNull();
     expect(html).toContain('<link rel="canonical" href="https://inshell.art/will" />');
@@ -731,7 +731,7 @@ describe("Pages middleware canonical routes", () => {
     const response = await onRequest(ctx);
 
     expect(response.status).toBe(200);
-    expect(response.headers.get("cache-control")).toBe("public, max-age=60, stale-while-revalidate=300");
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(response.headers.get("clear-site-data")).toBeNull();
     expect(response.headers.get("link")).toContain('</api/thought-record?id=9>');
     expect(response.headers.get("link")).toContain('</api/thought-provenance?id=9>');
