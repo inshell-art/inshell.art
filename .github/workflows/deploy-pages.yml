@@ -20,6 +20,14 @@ on:
         options:
           - staging
           - main
+      home_measurement:
+        description: Home-only measurement (requires separately reviewed production qualification)
+        required: true
+        default: "off"
+        type: choice
+        options:
+          - "off"
+          - qualified-home-v1
 
 permissions:
   contents: read
@@ -44,9 +52,12 @@ jobs:
       VITE_REPORT_BUG_URL: ${{ vars.VITE_REPORT_BUG_URL || 'https://github.com/inshell-art/inshell.art/issues/new?template=sepolia-bug.md' }}
       VITE_GITHUB_URL: ${{ vars.VITE_GITHUB_URL || 'https://github.com/inshell-art/' }}
       VITE_DEBUG_PANEL: ${{ vars.VITE_DEBUG_PANEL || 'off' }}
-      # Collection remains off pending regional, navigation and injection qualification.
-      VITE_CLOUDFLARE_WEB_ANALYTICS_ENABLED: "false"
-      VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN: ""
+      # Default/preview OFF. A future explicit production dispatch also needs
+      # the independently reviewed configuration qualification, never shape alone.
+      VITE_CLOUDFLARE_WEB_ANALYTICS_ENABLED: ${{ github.event.inputs.branch == 'main' && github.event.inputs.home_measurement == 'qualified-home-v1' && vars.INSHELL_HOME_MEASUREMENT_QUALIFIED == 'home-document-v1' && 'true' || 'false' }}
+      VITE_CLOUDFLARE_WEB_ANALYTICS_POLICY: ${{ github.event.inputs.branch == 'main' && github.event.inputs.home_measurement == 'qualified-home-v1' && vars.INSHELL_HOME_MEASUREMENT_QUALIFIED == 'home-document-v1' && 'home-document-v1' || '' }}
+      VITE_CLOUDFLARE_WEB_ANALYTICS_SITE_TAG: ${{ github.event.inputs.branch == 'main' && github.event.inputs.home_measurement == 'qualified-home-v1' && vars.INSHELL_HOME_MEASUREMENT_QUALIFIED == 'home-document-v1' && vars.VITE_CLOUDFLARE_WEB_ANALYTICS_SITE_TAG || '' }}
+      VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN: ${{ github.event.inputs.branch == 'main' && github.event.inputs.home_measurement == 'qualified-home-v1' && vars.INSHELL_HOME_MEASUREMENT_QUALIFIED == 'home-document-v1' && (vars.VITE_CLOUDFLARE_WEB_ANALYTICS_HOME_TOKEN || vars.VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN) || '' }}
       VITE_THOUGHT_URL: ${{ github.event.inputs.branch == 'staging' && 'https://preview.inshell.art/thought' || vars.VITE_THOUGHT_URL || 'https://inshell.art/thought' }}
       VITE_GALLERY_URL: ${{ github.event.inputs.branch == 'staging' && 'https://preview.inshell.art/gallery' || vars.VITE_GALLERY_URL || vars.VITE_THOUGHT_GALLERY_URL || 'https://inshell.art/gallery' }}
       VITE_THOUGHT_GALLERY_URL: ${{ github.event.inputs.branch == 'staging' && 'https://preview.inshell.art/gallery' || vars.VITE_GALLERY_URL || vars.VITE_THOUGHT_GALLERY_URL || 'https://inshell.art/gallery' }}
@@ -63,6 +74,27 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+      - name: Validate requested Home measurement policy
+        env:
+          REQUESTED_HOME_MEASUREMENT: ${{ github.event.inputs.home_measurement || 'off' }}
+          REQUESTED_DEPLOY_BRANCH: ${{ github.event.inputs.branch }}
+          REQUESTED_DEPLOY_TARGET: ${{ github.event.inputs.target }}
+          HOME_MEASUREMENT_QUALIFICATION: ${{ vars.INSHELL_HOME_MEASUREMENT_QUALIFIED }}
+          HOME_MEASUREMENT_SITE_TAG: ${{ vars.VITE_CLOUDFLARE_WEB_ANALYTICS_SITE_TAG }}
+          HOME_MEASUREMENT_TOKEN: ${{ vars.VITE_CLOUDFLARE_WEB_ANALYTICS_HOME_TOKEN || vars.VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN }}
+        run: |
+          node <<'NODE'
+          const e = process.env;
+          const request = e.REQUESTED_HOME_MEASUREMENT;
+          if (request === 'off') process.exit(0);
+          if (request !== 'qualified-home-v1' || e.REQUESTED_DEPLOY_BRANCH !== 'main' ||
+              !['home', 'all'].includes(e.REQUESTED_DEPLOY_TARGET) ||
+              e.HOME_MEASUREMENT_QUALIFICATION !== 'home-document-v1' ||
+              !/^[a-f0-9]{32}$/.test(e.HOME_MEASUREMENT_SITE_TAG || '') ||
+              !/^[a-f0-9]{32}$/.test(e.HOME_MEASUREMENT_TOKEN || '')) {
+            throw new Error('Requested Home measurement requires main, a Home target, reviewed qualification, and valid public identifiers.');
+          }
+          NODE
       - name: Install zsh
         run: |
           if command -v zsh >/dev/null 2>&1; then
@@ -117,10 +149,14 @@ jobs:
         run: pnpm run test:thought-runtime
       - name: Build home
         run: pnpm run build:home
-      - name: Verify optional measurement remains off
+      - name: Verify optional measurement build policy
         run: |
           pnpm run test:privacy
-          node scripts/check-analytics-off-build.mjs dist/home
+          if [ "$VITE_CLOUDFLARE_WEB_ANALYTICS_ENABLED" = "true" ]; then
+            node scripts/check-analytics-off-build.mjs dist/home --qualified-home
+          else
+            node scripts/check-analytics-off-build.mjs dist/home
+          fi
       - name: Deploy home to Cloudflare Pages
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -158,6 +194,8 @@ jobs:
       # Collection remains off pending regional, navigation and injection qualification.
       VITE_CLOUDFLARE_WEB_ANALYTICS_ENABLED: "false"
       VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN: ""
+      VITE_CLOUDFLARE_WEB_ANALYTICS_POLICY: ""
+      VITE_CLOUDFLARE_WEB_ANALYTICS_SITE_TAG: ""
     steps:
       - uses: actions/checkout@v6
         with:
@@ -170,6 +208,27 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+      - name: Validate requested Home measurement policy
+        env:
+          REQUESTED_HOME_MEASUREMENT: ${{ github.event.inputs.home_measurement || 'off' }}
+          REQUESTED_DEPLOY_BRANCH: ${{ github.event.inputs.branch }}
+          REQUESTED_DEPLOY_TARGET: ${{ github.event.inputs.target }}
+          HOME_MEASUREMENT_QUALIFICATION: ${{ vars.INSHELL_HOME_MEASUREMENT_QUALIFIED }}
+          HOME_MEASUREMENT_SITE_TAG: ${{ vars.VITE_CLOUDFLARE_WEB_ANALYTICS_SITE_TAG }}
+          HOME_MEASUREMENT_TOKEN: ${{ vars.VITE_CLOUDFLARE_WEB_ANALYTICS_HOME_TOKEN || vars.VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN }}
+        run: |
+          node <<'NODE'
+          const e = process.env;
+          const request = e.REQUESTED_HOME_MEASUREMENT;
+          if (request === 'off') process.exit(0);
+          if (request !== 'qualified-home-v1' || e.REQUESTED_DEPLOY_BRANCH !== 'main' ||
+              !['home', 'all'].includes(e.REQUESTED_DEPLOY_TARGET) ||
+              e.HOME_MEASUREMENT_QUALIFICATION !== 'home-document-v1' ||
+              !/^[a-f0-9]{32}$/.test(e.HOME_MEASUREMENT_SITE_TAG || '') ||
+              !/^[a-f0-9]{32}$/.test(e.HOME_MEASUREMENT_TOKEN || '')) {
+            throw new Error('Requested Home measurement requires main, a Home target, reviewed qualification, and valid public identifiers.');
+          }
+          NODE
       - name: Install zsh
         run: |
           if command -v zsh >/dev/null 2>&1; then

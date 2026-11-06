@@ -4,7 +4,7 @@ import { onRequest } from "../functions/_middleware.ts";
 
 const marker = 'name="inshell-measurement-region"';
 const shell = '<html><head><title>Fixture</title></head><body>App</body></html>';
-function context(country: unknown, url = "https://inshell.art/path", method = "GET", body = shell, status = 200, contentType = "text/html") {
+function context(country: unknown, url = "https://inshell.art/", method = "GET", body = shell, status = 200, contentType = "text/html") {
   const request = new Request(url, { method, headers: { "cf-ipcountry": "US", "x-country": "US" } });
   if (country !== undefined) Object.defineProperty(request, "cf", { value: new Proxy({ country }, {
     get(target, key) { assert.equal(key, "country", "Only country may be read"); return target.country; },
@@ -51,7 +51,8 @@ for (const countries of [["US", "DE"], ["DE", "US"], ["US", undefined], [undefin
     }
   });
 }
-for (const url of ["https://preview.inshell.art/path", "http://127.0.0.1:5177/path", "https://staging.inshell-art.pages.dev/path",
+for (const url of ["https://preview.inshell.art/", "http://127.0.0.1:5177/", "https://staging.inshell-art.pages.dev/",
+  "https://inshell.art/path", "https://inshell.art/docs", "https://inshell.art/docs/agent-art", "https://inshell.art/will", "https://inshell.art/gallery",
   "https://inshell.art:444/path", "http://inshell.art/path", "https://inshell.art/thought", "https://inshell.art/path/2", "https://inshell.art/path?q=1", "https://inshell.art/path#private"])
   test(`eligible country cannot qualify excluded URL ${url}`, async () => {
     assert.match(await (await onRequest(context("US", url))).text(), /inshell-measurement-region" content="off"/);
