@@ -54,13 +54,15 @@ Saved THOUGHT candidates live in the current browser. Temporary Agent run state 
 
 - Authority: app-documentation
 
-Optional browser measurement is off in this App release. It does not load Google Analytics or the former visitor and behavior tracker. There is no analytics consent prompt. Hosting and security services are separate from optional browser measurement.
+Optional browser measurement is off by default and on preview. The App does not load Google Analytics or the former visitor and behavior tracker. There is no analytics consent prompt. Hosting and security services are separate from optional browser measurement.
 
-The quiet Privacy entry lets you exclude this browser from future optional measurement. An existing browser exclusion is preserved; an earlier Google Analytics Allow choice does not authorize another collector. Unreadable preferences keep optional measurement off.
+The quiet Privacy entry shows whether optional measurement was loaded on this page and lets you exclude this browser. An existing browser exclusion is preserved; an earlier Google Analytics Allow choice does not authorize another collector. Unreadable preferences block loading. Removing an exclusion does not start measurement in the existing page.
 
-Cloudflare browser measurement remains off until its restricted regional handling and safe navigation and exclusion behavior are verified for the selected installation. The App derives only an eligible/off region flag from the hosting platform's request-country metadata; missing, unknown or restricted countries stay off. The flag contains no country or IP address, does not establish legal eligibility, and is distinct from restrictions on where measurement is processed. App-shell responses carrying this decision use private, no-store caching. A public page label does not hide the actual URL or referrer from a native beacon. Creation, saved-work, wallet, authentication and other sensitive routes, queries and fragments are not eligible.
+A separately qualified and configured Cloudflare installation can measure only the exact public Home URL, https://inshell.art/, without a query or fragment and with an empty or exact Home referrer. $PATH, THOUGHT, gallery and detail pages, Docs, APIs, authentication and other routes are excluded. A public page label does not hide the actual URL or referrer from a native beacon. Ordinary Home links leave the document; optional measurement does not follow those destinations as a single-page flow.
 
-Changing browser exclusion does not reload the page or clear saved works, authentication, cookies or other functional storage. Retiring collection does not erase historical analytics records. Removing an old script is not proof that an already-open document has stopped its handlers; close or navigate away from an older App document after preserving your work.
+The App derives only an eligible/off region flag from the hosting platform's trusted request-country metadata; missing, unknown or restricted countries stay off. The flag contains no country or IP address, does not establish legal eligibility, and is distinct from restrictions on where measurement is processed. App-shell responses carrying this decision use private, no-store caching. The region flag alone never activates measurement; the selected installation also needs independent configuration and verification.
+
+Exclusion changes only the measurement preference, not saved works, authentication, cookies or other functional storage. If the native loader was installed, exclusion or unavailable preferences reload the page. Exclusion cannot be guaranteed if the preference cannot be saved. A final public Home send may occur during reload or navigation; removing a script does not cancel handlers it already installed. Retiring collection does not erase historical analytics records.
 
 ## Networks do not merge
 

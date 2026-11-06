@@ -69,7 +69,7 @@ try {
       const panel = page.locator("#inshell-privacy");
       await panel.waitFor();
       assert.equal(await page.locator('meta[name="inshell-measurement-region"]').getAttribute("content"),
-        label === "desktop" && path !== "/thought" ? "eligible" : "off");
+        label === "desktop" && path === "/" ? "eligible" : "off");
       assert.equal(await panel.getAttribute("open"), null);
       assert.equal(await page.locator("#inshell-ga4-choice").count(), 0);
       await panel.locator("summary").click();

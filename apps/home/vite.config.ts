@@ -101,7 +101,26 @@ export default defineConfig(({ command, mode }) => {
 
   return {
     root: rootDir,
-    plugins: [react()],
+    plugins: [
+      react(),
+      {
+        name: "inshell-measurement-build-policy",
+        apply: "build",
+        generateBundle() {
+          // Public build settings only. Never emit the beacon token/site tag.
+          this.emitFile({
+            type: "asset",
+            fileName: "measurement-build-policy.json",
+            source: JSON.stringify({
+              schema: "inshell.measurement-build-policy.v1",
+              enabled: publicEnv.VITE_CLOUDFLARE_WEB_ANALYTICS_ENABLED ?? "false",
+              policy: publicEnv.VITE_CLOUDFLARE_WEB_ANALYTICS_POLICY ?? null,
+              deployEnv: publicEnv.VITE_DEPLOY_ENV ?? null,
+            }),
+          });
+        },
+      },
+    ],
     build: {
       outDir: path.resolve(rootDir, "../../dist/home"),
       emptyOutDir: true,

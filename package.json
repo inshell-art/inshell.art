@@ -30,7 +30,7 @@
     "build:home:devnet": "pnpm run check:workspace-dependency-isolation && pnpm --filter @inshell/home build",
     "build:home:prod": "pnpm run check:workspace-dependency-isolation && corepack pnpm --filter @inshell/home build:prod && corepack pnpm run build:thought:same-origin",
     "build:thought": "pnpm run check:workspace-dependency-isolation && pnpm --filter @inshell/thought build",
-    "build:thought:same-origin": "pnpm run check:workspace-dependency-isolation && VITE_THOUGHT_ROUTE_BASE=/thought VITE_PATH_MINT_URL=/path VITE_THOUGHT_URL=/thought VITE_GALLERY_URL=/gallery VITE_THOUGHT_DETAIL_BASE_URL=/thought INSHELL_THOUGHT_USE_LOCKED_SURFACE=1 INSHELL_THOUGHT_OUT_DIR=../../dist/home/thought corepack pnpm --filter @inshell/thought build",
+    "build:thought:same-origin": "pnpm run check:workspace-dependency-isolation && VITE_CLOUDFLARE_WEB_ANALYTICS_ENABLED=false VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN= VITE_CLOUDFLARE_WEB_ANALYTICS_POLICY= VITE_CLOUDFLARE_WEB_ANALYTICS_SITE_TAG= VITE_THOUGHT_ROUTE_BASE=/thought VITE_PATH_MINT_URL=/path VITE_THOUGHT_URL=/thought VITE_GALLERY_URL=/gallery VITE_THOUGHT_DETAIL_BASE_URL=/thought INSHELL_THOUGHT_USE_LOCKED_SURFACE=1 INSHELL_THOUGHT_OUT_DIR=../../dist/home/thought corepack pnpm --filter @inshell/thought build",
     "check:workspace-dependency-isolation": "node scripts/check-workspace-dependency-isolation.mjs",
     "test": "pnpm --filter @inshell/home test && pnpm run test:thought-runtime",
     "test:fast": "pnpm --filter @inshell/home test:fast",
