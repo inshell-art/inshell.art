@@ -192,17 +192,81 @@ test("smoke workflow uses lock-driven checks in both branches and tests before p
   }
 });
 
-test("optional measurement remains off in both deploy jobs", () => {
+test("optional measurement deploy wiring defaults OFF and isolates standalone THOUGHT", () => {
   const deploy = load(readFileSync(new URL("../.github/workflows/deploy-pages.yml", import.meta.url), "utf8"));
+  const choice = deploy.on.workflow_dispatch.inputs.home_measurement;
+  assert.equal(choice.default, "off");
+  assert.deepEqual(choice.options, ["off", "qualified-home-v1"]);
+  const thoughtEnv = deploy.jobs["deploy-thought"].env;
+  for (const key of ["TOKEN", "POLICY", "SITE_TAG"]) assert.equal(thoughtEnv[`VITE_CLOUDFLARE_WEB_ANALYTICS_${key}`], "");
+  assert.equal(thoughtEnv.VITE_CLOUDFLARE_WEB_ANALYTICS_ENABLED, "false");
   for (const name of ["deploy-home", "deploy-thought"]) {
-    assert.equal(deploy.jobs[name].env.VITE_CLOUDFLARE_WEB_ANALYTICS_ENABLED, "false");
-    assert.equal(deploy.jobs[name].env.VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN, "");
     assert.equal(deploy.jobs[name].env.VITE_GA4_ENABLED, undefined);
     assert.equal(deploy.jobs[name].env.VITE_GA4_MEASUREMENT_ID, undefined);
     const steps = deploy.jobs[name].steps;
     const check = steps.findIndex(s => /check-analytics-off-build/.test(s.run ?? ""));
     assert.ok(check >= 0 && check < steps.findIndex(s => /pages deploy/.test(s.run ?? "")));
+    const validation = steps.findIndex(s => s.name === "Validate requested Home measurement policy");
+    assert.ok(validation >= 0 && validation < steps.findIndex(s => /^pnpm run build:/.test(s.run ?? "")));
   }
+  const homeCheck = deploy.jobs["deploy-home"].steps.find(s => s.name === "Verify optional measurement build policy");
+  assert.match(homeCheck.run, /if \[ "\$VITE_CLOUDFLARE_WEB_ANALYTICS_ENABLED" = "true" \]/);
+  assert.match(homeCheck.run, /dist\/home --qualified-home/);
+  assert.match(homeCheck.run, /else\s+node scripts\/check-analytics-off-build\.mjs dist\/home\s+fi/);
+  const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  assert.match(pkg.scripts["build:thought:same-origin"], /VITE_CLOUDFLARE_WEB_ANALYTICS_ENABLED=false VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN= VITE_CLOUDFLARE_WEB_ANALYTICS_POLICY= VITE_CLOUDFLARE_WEB_ANALYTICS_SITE_TAG= /);
+});
+
+test("optional measurement production dispatch requires explicit Home choice and reviewed qualification", () => {
+  const deploy = load(readFileSync(new URL("../.github/workflows/deploy-pages.yml", import.meta.url), "utf8"));
+  const homeEnv = deploy.jobs["deploy-home"].env;
+  const variables = {
+    INSHELL_HOME_MEASUREMENT_QUALIFIED: "home-document-v1",
+    VITE_CLOUDFLARE_WEB_ANALYTICS_SITE_TAG: "1".repeat(32),
+    VITE_CLOUDFLARE_WEB_ANALYTICS_HOME_TOKEN: "2".repeat(32),
+    VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN: "3".repeat(32),
+  };
+  // Exercise the actual reviewed GitHub &&/|| expressions with synthetic data.
+  function evaluate(expression, inputs, vars = variables) {
+    if (!expression.startsWith("${{")) return expression;
+    return Function("github", "vars", `return (${expression.slice(3, -2)});`)({ event: { inputs } }, vars);
+  }
+  for (const inputs of [
+    { branch: "staging", target: "all" },
+    { branch: "main", target: "home", home_measurement: "off" },
+    { branch: "staging", target: "home", home_measurement: "qualified-home-v1" },
+  ]) {
+    assert.equal(evaluate(homeEnv.VITE_CLOUDFLARE_WEB_ANALYTICS_ENABLED, inputs), "false");
+    for (const key of ["TOKEN", "POLICY", "SITE_TAG"]) assert.equal(evaluate(homeEnv[`VITE_CLOUDFLARE_WEB_ANALYTICS_${key}`], inputs), "");
+  }
+  const requested = { branch: "main", target: "home", home_measurement: "qualified-home-v1" };
+  assert.equal(evaluate(homeEnv.VITE_CLOUDFLARE_WEB_ANALYTICS_ENABLED, requested), "true");
+  assert.equal(evaluate(homeEnv.VITE_CLOUDFLARE_WEB_ANALYTICS_POLICY, requested), "home-document-v1");
+  assert.equal(evaluate(homeEnv.VITE_CLOUDFLARE_WEB_ANALYTICS_SITE_TAG, requested), variables.VITE_CLOUDFLARE_WEB_ANALYTICS_SITE_TAG);
+  assert.equal(evaluate(homeEnv.VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN, requested), variables.VITE_CLOUDFLARE_WEB_ANALYTICS_HOME_TOKEN);
+  assert.equal(evaluate(homeEnv.VITE_CLOUDFLARE_WEB_ANALYTICS_ENABLED, requested, { ...variables, INSHELL_HOME_MEASUREMENT_QUALIFIED: "" }), "false");
+
+  const homeValidation = deploy.jobs["deploy-home"].steps.find(s => s.name === "Validate requested Home measurement policy");
+  const thoughtValidation = deploy.jobs["deploy-thought"].steps.find(s => s.name === "Validate requested Home measurement policy");
+  assert.deepEqual(thoughtValidation, homeValidation);
+  const script = homeValidation.run.match(/node <<'NODE'\n([\s\S]*?)\nNODE/)[1];
+  function validate(inputs, vars = variables) {
+    const env = Object.fromEntries(Object.entries(homeValidation.env).map(([key, value]) => [key, evaluate(value, inputs, vars)]));
+    return () => execFileSync(process.execPath, ["-e", script], { env, stdio: "pipe" });
+  }
+  assert.doesNotThrow(validate(requested));
+  assert.doesNotThrow(validate({ ...requested, target: "all" }));
+  assert.doesNotThrow(validate({ branch: "staging", target: "thought", home_measurement: "off" }, {}));
+  for (const inputs of [
+    { ...requested, branch: "staging" }, { ...requested, target: "thought" }, { ...requested, home_measurement: "unknown" },
+  ]) assert.throws(validate(inputs), /Requested Home measurement requires/);
+  for (const vars of [
+    { ...variables, INSHELL_HOME_MEASUREMENT_QUALIFIED: "" },
+    { ...variables, VITE_CLOUDFLARE_WEB_ANALYTICS_SITE_TAG: "malformed" },
+    { ...variables, VITE_CLOUDFLARE_WEB_ANALYTICS_HOME_TOKEN: "malformed" },
+    { ...variables, VITE_CLOUDFLARE_WEB_ANALYTICS_HOME_TOKEN: "", VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN: "" },
+  ]) assert.throws(validate(requested, vars), /Requested Home measurement requires/);
+  assert.doesNotThrow(validate(requested, { ...variables, VITE_CLOUDFLARE_WEB_ANALYTICS_HOME_TOKEN: "" }));
 });
 
 test("qualification CI jobs retain history for exact historical delta regressions", () => {

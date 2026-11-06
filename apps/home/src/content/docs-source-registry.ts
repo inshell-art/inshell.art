@@ -36,6 +36,7 @@ export const DOCS_SOURCE_REGISTRY = {
       files: [
         "docs/AGENTS.md",
         "docs/agent-native-figure-experiment.md",
+        "docs/cloudflare-web-analytics.md",
         "apps/home/src/content/AGENTS.md",
         "apps/home/src/content/docs-figure-logic.ts",
         "apps/home/src/content/docs.ts",
