@@ -1,0 +1,119 @@
+name: ubuntu26-compat
+
+on:
+  push:
+    branches:
+      - codex/ubuntu26-ci-compat
+  pull_request:
+    branches:
+      - staging
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-compat:
+    runs-on: ubuntu-26.04
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Runner identity
+        run: |
+          set -euo pipefail
+          uname -a
+          cat /etc/os-release
+          command -v node || true
+          node --version || true
+          command -v corepack || true
+          corepack --version || true
+          command -v bash
+          bash --version | head -n 1
+          command -v curl
+          curl --version | head -n 1
+          command -v jq
+          jq --version
+      - name: Enable pnpm
+        run: corepack enable
+      - name: Use Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: "pnpm"
+      - name: Install zsh
+        run: |
+          if command -v zsh >/dev/null 2>&1; then
+            zsh --version
+          else
+            sudo apt-get install --yes zsh
+            zsh --version
+          fi
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09
+        with:
+          version: v1.5.1
+          cache: false
+      - name: Verify native tools
+        run: |
+          set -euo pipefail
+          anvil --version
+          cast --version
+          forge --version
+          zsh --version
+      - name: Check public documentation
+        run: pnpm run docs:check
+      - name: Check upstream release freshness
+        run: pnpm run check:upstream-releases
+      - name: Verify PATH contract release
+        run: pnpm run check:path-contract-release
+      - name: Validate deployment gates
+        run: pnpm run check:deployment
+      - name: Validate deployment integrity and separate activation policy
+        env:
+          DEPLOYMENT_LOCK_BASE_REF: ${{ github.event.pull_request.base.sha || 'origin/staging' }}
+        run: pnpm run check:thought-production-readiness
+      - name: Check PUB path boundary
+        run: pnpm run pub-boundary:check
+      - name: Run linter
+        run: pnpm run lint
+      - name: Run type-check
+        run: pnpm run type-check
+      - name: Run tests
+        run: pnpm run test:presepolia
+      - name: Test THOUGHT runtime payloads
+        run: pnpm run test:thought-runtime
+      - name: Type-check standalone THOUGHT
+        run: pnpm --filter @inshell/thought type-check
+      - name: Build home
+        run: pnpm run build:home
+      - name: Build THOUGHT
+        run: pnpm run build:thought
+
+  gitleaks-compat:
+    runs-on: ubuntu-26.04
+
+    steps:
+      - uses: actions/checkout@v6
+      - name: Runner identity
+        run: |
+          set -euo pipefail
+          uname -a
+          cat /etc/os-release
+          command -v bash
+          bash --version | head -n 1
+          command -v curl
+          curl --version | head -n 1
+          command -v tar
+          tar --version | head -n 1
+      - name: Install gitleaks
+        run: |
+          mkdir -p "$RUNNER_TEMP/gitleaks"
+          curl -fsSL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz -o "$RUNNER_TEMP/gitleaks/gitleaks.tar.gz"
+          tar -xzf "$RUNNER_TEMP/gitleaks/gitleaks.tar.gz" -C "$RUNNER_TEMP/gitleaks" gitleaks
+      - name: Run gitleaks
+        run: |
+          "$RUNNER_TEMP/gitleaks/gitleaks" detect --no-git --redact --no-banner
