@@ -666,14 +666,29 @@ test("dependency guard fails closed for an incomplete lock", () => {
 });
 
 test("qs floor covers every resolved copy without waiving other advisories", () => {
-  assert.deepEqual(dependencySecurityErrors(lock(["qs@6.16.0"])), []);
-  for (const version of ["6.15.2", "6.15.3", "6.16.0-rc.1", "7.0.0"]) {
+  assert.deepEqual(dependencySecurityErrors(lock(["qs@6.16.1"])), []);
+  for (const version of ["6.15.2", "6.15.3", "6.16.0", "6.16.1-rc.1", "7.0.0"]) {
     assert.equal(dependencySecurityErrors(lock([`qs@${version}`])).length, 1);
-    const resolved = lock(["qs@6.16.0"]);
+    const resolved = lock(["qs@6.16.1"]);
     resolved.snapshots[`qs@${version}`] = {};
     assert.equal(dependencySecurityErrors(resolved).length, 1);
   }
 });
+
+for (const [name, safe, rejected] of [
+  ["follow-redirects", "1.16.2", ["1.16.0", "1.16.1", "1.16.2-rc.1", "2.0.0"]],
+  ["systeminformation", "5.33.16", ["5.33.1", "5.33.13", "5.33.14", "5.33.15", "5.33.16-rc.1", "6.0.0"]],
+]) {
+  test(`security supplement floor checks every resolved ${name} copy`, () => {
+    assert.deepEqual(dependencySecurityErrors(lock([`${name}@${safe}`])), []);
+    for (const version of rejected) {
+      assert.equal(dependencySecurityErrors(lock([`${name}@${version}`])).length, 1);
+      const resolved = lock([`${name}@${safe}`]);
+      resolved.snapshots[`${name}@${version}`] = {};
+      assert.equal(dependencySecurityErrors(resolved).length, 1);
+    }
+  });
+}
 
 test("production CI and both publish jobs require release evidence; staging can collect it", () => {
   const ci = load(readFileSync(new URL("../.github/workflows/test.yml", import.meta.url), "utf8"));
