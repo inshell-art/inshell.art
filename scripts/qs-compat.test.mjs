@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { realpathSync } from "node:fs";
 import { createRequire } from "node:module";
 import test from "node:test";
 
@@ -13,7 +14,15 @@ const adapter = (options = {}) => {
 };
 
 test("Cypress request resolves the reviewed qs release", () => {
-  assert.equal(require("qs/package.json").version, "6.16.0");
+  assert.equal(require("qs/package.json").version, "6.16.1");
+});
+
+test("Cypress retains its version and resolves the reviewed systeminformation release", () => {
+  // Inspect resolution only: never invoke services(), networkStats() or host probes.
+  // Resolve the real pnpm consumer directory, not its top-level symlink alias.
+  const cypressRequire = createRequire(realpathSync(new URL("../node_modules/cypress/package.json", import.meta.url)));
+  assert.equal(cypressRequire("./package.json").version, "15.20.1");
+  assert.equal(cypressRequire("systeminformation/package.json").version, "5.33.16");
 });
 
 for (const [name, input, expected, options] of [
@@ -61,4 +70,25 @@ for (const options of [{ plainObjects: true }, { allowPrototypes: true }]) {
   test(`attacker-controlled isBuffer is not invoked: ${JSON.stringify(options)}`, () => {
     assert.equal(qs.stringify(qs.parse("x[constructor][isBuffer]=y", options)), "x%5Bconstructor%5D%5BisBuffer%5D=y");
   });
+}
+
+for (const encodeValuesOnly of [false, true]) {
+  test(`Cypress comma-format primitives keep their encoding: values-only=${encodeValuesOnly}`, () => {
+    assert.equal(adapter({ qsStringifyOptions: { arrayFormat: "comma", encodeValuesOnly } })
+      .stringify({ a: ["one", "two"] }), encodeValuesOnly ? "a=one,two" : "a=one%2Ctwo");
+  });
+
+  for (const source of ["JSON", "allowPrototypes", "plainObjects"]) {
+    test(`Cypress comma serialization rejects coercion crashes: ${source}, values-only=${encodeValuesOnly}`, () => {
+      const consumer = adapter({
+        qsParseOptions: source === "allowPrototypes" ? { allowPrototypes: true } : { plainObjects: true },
+        qsStringifyOptions: { arrayFormat: "comma", encodeValuesOnly },
+      });
+      const input = source === "JSON" ? JSON.parse('{"a":[{"toString":"fixture"}]}')
+        : consumer.parse(source === "allowPrototypes" ? "a[0][toString]=fixture" : "a[0][b]=fixture");
+      let output;
+      assert.doesNotThrow(() => { output = consumer.stringify(input); });
+      assert.equal(typeof output, "string");
+    });
+  }
 }

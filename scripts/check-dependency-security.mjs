@@ -8,12 +8,14 @@ import { load } from "js-yaml";
 // resolved graph, not just overrides: a second transitive version must not
 // escape the check. js-yaml 4.3.2 fixes GHSA-2883-xcg3-v3hh;
 // brace-expansion 5.0.12 fixes GHSA-q2hr-2g5m-vwhr; Axios 1.20.0 fixes 138-149.
-// qs 6.16.0 fixes GHSA-x5fp-wj9c-mxmx and GHSA-4mjr-xmp4-gh2g.
+// qs 6.16.1 also fixes GHSA-6pq8-jhm2-2vcw (alert 152).
+// follow-redirects 1.16.2 fixes alert 157; systeminformation 5.33.16 covers
+// alerts 154-156. These floors do not waive unrelated advisories.
 export function dependencySecurityErrors(lock) {
   if (!lock || lock.lockfileVersion !== "9.0" || !lock.packages || !lock.snapshots) return ["Expected a complete pnpm v9 lockfile."];
   const errors = [];
   for (const key of new Set([...Object.keys(lock.packages), ...Object.keys(lock.snapshots)])) {
-    const match = /^(@humanfs\/node|browserslist|nanoid|postcss|js-yaml|extract-zip|axios|brace-expansion|qs)@([^(:]+)/.exec(key);
+    const match = /^(@humanfs\/node|browserslist|nanoid|postcss|js-yaml|extract-zip|axios|brace-expansion|qs|follow-redirects|systeminformation)@([^(:]+)/.exec(key);
     if (!match) continue;
     const [, name, version] = match;
     const numeric = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
@@ -29,7 +31,9 @@ export function dependencySecurityErrors(lock) {
       (name === "js-yaml" && major === 4 && atLeast(4, 3, 2)) ||
       (name === "axios" && major === 1 && atLeast(1, 20, 0)) ||
       (name === "brace-expansion" && major === 5 && atLeast(5, 0, 12)) ||
-      (name === "qs" && major === 6 && atLeast(6, 16, 0))
+      (name === "qs" && major === 6 && atLeast(6, 16, 1)) ||
+      (name === "follow-redirects" && major === 1 && atLeast(1, 16, 2)) ||
+      (name === "systeminformation" && major === 5 && atLeast(5, 33, 16))
     );
     if (!safe) errors.push(`${name}@${version}: vulnerable or unreviewed version; review the advisory before changing this guard.`);
   }
