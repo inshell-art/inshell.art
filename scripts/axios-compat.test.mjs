@@ -13,6 +13,14 @@ test("wallet SDK and Axios retry integration still import", () => {
   assert.equal(axios.VERSION, "1.20.0");
 });
 
+test("wallet Axios resolves the reviewed Node redirect transport without making a request", () => {
+  const transportRequire = createRequire(require.resolve("axios/package.json"));
+  assert.equal(transportRequire("follow-redirects/package.json").version, "1.16.2");
+  const transport = transportRequire("follow-redirects");
+  assert.equal(typeof transport.http.request, "function");
+  assert.equal(typeof transport.https.request, "function");
+});
+
 test("wallet's Axios fetch adapter preserves resolved request and interceptors without network", async () => {
   const calls = [];
   const client = axios.create({

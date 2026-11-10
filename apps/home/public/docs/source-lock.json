@@ -11,7 +11,7 @@
     "check": "pnpm docs:check",
     "upstreamCheck": "pnpm check:upstream-releases"
   },
-  "sourceTreeSha256": "55168206cc1cbd385f02a4801d358fac5c600b52e56800a2ad06adb0996f59d4",
+  "sourceTreeSha256": "55b2f2050d3af9a7a92e5d0b5e6c298ad956e89c7616597c92939522d86b3561",
   "groups": [
     {
       "id": "public-docs",
@@ -72,7 +72,7 @@
       "title": "Home, $PATH, Pulse, WILL, and shared docs runtime",
       "owner": "inshell.art Home App",
       "reason": "Public copy, interaction, route, gallery, detail, pricing, and visualization behavior.",
-      "groupSha256": "8ef2c35d4663faf11609164e38515858d5d4d89dc88cbb9c6a3afedd615cf5c1",
+      "groupSha256": "7deaa173976bd9c2b90e47df3d3ea955c5d7da7a66f30d360f8e2ef5de2bc59d",
       "files": [
         {
           "path": "apps/home/index.html",
@@ -82,7 +82,7 @@
         {
           "path": "apps/home/package.json",
           "byteLength": 3206,
-          "sha256": "6695df5d9cc0d65ad4a1068adeba8a1a6151decc0da52946d9641ad83870b7d9"
+          "sha256": "be552b6b3ae0acc4404e2cec6d88a2ef0fb1131d6df0a891ff592a8044408fd5"
         },
         {
           "path": "apps/home/src/App.tsx",
@@ -495,7 +495,7 @@
       "title": "Documentation gates",
       "owner": "inshell.art repository automation",
       "reason": "Public package commands, local hooks, and upstream freshness enforcement.",
-      "groupSha256": "17e547aecf53c803412c189a44adee4f70b635597c1e25c89c49835b0bafb30b",
+      "groupSha256": "29c7fefef60b9ebbf55ccd3050f01304412f2c0ce57f017f4942a3dd81f4df4f",
       "files": [
         {
           "path": ".github/workflows/deploy-pages.yml",
@@ -524,13 +524,13 @@
         },
         {
           "path": "package.json",
-          "byteLength": 12345,
-          "sha256": "14ff5d0e9ed5ef06c1258ee12ca0e80f566e2d53a99187d3c5f93b8184bd010d"
+          "byteLength": 12448,
+          "sha256": "c2d1375746ad1d5910a73524ff78e6d19ebff62e60224fe58ed4f728b14f1328"
         },
         {
           "path": "scripts/check-dependency-security.mjs",
-          "byteLength": 2591,
-          "sha256": "25874bc4ae8e6da807d5b24b1118c368db614fd73b66f83840b84e0f46b0ed64"
+          "byteLength": 2915,
+          "sha256": "c479a737477a25cdb6293a33537cb45f84403692973492704b4f35492245f13a"
         },
         {
           "path": "scripts/check-detail-surface-contract.mjs",
