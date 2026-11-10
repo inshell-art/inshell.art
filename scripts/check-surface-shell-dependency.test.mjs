@@ -25,7 +25,8 @@ const npm = (value) => value.dependabot.updates.find((entry) => entry["package-e
 const importer = (value) => value.lock.importers["apps/thought"].dependencies["surface-shell"];
 const packageKey = `surface-shell@${SURFACE_SHELL_LOCK_TARBALL}`;
 
-test("reviewed repository source has a connected lock binding and active npm policy", () => {
+test("reviewed exact archive has a connected lock binding and active npm policy", () => {
+  assert.equal(SURFACE_SHELL_SPEC, SURFACE_SHELL_LOCK_TARBALL);
   assert.deepEqual(surfaceShellDependencyErrors(fixture()), []);
 });
 
@@ -84,6 +85,13 @@ for (const [name, change, expected] of [
   ["unknown allow property", (value) => { npm(value).allow = [{ "dependency-type": "all", unrelated: true }]; }, /allow rules/],
   ["manifest path excluded from updates", (value) => { npm(value)["exclude-paths"] = ["apps/thought/**"]; }, /path exclusions/],
   ["manifest source mismatch", (value) => { value.thoughtPackage.dependencies["surface-shell"] = "^0.1.0"; }, /must declare/],
+  ["old Git-tag declaration", (value) => { value.thoughtPackage.dependencies["surface-shell"] = "git+https://github.com/inshell-art/surface-shell.git#0.1.0"; }, /must declare/],
+  ["archive from another repository", (value) => { value.thoughtPackage.dependencies["surface-shell"] = SURFACE_SHELL_SPEC.replace("inshell-art/surface-shell", "unrelated/surface-shell"); }, /must declare/],
+  ["mutable tag archive", (value) => { value.thoughtPackage.dependencies["surface-shell"] = "https://codeload.github.com/inshell-art/surface-shell/tar.gz/0.1.0"; }, /must declare/],
+  ["peeled commit substituted for reviewed archive object", (value) => { value.thoughtPackage.dependencies["surface-shell"] = SURFACE_SHELL_SPEC.replace("fbb3039416b3e01a24545aa4e9dada3399762550", "7dd91907089a73631d1794465c9e4be03967c475"); }, /must declare/],
+  ["archive with an appended query", (value) => { value.thoughtPackage.dependencies["surface-shell"] = SURFACE_SHELL_SPEC + "?unreviewed=1"; }, /must declare/],
+  ["null active importer", (value) => { value.lock.importers["apps/thought"].dependencies["surface-shell"] = null; }, /lock importer must match/],
+  ["array active importer", (value) => { value.lock.importers["apps/thought"].dependencies["surface-shell"] = []; }, /lock importer must match/],
   ["wrong active importer with expected specifier in a comment", (value) => {
     importer(value).specifier = "github:unrelated/surface-shell#0.1.0";
     value.lock = load(`${dump(value.lock)}\n# specifier: ${SURFACE_SHELL_SPEC}\n`);
@@ -95,6 +103,9 @@ for (const [name, change, expected] of [
   ["wrong resolution with orphaned expected package and snapshot", (value) => {
     importer(value).version = "https://codeload.github.com/inshell-art/surface-shell/tar.gz/" + "a".repeat(40);
   }, /importer must resolve/],
+  ["Git locator with the same tag object and orphaned expected records", (value) => {
+    importer(value).version = "git+git@github.com:inshell-art/surface-shell.git#fbb3039416b3e01a24545aa4e9dada3399762550";
+  }, /importer must resolve/],
   ["new resolved tag with stale declaration as produced by no-save", (value) => {
     const next = "https://codeload.github.com/inshell-art/surface-shell/tar.gz/" + "b".repeat(40);
     importer(value).version = next;
@@ -102,6 +113,11 @@ for (const [name, change, expected] of [
     value.lock.snapshots[`surface-shell@${next}`] = {};
   }, /importer must resolve/],
   ["missing package resolution", (value) => { delete value.lock.packages[packageKey]; }, /package resolution/],
+  ["null package record", (value) => { value.lock.packages[packageKey] = null; }, /package resolution/],
+  ["array package record", (value) => { value.lock.packages[packageKey] = []; }, /package resolution/],
+  ["missing resolution record", (value) => { value.lock.packages[packageKey] = {}; }, /package resolution/],
+  ["null resolution record", (value) => { value.lock.packages[packageKey].resolution = null; }, /package resolution/],
+  ["array resolution record", (value) => { value.lock.packages[packageKey].resolution = []; }, /package resolution/],
   ["package tarball differs from importer", (value) => { value.lock.packages[packageKey].resolution.tarball = "https://example.invalid/wrong.tgz"; }, /package resolution/],
   ["missing matching snapshot", (value) => { delete value.lock.snapshots[packageKey]; }, /matching pnpm snapshot/],
   ["null matching snapshot", (value) => { value.lock.snapshots[packageKey] = null; }, /matching pnpm snapshot/],

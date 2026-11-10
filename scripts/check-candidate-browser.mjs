@@ -54,6 +54,22 @@ try {
     assert.equal(response.status, 404);
     assert.deepEqual(await response.json(), { code: "NOT_FOUND" });
   });
+  // These legacy interfaces retire before SPA routing, independently of bindings.
+  for (const retired of ["/thought/plugin", "/thought/plugin/codex",
+    "/thought/plugin/claude", "/thought/agent-demo"]) {
+    for (const method of ["GET", "HEAD"]) {
+      await check("HTTP retired THOUGHT " + method + " " + retired, async () => {
+        const response = await fetch(new URL(retired, base), { method, redirect: "manual" });
+        assert.equal(response.status, 410);
+        assert.match(response.headers.get("content-type"), /^application\/json(?:;|$)/);
+        assert.equal(response.headers.get("cache-control"), "no-store");
+        assert.equal(response.headers.get("location"), null, "retirement must not redirect into the App");
+        const text = await response.text();
+        if (method === "HEAD") assert.equal(text, "");
+        else assert.equal(JSON.parse(text).error.code, "LEGACY_THOUGHT_RETIRED");
+      });
+    }
+  }
   for (const [label, viewport] of [
     ["desktop", { width: 1440, height: 900 }],
     ["mobile", { width: 390, height: 844 }],
@@ -220,8 +236,6 @@ try {
       ["/verify", ".verify-page"], ["/docs", ".docs-page"], ["/gallery", ".ecosystem-home"],
       ["/gallery/", ".ecosystem-home"], ["/thought", "#thought-dock-prompt"],
       ["/thought/", "#thought-dock-prompt"], ["/thought?new=1", "#thought-dock-prompt"],
-      ["/thought/plugin", "#plugin-page"], ["/thought/plugin/codex", "#plugin-page"],
-      ["/thought/plugin/claude", "#plugin-page"], ["/thought/agent-demo", "#agent-demo-page"],
       ["/thought/color-font", "#color-font-page"], ["/thought/verify", "#verify-page"],
       ["/path/1", ".path-detail-page"], ["/thought/1", "#thought-detail-status"],
       ["/works?review=1#kept", ".ecosystem-home"], ["/path-app?review=1", ".path-page"],

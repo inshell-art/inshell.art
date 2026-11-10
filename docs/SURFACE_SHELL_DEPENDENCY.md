@@ -2,9 +2,12 @@
 
 ## Approved one-package maintenance policy
 
-`apps/thought` consumes `surface-shell` from its Git repository, not npm. The
-explicit Git URL preserves the reviewed `0.1.0` source; it does not establish
-that Dependabot's pnpm resolver is fixed. The observed updater failure drops
+`apps/thought` consumes `surface-shell` from one exact GitHub codeload archive,
+not npm. Its declaration uses the same reviewed annotated-tag archive already
+recorded in the shipping lock for `0.1.0`; the source content and upstream
+version are unchanged. This avoids Git transport selection during normal
+archive resolution, not source review. It does not establish that Dependabot's
+Git resolver is fixed. The historical updater failure drops
 the Git source and asks npm for `surface-shell@<commit>`, which returns 404.
 Successful repository access followed by that 404 is not evidence of a bad
 credential.
@@ -78,11 +81,13 @@ required GitHub checks or qualification; publication remains a separate approval
 
 ## Reviewed source identity
 
-- Declaration: `git+https://github.com/inshell-art/surface-shell.git#0.1.0`.
+- Declaration and lock archive: `https://codeload.github.com/inshell-art/surface-shell/tar.gz/fbb3039416b3e01a24545aa4e9dada3399762550`.
 - Annotated tag object: `fbb3039416b3e01a24545aa4e9dada3399762550`.
 - Peeled source commit: `7dd91907089a73631d1794465c9e4be03967c475`.
-- The pnpm codeload locator uses the annotated tag object above. It must not be
-  described as the source commit.
+- The declaration and pnpm codeload locator use the annotated tag object above.
+  It must not be described as the source commit. The previous Git-tag
+  declaration selected this same reviewed object; the archive declaration does
+  not select a new tag or commit.
 
 `pnpm run check:dependency-security` checks the parsed active Dependabot npm
 entry and the manifest → `apps/thought` lock importer → package tarball →
@@ -93,8 +98,9 @@ unconditional `surface-shell` ignore. Other package exclusions, wildcards,
 partial ignores and coverage-reducing allow rules are rejected. Passing this
 guard is not evidence that the native ignore or release watch is active. It is
 an exact-pin and local-policy check, not a freshness check or complete security
-audit. No dependency version or resolution changes are part of this policy
-alignment.
+audit. The source-form correction does not upgrade the dependency or broaden
+accepted locators. A Git locator with the same tag object still fails the
+archive binding, as do incomplete or orphaned package/snapshot records.
 
 ## Declared-source-first update procedure
 
@@ -109,14 +115,17 @@ does not select a tag or authorize advancing staging or production.
    commit. A moved existing tag is a separate review finding, not an automatic
    repin.
 2. Edit `apps/thought/package.json` first: set its `surface-shell` dependency to
-   `git+https://github.com/inshell-art/surface-shell.git#<reviewed-tag>`.
+   `https://codeload.github.com/inshell-art/surface-shell/tar.gz/<reviewed-object>`.
+   For an annotated tag, use its reviewed tag object, not the peeled commit.
    Run `pnpm install --lockfile-only` from the repository root. Do not use
    `pnpm update ... --lockfile-only --no-save`: that command can change the
-   resolved source while leaving the old tag in both declarations, and even a
+   resolved source while leaving the old source in both declarations, and even a
    frozen install can accept the mismatch.
 3. Inspect the manifest and parsed `apps/thought` importer. Their specifiers
-   must name the selected tag; the importer version and its connected package
-   `resolution.tarball` and snapshot must identify the reviewed source object.
+   must equal the selected exact archive URL; the importer version and its
+   connected package `resolution.tarball` and snapshot must identify that same
+   reviewed source object. A successful resolver with a missing package or
+   snapshot is not an installable or approved result; do not hand-fill the lock.
    Reject unexpected manifest or lock changes. Do not infer tag authenticity
    merely from a successful package-manager exit or a changed tarball URL.
 4. After verifying those identities, update the reviewed specifier and codeload
@@ -127,14 +136,15 @@ does not select a tag or authorize advancing staging or production.
    and builds. Review the documentation impact, regenerate owned outputs, run
    `pnpm docs:check`, and follow the normal leak/PUB checks before a commit.
    Inspect the final source diff: frozen install alone proves neither an honest
-   declared tag nor updater success. A later updater or live Agent claim needs
+   declared source nor updater success. A later updater or live Agent claim needs
    its own authorized evidence for that exact candidate.
 
 ## Documentation impact
 
-This alignment changes internal maintenance policy documentation and semantic
-guards, not dependency declarations, resolved source content or public App
-behavior. Public documentation needs fingerprint regeneration only; no article
+This same-source archive declaration changes internal maintenance documentation,
+the declared source form and its strict semantic guard, not reviewed source
+content, upstream version or public App behavior. Public documentation needs
+fingerprint regeneration only; no article
 text, capability or release claim changes. Local combined-candidate preparation
 preserves the recorded default-branch exclusion without changing the remote
 branch, activating a native ignore, deploying, using provider credentials or

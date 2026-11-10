@@ -4,11 +4,13 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { load } from "js-yaml";
 
-// Reviewed source identity. The codeload locator is an annotated tag object,
-// not the peeled source commit; see docs/SURFACE_SHELL_DEPENDENCY.md.
-export const SURFACE_SHELL_SPEC = "git+https://github.com/inshell-art/surface-shell.git#0.1.0";
+// The declaration and lock must use this one reviewed archive. Its locator is
+// an annotated tag object, not the peeled commit; see the maintenance document.
 export const SURFACE_SHELL_LOCK_TARBALL =
   "https://codeload.github.com/inshell-art/surface-shell/tar.gz/fbb3039416b3e01a24545aa4e9dada3399762550";
+export const SURFACE_SHELL_SPEC = SURFACE_SHELL_LOCK_TARBALL;
+
+const isRecord = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 
 function hasOnlyKeys(value, keys) {
   return value !== null && typeof value === "object" && !Array.isArray(value) &&
@@ -66,15 +68,16 @@ export function surfaceShellDependencyErrors({ thoughtPackage, dependabot, lock 
 
   require(lock?.lockfileVersion === "9.0", "Expected a pnpm v9 lockfile.");
   const importer = lock?.importers?.["apps/thought"]?.dependencies?.["surface-shell"];
-  require(importer?.specifier === SURFACE_SHELL_SPEC, "The apps/thought surface-shell lock importer must match its reviewed declared source.");
-  require(importer?.version === SURFACE_SHELL_LOCK_TARBALL, "The apps/thought surface-shell importer must resolve to the reviewed codeload locator.");
+  require(isRecord(importer) && importer.specifier === SURFACE_SHELL_SPEC, "The apps/thought surface-shell lock importer must match its reviewed declared source.");
+  require(isRecord(importer) && importer.version === SURFACE_SHELL_LOCK_TARBALL, "The apps/thought surface-shell importer must resolve to the reviewed codeload locator.");
   const packageKey = `surface-shell@${SURFACE_SHELL_LOCK_TARBALL}`;
+  const packageRecord = lock?.packages?.[packageKey];
   require(
-    lock?.packages?.[packageKey]?.resolution?.tarball === SURFACE_SHELL_LOCK_TARBALL,
+    isRecord(packageRecord) && isRecord(packageRecord.resolution) && packageRecord.resolution.tarball === SURFACE_SHELL_LOCK_TARBALL,
     "The surface-shell package resolution must match the importer codeload locator.",
   );
   require(
-    Object.hasOwn(lock?.snapshots ?? {}, packageKey) && lock.snapshots[packageKey] !== null && typeof lock.snapshots[packageKey] === "object" && !Array.isArray(lock.snapshots[packageKey]),
+    Object.hasOwn(lock?.snapshots ?? {}, packageKey) && isRecord(lock.snapshots[packageKey]),
     "The surface-shell importer must have its matching pnpm snapshot.",
   );
   return errors;
