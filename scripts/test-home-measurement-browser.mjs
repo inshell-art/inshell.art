@@ -71,14 +71,15 @@ try {
       if (url.pathname === "/privacy.js") return route.fulfill({ contentType: "text/javascript", body: privacy });
       if (url.pathname === "/privacy-ui.js") return route.fulfill({ contentType: "text/javascript", body: ui });
       if (url.pathname === "/fixture.js") return route.fulfill({ contentType: "text/javascript", body:
-        `import {installQualifiedMeasurement} from '/privacy.js'; import {mountPrivacyInformation} from '/privacy-ui.js'; window.fixtureInstall=()=>installQualifiedMeasurement(${JSON.stringify({ ...env, ...scenario.overrides })}); window.fixtureInstall(); mountPrivacyInformation();` });
+        "import {installQualifiedMeasurement} from '/privacy.js'; import {mountPrivacyInformation} from '/privacy-ui.js'; window.fixtureInstall=()=>installQualifiedMeasurement(window.fixtureMeasurementEnv); window.fixtureInstall(); mountPrivacyInformation();" });
       const shell = `<html><head><style>${tokens}\n${design}\n${css}</style></head><body><h1>Home fixture</h1><a href="/thought">THOUGHT</a><script type="module" src="/fixture.js"></script></body></html>`;
       const incoming = new Request(url);
       Object.defineProperty(incoming, "cf", { value: { country: scenario.country ?? "US" } });
       const response = await onRequest({ request: incoming, env: { ASSETS: { fetch: async () => new Response(shell, { headers: { "content-type": "text/html", "referrer-policy": "no-referrer" } }) } }, next: async () => new Response("", { status: 404 }) });
       return route.fulfill({ status: response.status, headers: Object.fromEntries(response.headers), body: await response.text() });
     });
-    await context.addInitScript(scenario => {
+    await context.addInitScript(({ scenario, measurementEnv }) => {
+      window.fixtureMeasurementEnv = measurementEnv;
       // This is a controlled eligibility simulation, NOT human/native-canary
       // evidence. A separate negative case leaves webdriver true.
       Object.defineProperty(navigator, "webdriver", { get: () => !!scenario.automation });
@@ -86,7 +87,7 @@ try {
       localStorage.setItem("saved-work-fixture", "retained");
       localStorage.setItem("auth-fixture", "retained");
       if (scenario.storageDenied) Storage.prototype.getItem = () => { throw Error("synthetic denial"); };
-    }, scenario);
+    }, { scenario, measurementEnv: { ...env, ...scenario.overrides } });
     const page = await context.newPage();
     page.on("pageerror", error => errors.push({ scenario: scenario.name, message: error.message }));
     await page.goto(scenario.url, scenario.referrer ? { referer: scenario.referrer } : {});

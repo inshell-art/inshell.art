@@ -21,8 +21,8 @@
     "ethers": "^6.17.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "surface-shell": "git+https://github.com/inshell-art/surface-shell.git#0.1.0",
-    "vite": "8.3.5"
+    "surface-shell": "https://codeload.github.com/inshell-art/surface-shell/tar.gz/fbb3039416b3e01a24545aa4e9dada3399762550",
+    "vite": "8.3.6"
   },
   "devDependencies": {
     "@types/node": "^24.2.0",
