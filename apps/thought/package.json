@@ -22,7 +22,7 @@
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "surface-shell": "https://codeload.github.com/inshell-art/surface-shell/tar.gz/fbb3039416b3e01a24545aa4e9dada3399762550",
-    "vite": "8.3.6"
+    "vite": "8.3.7"
   },
   "devDependencies": {
     "@types/node": "^24.2.0",
